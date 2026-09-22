@@ -1476,3 +1476,83 @@ Accepted:
 - A normal session is associated with its intended repository/worktree, but the Pi container may technically access the full mounted `/projects` tree.
 - Do not create a separate Docker/container sandbox per project solely to prevent cross-repository filesystem access.
 - Higher-level workflow/instruction policy may constrain cross-project work when appropriate.
+
+
+### G111 — Terminal fallback transport
+
+Accepted:
+
+- Do not run a dedicated SSH server inside the Pi container merely for interactive shell/TUI access.
+- Use Docker/Unraid container exec/terminal paths for recovery and direct Pi TUI access.
+- SSH in the Pi environment is for outbound access such as GitHub and future explicit host integrations, not for exposing an inbound shell service by default.
+
+### G112 — GitHub SSH host verification
+
+Accepted:
+
+- Use normal strict SSH host-key verification for GitHub.
+- Persist trusted `known_hosts` state in the Pi user's durable home.
+- Do not disable verification with `StrictHostKeyChecking=no` as the normal setup.
+
+### G113 — Filesystem access when Web UI is separate
+
+Accepted:
+
+- If Web UI is deployed as a separate container/service, the Pi backend/runtime owns normal read/write access to `/projects` and `/worktrees`.
+- The frontend receives direct repository/worktree mounts only when a concrete feature such as file browsing/diff rendering actually requires them.
+- Avoid granting the frontend broader filesystem access than necessary.
+
+### G114 — Upload storage with split frontend/backend
+
+Accepted:
+
+- The dedicated `/mnt/user/pi-uploads` durable store may be shared between backend and Web UI when upload/download UX requires it.
+- A split frontend should not gain unrelated Unraid share access merely because it needs attachment storage.
+
+### G115 — Timezone
+
+Accepted:
+
+- Configure the deployment for `Europe/Zurich`.
+- Session timestamps, logs and Web UI times should reflect the user's local timezone unless a component requires UTC internally.
+
+### G116 — Configurable PUID/PGID
+
+Accepted:
+
+- Do not hard-code one UID/GID into the deployment.
+- Expose configurable `PUID`/`PGID`-style settings or equivalent so the Pi service user can align with Unraid share ownership.
+- Preserve the non-root + sudo model from G14.
+
+### G117 — Canonical Pi session store
+
+Accepted MUST:
+
+- Any selected Web UI must operate on the real/canonical Pi session store rather than maintaining a separate independent chat-history database that becomes the only source of session history.
+- Replacing the Web UI must not inherently lose Pi sessions/history.
+- A frontend may maintain derived metadata/indexes for UX, but Pi session history remains durable independently.
+
+### G118 — Corrupt-session isolation
+
+Accepted:
+
+- One corrupt/unreadable session record must not prevent the Pi backend/Web UI from starting or serving other projects/sessions.
+- Surface the affected session as unreadable/error where possible and keep the rest of the system operational.
+- Exact quarantine/recovery behavior is deferred to implementation capabilities.
+
+### G119 — Deployment image rollback
+
+Accepted:
+
+- Preserve a previous known-working Docker image/deployment candidate so failures in Dockerfile, Web UI, dependencies or startup logic can be rolled back independently of Pi runtime version fallback.
+- Rollback must preserve persistent home, repositories, worktrees and uploads.
+- Exact image-retention mechanics are deferred to planning.
+
+### G120 — Brainstorming stop boundary
+
+Accepted:
+
+- This brainstorming ends before Definition/planning.
+- Do **not** create the Project Definition, implementation plan, milestones or task decomposition in this brainstorming session.
+- The next Definition/plan stage will be performed separately by another Codex/Astra Max session using this durable brainstorming record as input.
+- Extension/Web UI selection remains outside the bootstrap plan until the base Pi deployment is proven according to the accepted sequencing above.
