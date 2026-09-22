@@ -1337,3 +1337,60 @@ Accepted:
 
 - Do not freeze Home Assistant, ntfy, Gotify or another external notification backend during brainstorming.
 - External notification integration remains a later research/selection task after initial Web/PWA notifications.
+
+
+### G94 — Session-upload share
+
+Accepted:
+
+- Use a dedicated Unraid share for Pi session uploads.
+- Target host path: `/mnt/user/pi-uploads`.
+- Target container path: `/uploads`.
+- Project/session namespacing follows G91 so uploads remain unambiguously associated with the correct repository/session.
+
+### G95 — Deployment source of truth
+
+Accepted:
+
+- Repository-owned `compose.yaml` is the primary deployment source of truth.
+- Unraid Compose Manager may operate the stack, but must not become a second independent configuration authority.
+- Runtime-affecting settings should ultimately be reproducible from repository source.
+
+### G96 — Normal update operation
+
+Accepted:
+
+- Provide one normal user-facing update operation/script, for example `./update.sh`.
+- The normal update path should handle the repository/image/deployment lifecycle rather than requiring routine manual Docker Compose commands.
+- Lower-level build/compose commands may remain available for development/recovery.
+
+### G97 — Web UI host port
+
+Accepted:
+
+- Use a stable host port for the Web UI/backend ingress rather than a dynamically assigned port.
+- The stable HTTPS hostname/reverse proxy can target that fixed service port.
+- Exact port number is deferred to planning.
+
+### G98 — Log retention
+
+Accepted:
+
+- Apply bounded log rotation/retention so Docker/backend/Web UI logs cannot grow without limit.
+- Exact size/count/time policy is an implementation detail.
+- Diagnostic usefulness should be preserved while bounding appdata/storage growth.
+
+### G99 — Existing repository clone neutrality
+
+Accepted:
+
+- Cloning/importing an existing GitHub repository should not automatically modify its working tree.
+- Clone/fetch/import is a neutral operation.
+- Pi-specific instructions/configuration files, workflow files or other repository changes may be added later only as ordinary branch-based project changes.
+
+### G100 — Git LFS
+
+Accepted:
+
+- Install Git LFS in the base development image.
+- Repositories using LFS should work without requiring an ad-hoc runtime package install first.
