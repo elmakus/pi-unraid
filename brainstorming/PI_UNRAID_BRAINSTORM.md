@@ -1154,3 +1154,101 @@ Accepted:
 - Pi should also support durable global instructions/policy applied across projects.
 - Global instructions should live in persistent Pi user state/appdata and survive recreate/update.
 - Repository-specific instructions remain able to add or refine project behavior without requiring duplication of all global policy.
+
+
+### G85 — Extension selection policy
+
+Accepted:
+
+- Extension selection is a separate post-bootstrap research activity, not something to freeze during this brainstorming.
+- Whenever multiple Pi extensions provide overlapping capability, perform a bounded comparison before adopting one into the normal setup.
+- This applies broadly, including at least:
+  - web search / web reading;
+  - subagents;
+  - MCP;
+  - browser automation;
+  - compaction/context management;
+  - remote/mobile access;
+  - GUI/session integrations;
+  - any other materially overlapping extension category discovered later.
+- Research should prioritize current compatibility, maintenance/activity, capability fit, integration quality, security, state/session behavior, configuration complexity and long-term maintainability rather than popularity alone.
+- Runtime experimentation with candidates is allowed, but only accepted extensions become part of the reproducible deployment.
+
+
+### G75 — Web-search provider selection
+
+Accepted:
+
+- Do not freeze one search backend during brainstorming.
+- Bounded extension/provider research should decide the preferred search path.
+- Codex/OpenAI hosted search through ChatGPT/Codex credentials is an important candidate, but not automatically the winner.
+- The selected search solution may use fallbacks if that improves reliability/coverage.
+
+### G76 — Full-page web reading
+
+Accepted MUST:
+
+- Research capability must include opening/reading relevant source pages, not only returning search-result snippets.
+- The selected web extension/tooling should support enough page retrieval/extraction for multi-step research.
+
+### G77 — Research sources in UI/output
+
+Accepted:
+
+- Research results should expose useful source links/references so the user can inspect the underlying pages.
+- The UI does not need a specific citation rendering format, but source provenance should remain visible and usable.
+
+### G78 — Subagent model/effort selection
+
+Accepted:
+
+- Parent/workflow logic should be able to select a different model and reasoning effort for a subagent when the chosen subagent extension/provider stack supports it.
+- Subagents are not required to inherit the parent's model/effort unconditionally.
+
+### G79 — Parallel subagents
+
+Accepted MUST:
+
+- The selected subagent solution must support multiple subagents working concurrently where the workflow permits parallel work.
+- Sequential-only delegation is insufficient for the intended long-term capability.
+
+### G80 — Subagent visibility
+
+Accepted SHOULD:
+
+- Prefer a Web UI/subagent integration that exposes active child agents and their status/activity.
+- Detailed child-session inspection is desirable but not a hard blocker for the initial Pi deployment.
+- At minimum, parent sessions must receive clear child results/status.
+
+### G81 — Context/compaction management
+
+Accepted:
+
+- Long-running Pi sessions should support automatic context management/compaction so they can continue without manual session replacement solely due to context growth.
+- Exact implementation may come from Pi core or a selected extension.
+- Because multiple compaction/context extensions may exist, final selection belongs to the post-bootstrap extension research phase.
+
+### G82 — Session model/effort persistence
+
+Accepted:
+
+- A persisted session should remember its last selected model and reasoning/thinking effort.
+- Reopening the session should restore those choices rather than silently replacing them with the current global default.
+- The user may explicitly change model/effort after resuming.
+
+### G83 — Extension update policy
+
+Accepted:
+
+- Do not impose one universal versioning rule during brainstorming.
+- Extension research should determine whether each accepted extension is safe to track at latest or should be pinned/guarded.
+- Preference is current versions with a safe fallback/rollback path where practical.
+- Pi runtime updates and extension compatibility must be considered together.
+
+### G84 — Native Android client research
+
+Accepted:
+
+- The post-bootstrap research should actively evaluate real Android/native Pi clients in addition to PWA options.
+- A native app that can browse projects, historical sessions and reconnect to the same backend/session store is preferred over PWA when it is mature enough.
+- A native Android app remains optional; lack of a good candidate must not block the Web UI/PWA deployment.
