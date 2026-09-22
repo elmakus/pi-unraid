@@ -3,7 +3,7 @@
 Date: `2026-09-22`
 Scope ID: `pi-unraid-bootstrap`
 Revision: `R1`
-Status: `tentative`
+Status: `ready_for_definition`
 Definition promotion authorization: `pending`
 Definition promotion subject: `none`
 Repository: `elmakus/pi-unraid`
@@ -1626,3 +1626,32 @@ One evidence obligation remains before this scope can be marked `ready_for_defin
 Next action: `research`.
 
 Definition promotion remains `pending`; this audit does not authorize Project Definition.
+
+
+## Research reconciliation — `pi-bootstrap-facts-r1`
+
+Research result: **no Phase 1 exploratory choice needs reopening**.
+
+Verified current Pi evidence confirms that the accepted Phase 1 direction remains viable:
+
+- current npm package: `@earendil-works/pi-coding-agent`;
+- current npm runtime minimum: Node.js 22.19+, while the official Plain Docker example uses Node 24;
+- Plain Docker remains an officially documented whole-process deployment pattern;
+- ChatGPT Plus/Pro (Codex) remains a built-in `/login` subscription path;
+- interactive credentials persist in `~/.pi/agent/auth.json`;
+- sessions auto-save beneath the Pi agent directory and can be continued/resumed;
+- `PI_CODING_AGENT_DIR` and `PI_CODING_AGENT_SESSION_DIR` remain available, but the accepted native persistent-home layout does not require relocating them.
+
+Exact evidence: `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`.
+
+### Completion result
+
+- Relevant-surface audit: **complete**.
+- Final challenge/discovery pass: **complete**.
+- Unresolved material user/product/strategic blockers for Phase 1: **none**.
+- Required pre-Definition Research: **complete**.
+- Brainstorming status: **ready_for_definition**.
+- Definition promotion authorization: **pending**.
+- Definition promotion subject when/if authorized: `pi-unraid-bootstrap@R1`.
+
+No Project Definition, planning, Task Board or implementation artifact is authorized by this readiness result alone.
