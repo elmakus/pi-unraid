@@ -1253,3 +1253,87 @@ Accepted:
 - The post-bootstrap research should actively evaluate real Android/native Pi clients in addition to PWA options.
 - A native app that can browse projects, historical sessions and reconnect to the same backend/session store is preferred over PWA when it is mature enough.
 - A native Android app remains optional; lack of a good candidate must not block the Web UI/PWA deployment.
+
+
+### G86 — Base Pi bootstrap acceptance
+
+Accepted:
+
+- The minimal Pi bootstrap is considered ready before Web UI/extension research.
+- Base acceptance requires at least:
+  - working persistent Pi container/runtime;
+  - persistent user home;
+  - Git/SSH/GitHub CLI capability;
+  - one ChatGPT Plus/Pro OAuth account authenticated directly in Pi;
+  - ability to start and resume persistent Pi sessions through the TUI/terminal path.
+- Web UI, web search, subagents, MCP and other extension choices are post-bootstrap work.
+
+### G87 — Projects directory layout
+
+Accepted:
+
+- Canonical repositories live one level directly under `/projects`.
+- Normal shape:
+  - `/projects/pi-unraid`
+  - `/projects/project-workflow`
+  - `/projects/chatgpt-ce-workstation`
+- Do not introduce category/subfolder nesting as the normal project identity layout.
+
+### G88 — GitHub-backed project requirement
+
+Accepted:
+
+- A local directory without an initialized/attached Git repository and GitHub remote is not treated as a normal first-class Pi project.
+- Normal project discovery is Git/GitHub-first.
+- Existing local-only directories should be brought under Git/GitHub before entering the standard project workflow.
+
+### G89 — Project removal semantics
+
+Accepted:
+
+- Separate local project removal from destructive GitHub repository deletion.
+- Normal UI/actions should distinguish:
+  1. remove local clone/worktrees; and
+  2. explicitly delete the GitHub repository.
+- Deleting a local project must not silently delete the remote GitHub repository.
+- Remote repository deletion remains technically possible for agents/users with sufficient authority, but must be an explicit distinct action.
+
+### G90 — Archived session retention
+
+Accepted:
+
+- Archived/completed sessions are retained indefinitely by default.
+- No automatic age-based deletion policy is required.
+- Sessions are removed only through an explicit cleanup/deletion action.
+
+### G91 — Session upload storage
+
+Accepted:
+
+- Uploaded session files should **not** be stored inside repository working trees by default.
+- Uploaded session files should also not be mixed into the Pi appdata/home backup boundary by default.
+- Use a dedicated Unraid share/root for Pi session uploads/attachments.
+- Storage layout must make project/repository ownership unambiguous so an agent can reliably locate only the uploads belonging to the relevant project/session.
+- Candidate logical shape:
+  - host root: dedicated Pi uploads share;
+  - project namespace: repository name;
+  - session namespace beneath the project.
+- Example logical mapping:
+  - `/uploads/<repo-name>/<session-id>/...`
+- Exact Unraid share/path name is deferred to planning.
+- Agents may intentionally copy an uploaded artifact into the repository if it is meant to become project source/data.
+
+### G92 — Stable HTTPS Web UI address
+
+Accepted:
+
+- The normal Web UI should have a stable human-friendly HTTPS address rather than relying only on a raw host:port URL.
+- Exact hostname/domain and reverse-proxy/Tailscale implementation are environment/planning details.
+- The stable HTTPS origin should support the desired PWA/mobile behavior.
+
+### G93 — External notification backend
+
+Accepted:
+
+- Do not freeze Home Assistant, ntfy, Gotify or another external notification backend during brainstorming.
+- External notification integration remains a later research/selection task after initial Web/PWA notifications.
