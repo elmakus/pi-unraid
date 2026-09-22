@@ -392,3 +392,19 @@ Optional remote/GUI/provider work should be later milestones, not bundled into t
 - If multiple ChatGPT accounts are added later, use Pi extensions or Codex-LB?
 - If Pi becomes primary, should Muse connect directly to Pi?
 - Is browser-backed `chatgpt-web/*` valuable enough to justify a Pi-specific adapter?
+
+
+## Grill decisions
+
+### G01 — Primary user experience
+
+Accepted:
+
+- Pi runs as an always-available service on Unraid.
+- The **primary UI is a browser-based Web UI**, not noVNC and not a local desktop GUI.
+- From a PC, the UI must allow browsing/selecting multiple projects and opening/resuming multiple historical sessions.
+- Android must expose the **same project/session navigation**, not merely attach to one currently running terminal/session.
+- A native Android app is preferred if a good one exists, but it is **not a hard requirement**; a mobile-capable Web UI is acceptable.
+- noVNC/desktop GUI is out of scope for the Pi deployment unless a future concrete requirement appears.
+
+Open follow-up: decide whether the project should depend on an existing third-party Pi Web UI, require an official/native Pi surface, or own a thin repository-managed frontend.
