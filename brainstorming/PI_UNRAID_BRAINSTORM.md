@@ -609,3 +609,76 @@ Accepted:
 - A user must be able to reopen/resume a prior session after restart from the normal project/session UI.
 - If the container was restarted while a tool/process was actively executing, that in-flight process is not required to continue automatically.
 - The persisted session should instead be reopenable with enough history/state to continue intentionally.
+
+
+### G20 — Backup boundary
+
+Accepted:
+
+- Do not build a separate Pi-specific backup subsystem.
+- The existing Unraid appdata backup mechanism is the backup authority for Pi deployment state.
+- All durable Pi state that must survive disaster/rebuild must therefore live under the Pi application's appdata boundary.
+- Web UI durable configuration/state should also live under appdata when the selected frontend permits it.
+- Git repositories themselves are not the primary backup target because their authoritative history is expected to live on GitHub.
+
+### G21 — Pi backend and Web UI packaging
+
+Accepted:
+
+- Prefer a single `pi-unraid` container containing both the Pi backend/runtime and selected Web UI when that frontend architecture supports it cleanly.
+- If the selected Web UI requires a separate service/container, using two containers is acceptable.
+- Packaging simplicity is preferred, but not at the cost of forcing an unsuitable frontend/runtime design.
+- Durable session/project state must remain independent of whether the UI is colocated or split.
+
+### G22 — Android client experience
+
+Accepted:
+
+- The Web UI must be mobile-friendly and support installation/use as a PWA where practical.
+- PWA behavior is the minimum preferred Android experience beyond plain browser tabs.
+- A native Android app is highly desirable but is not a hard dependency for the initial deployment.
+- Any future native app should connect to the same project/session backend rather than create a separate history silo.
+
+### G23 — Notifications
+
+Accepted:
+
+- Initial notification target: Web/PWA push notifications from the selected frontend when practical.
+- Desired events include at least session completion and waiting-for-user/attention states.
+- A later phase may add UI-independent notifications through a dedicated channel such as Home Assistant, ntfy, Gotify or equivalent.
+- The initial deployment should not block on the external notification integration.
+
+### G24 — Future Unraid host control
+
+Accepted:
+
+- Long-term target is to support both:
+  1. structured MCP/tools for common Unraid operations; and
+  2. SSH access as a full-capability fallback/administration path.
+- The base Pi container does not receive implicit unrestricted host access merely because this is the future target.
+- Exact Unraid MCP/tool/SSH design is deferred to a dedicated later integration decision.
+
+### G25 — GitHub-first project lifecycle
+
+Accepted:
+
+- Move away from ordinary local-folder-only projects.
+- Every newly created normal Pi project should be initialized as a Git repository and have a corresponding GitHub repository created/attached automatically.
+- The local project and GitHub repository should normally share the same project/repository name.
+- Existing GitHub repositories can be cloned/imported as projects.
+- A future Pi equivalent of the existing `newproject-skill` should automate project creation, Git initialization, GitHub repository creation, remote setup and initial push.
+- Non-Git local folders are not a desired first-class normal workflow.
+
+Deferred:
+- public vs private default;
+- organization/owner selection;
+- initial branch protection/repository settings;
+- exact skill/extension implementation.
+
+### G26 — Session titles
+
+Accepted:
+
+- Sessions should receive an automatic useful title by default.
+- The user must be able to rename a session manually.
+- Session identity/history must not depend on the editable display title.
