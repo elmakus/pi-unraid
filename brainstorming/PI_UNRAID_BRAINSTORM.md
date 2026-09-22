@@ -420,3 +420,25 @@ Accepted:
 - Multiple Pi sessions may run concurrently.
 - Concurrency must work across different projects and may also be needed within the same project.
 - The Web UI therefore cannot be only a terminal attachment layer; the backend needs durable session/process ownership independent of any one browser connection.
+
+
+### G03 — Project, worktree and session identity
+
+Accepted:
+
+- One Pi project should normally correspond to one Git repository / GitHub repository.
+- Active implementation work must not be performed directly on `main`.
+- Independent workstreams/tasks may use their own branch + Git worktree so concurrent work does not share a mutable checkout.
+- **A Pi session is not the same thing as a branch or worktree.**
+- Multiple sessions may intentionally attach to the same existing branch/worktree when they belong to the same ongoing workstream/task.
+- A historical session must retain enough workspace identity to reopen against the intended checkout/worktree rather than silently attaching to some other branch.
+- `pi-unraid` should provide the runtime/storage capability for this model, but should **not hard-code the policy that creates a new branch/worktree for every new session**.
+- Higher-level workflow policy (for example Project Workflow V2) may decide when branches/worktrees are created, reused, reviewed, merged or retired.
+- The Pi deployment must therefore be able to operate both:
+  1. on an existing repository checkout/worktree selected by the caller/user; and
+  2. with multiple isolated worktrees of the same repository active concurrently.
+
+Deferred:
+- whether the Web UI itself should offer convenience actions for creating/selecting worktrees;
+- exact branch naming and merge policy;
+- exact Project Workflow V2 ownership of branch/worktree lifecycle.
