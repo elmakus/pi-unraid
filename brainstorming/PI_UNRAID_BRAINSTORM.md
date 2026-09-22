@@ -955,3 +955,64 @@ Accepted:
   - Android/PWA/remote-control surface.
 - Prefer official/upstream documentation and source first, then issues/trackers and relevant community evidence.
 - The research should produce explicit candidate selection evidence rather than installing the first plausible package.
+
+
+### G53 — Failed Pi update fallback
+
+Accepted:
+
+- Startup may attempt to advance Pi to the latest release.
+- If the new release cannot be installed or started successfully, fall back to the last known working Pi runtime rather than leaving the whole service unavailable.
+- Persistent user/session state must not be rolled back or destroyed merely because the runtime version falls back.
+- Exact version-retention and rollback mechanics are deferred to planning.
+
+### G54 — Session concurrency limit
+
+Accepted:
+
+- Do not impose an artificial global limit on the number of concurrent Pi sessions initially.
+- Practical concurrency is bounded by host resources and provider/account limits.
+- Monitoring or later guardrails may be added only if real usage shows a need.
+
+### G55 — Multiple sessions on one worktree
+
+Accepted:
+
+- Do not enforce a hard one-session-per-branch/worktree lock in the Pi runtime.
+- Multiple sessions may exist and may run against the same worktree concurrently.
+- The UI/backend should preferably surface an advisory warning when another active session is already bound to the same worktree.
+- Avoid introducing mandatory locking complexity at the base Pi runtime layer.
+- Higher-level workflows may impose stricter lane/worktree discipline when they need it.
+
+### G56 — Commit policy boundary
+
+Accepted:
+
+- Commit timing/content is governed by the higher-level workflow/task contract rather than an unconditional Pi runtime rule.
+- Pi/agents must have the technical ability to commit, but the base deployment does not force automatic commits or mandatory user confirmation for every commit.
+
+### G58 — Pull-request timing
+
+Accepted:
+
+- Pull-request timing is controlled by the active workflow.
+- A workflow may open a draft PR early, wait until implementation is ready for review, or use another explicit lifecycle.
+- The Pi runtime does not force one PR timing policy globally.
+
+### G59 — Worktree cleanup after integration
+
+Accepted:
+
+- Default toward automatic cleanup after a confirmed successful merge/closure.
+- Cleanup must not remove a worktree that still contains uncommitted/untracked work that would be lost.
+- Cleanup should only occur once merge/integration success and the relevant workflow closure are known.
+- Higher-level workflows may retain a worktree longer when needed.
+
+### G60 — Session archival
+
+Accepted:
+
+- Closed/completed workstream sessions should remain durable and accessible.
+- Prefer moving them to an Archived/inactive view rather than deleting them.
+- Archived sessions remain reopenable for history/reference.
+- Normal active-session views should not become cluttered indefinitely by completed work.
