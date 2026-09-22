@@ -1,0 +1,43 @@
+id: "feature-pi-unraid-bootstrap"
+kind: "feature"
+status: "discovery"
+
+branch: "feat/pi-unraid-bootstrap"
+base_ref: "main"
+integration_target: "main"
+
+parent_workstream: null
+parent_branch: null
+parent_dependency: null
+
+intake:
+  state: null
+  record: null
+
+routing:
+  exploratory_scope: "brainstorming/PI_UNRAID_BRAINSTORM.md"
+  research_obligation: null
+  plan_review: null
+
+task_board: null
+
+authority:
+  requirements: null
+  decisions: []
+  plan: null
+
+review:
+  requirement: null
+  state: null
+  subject: null
+  evidence: null
+  covered_by: null
+
+branch_cleanup:
+  state: null
+  ref: null
+  verified_head: null
+  evidence: null
+
+pr: null
+result: null
