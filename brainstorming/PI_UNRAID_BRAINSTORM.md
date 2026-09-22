@@ -458,3 +458,22 @@ Deferred:
 - exact GitHub authentication method used by the Web UI/backend;
 - whether repository discovery is automatic, refresh-based or explicit;
 - whether non-Git local folders are supported as first-class Pi projects.
+
+
+### G05 — GitHub authentication and agent access
+
+Accepted:
+
+- Use **SSH** as the normal Git transport for repository clone/fetch/push.
+- Also install and authenticate **GitHub CLI (`gh`)** for GitHub API operations such as pull requests, review/status inspection, issues and Actions/CI.
+- These are complementary capabilities, not redundant alternatives:
+  - SSH owns Git transport;
+  - `gh` owns higher-level GitHub operations.
+- Credentials/state for both must persist across container recreation and remain outside Git.
+- Agents should have the GitHub permissions needed for the intended development workflow, including pushing feature branches and operating pull requests/CI, subject to the GitHub account/repository permissions.
+- Direct work/push to protected `main` is not the intended development path; normal work happens on branches and is integrated through the accepted review/merge workflow.
+
+Deferred:
+- exact SSH key provisioning method;
+- exact `gh` authentication/token mechanism and scope;
+- whether destructive GitHub operations need an additional policy/approval layer.
