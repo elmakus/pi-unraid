@@ -442,3 +442,19 @@ Deferred:
 - whether the Web UI itself should offer convenience actions for creating/selecting worktrees;
 - exact branch naming and merge policy;
 - exact Project Workflow V2 ownership of branch/worktree lifecycle.
+
+
+### G04 — Project discovery and creation
+
+Accepted:
+
+- The Web UI must discover and show repositories that already exist under the configured local projects root.
+- The Web UI should also provide a **Clone from GitHub** path for creating a new local Pi project from a GitHub repository.
+- A normal project identity should preserve the Git repository/repository-name relationship rather than inventing a second unrelated project identifier.
+- Cloning a repository should create the local project in the configured projects root and make it immediately available to Pi sessions.
+- Existing local repositories must not need to be re-imported or recreated merely to appear in the UI.
+
+Deferred:
+- exact GitHub authentication method used by the Web UI/backend;
+- whether repository discovery is automatic, refresh-based or explicit;
+- whether non-Git local folders are supported as first-class Pi projects.
