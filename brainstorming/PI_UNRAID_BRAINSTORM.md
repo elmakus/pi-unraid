@@ -682,3 +682,98 @@ Accepted:
 - Sessions should receive an automatic useful title by default.
 - The user must be able to rename a session manually.
 - Session identity/history must not depend on the editable display title.
+
+
+### G27 — Default GitHub repository visibility
+
+Accepted:
+
+- New-project automation asks for repository visibility when creating a GitHub repository.
+- The interaction should make the visibility choice explicit rather than silently forcing one global policy.
+- A sensible default may be offered by the implementation, but the user can choose per project.
+
+### G28 — Main branch protection
+
+Accepted:
+
+- Normal repositories should protect `main` so active development does not push directly to it.
+- Changes reach `main` through branch/PR integration.
+- Agents may themselves satisfy the required checks/review conditions and merge the PR without an additional mandatory human approval when repository/workflow policy allows it.
+- This preserves agent autonomy while technically enforcing the branch/PR development model.
+
+### G29 — New-project automation
+
+Accepted:
+
+- A future Pi new-project skill/extension should automate the complete normal bootstrap path:
+  - create local project directory;
+  - initialize Git;
+  - create matching GitHub repository;
+  - configure `origin`;
+  - create the initial commit;
+  - push the repository;
+  - make the resulting repository immediately available/openable as a Pi project.
+- The normal path should not stop for a separate pre-push confirmation after the project creation command has been authorized.
+
+### G30 — Initial model/provider scope
+
+Accepted:
+
+- First Pi deployment uses one ChatGPT Plus/Pro OAuth account directly in Pi.
+- Do not add Muse, Codex-LB, OpenCodex, multi-account routing or ChatGPT-Web to the first acceptance slice.
+- The purpose of v0 is to evaluate Pi itself before introducing routing/provider complexity.
+
+### G31 — Per-session model controls
+
+Accepted:
+
+- The Web UI should expose model selection per session.
+- Thinking/reasoning effort should also be selectable per session when supported by the selected provider/model.
+- A session may later switch model/effort without requiring a separate project.
+- Model/effort are session/runtime choices, not project identity.
+
+### G32 — Web search in v0
+
+Accepted:
+
+- Web search is required in the first useful Pi setup; stock Pi without Internet research is not the intended daily baseline.
+- Select a high-quality Pi web-search extension through explicit research rather than choosing the first available package.
+- The chosen solution should be evaluated for:
+  - search quality;
+  - source/citation usefulness;
+  - compatibility with ChatGPT/Codex OAuth;
+  - ability to use provider-native/hosted search where useful;
+  - maintenance/activity and security;
+  - behavior in multi-step research rather than only one-shot queries.
+- Exact package selection remains open pending bounded extension research.
+
+### G33 — Subagents in v0
+
+Accepted:
+
+- Subagent capability is required in the first useful Pi setup.
+- Select a mature Pi subagent extension through explicit research rather than freezing an arbitrary package during brainstorming.
+- Evaluation should cover:
+  - independent child context;
+  - model selection per child where supported;
+  - parallel and sequential delegation;
+  - result return to parent;
+  - cancellation/failure handling;
+  - persistent/session behavior;
+  - compatibility with future Project Workflow V2 execution/review semantics.
+- Exact package selection remains open pending bounded extension research.
+
+### G34 — Web UI minimum acceptance surface
+
+Accepted MUST requirements:
+
+- project browsing;
+- historical session browsing/resume;
+- multiple concurrent sessions.
+
+Mobile/PWA:
+
+- strong SHOULD rather than a hard blocker;
+- responsive Android use is still expected;
+- installable PWA behavior is preferred;
+- a native Android app remains a desirable bonus.
