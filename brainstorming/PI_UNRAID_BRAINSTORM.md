@@ -487,3 +487,35 @@ Accepted:
 - This includes creating/pushing branches, creating/updating/merging pull requests, deleting branches, managing releases and performing other repository operations when needed by the active workflow.
 - The Pi deployment itself should not introduce an additional mandatory human-approval gate for these GitHub actions.
 - Higher-level workflow rules may still define the preferred development process, but the runtime credentials/capabilities should not artificially block the agent from completing an authorized workflow end to end.
+
+### G07 — Projects root exposure
+
+Accepted:
+
+- The Pi container may access the full configured projects root (initially expected to map the Unraid projects share).
+- The Web UI must treat each Git repository under that root as a distinct project rather than exposing the entire root as one undifferentiated workspace.
+- Repository/project discovery must avoid presenting Git worktrees as duplicate top-level projects unless explicitly desired.
+
+### G10 — Web UI ownership strategy
+
+Accepted:
+
+- Start with the best suitable existing Pi Web UI rather than building a custom frontend from scratch.
+- Keep Pi's durable projects/session state independent from that frontend so the UI can be replaced later without losing projects, sessions or history.
+- Any chosen frontend is therefore a replaceable client/control surface, not the canonical owner of Pi session data.
+
+### G11 — Network access
+
+Accepted:
+
+- The primary Web UI must be reachable on the trusted LAN.
+- Remote access outside the home network should use Tailscale rather than direct public Internet exposure.
+- PC and Android should reach the same Pi service and project/session state through this path.
+
+### G12 — Web UI authentication boundary
+
+Accepted:
+
+- No separate Pi Web UI username/password is required initially.
+- Access control is provided by trusted-LAN reachability and Tailscale.
+- Direct public exposure is not part of the accepted initial design.
