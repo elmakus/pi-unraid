@@ -974,15 +974,6 @@ Accepted:
 - Practical concurrency is bounded by host resources and provider/account limits.
 - Monitoring or later guardrails may be added only if real usage shows a need.
 
-### G55 — Multiple sessions on one worktree
-
-Accepted:
-
-- Do not enforce a hard one-session-per-branch/worktree lock in the Pi runtime.
-- Multiple sessions may exist and may run against the same worktree concurrently.
-- The UI/backend should preferably surface an advisory warning when another active session is already bound to the same worktree.
-- Avoid introducing mandatory locking complexity at the base Pi runtime layer.
-- Higher-level workflows may impose stricter lane/worktree discipline when they need it.
 
 ### G56 — Commit policy boundary
 
@@ -1016,3 +1007,61 @@ Accepted:
 - Prefer moving them to an Archived/inactive view rather than deleting them.
 - Archived sessions remain reopenable for history/reference.
 - Normal active-session views should not become cluttered indefinitely by completed work.
+
+
+### G57 — Push policy boundary
+
+Accepted:
+
+- Push timing is controlled by the active workflow/task contract.
+- The Pi runtime provides the technical ability to push without requiring manual user confirmation.
+- A workflow may push automatically at checkpoints, after tests, at task completion, or according to another explicit lifecycle.
+
+### G61 — Session durability cadence
+
+Accepted:
+
+- Persist session history/state continuously enough that normal messages, tool results and interaction history are not lost if the UI disconnects or the service restarts.
+- Prefer saving after each meaningful session event rather than relying on coarse periodic snapshots.
+- Exact storage/write batching is an implementation detail as long as the user-visible durability outcome is preserved.
+
+### G62 — Branch/worktree naming ownership
+
+Accepted:
+
+- Branch/worktree naming policy is not hard-coded by `pi-unraid`.
+- Higher-level workflows such as Project Workflow V2 may define naming conventions.
+- For ordinary manual Pi work, the user/agent may choose a sensible branch/worktree name.
+- The runtime only needs to support arbitrary valid existing names/paths.
+
+### G63 — Default branch base
+
+Accepted:
+
+- New independent work should normally start from the current `origin/main`.
+- A higher-level workflow may explicitly choose another base when required.
+- Avoid accidentally branching from stale or unrelated local work.
+
+### G64 — Git refresh before new work
+
+Accepted:
+
+- Refresh Git remote state before starting a new independent branch/worktree.
+- Fetching remote state is allowed automatically.
+- Do not automatically merge/rebase existing work branches merely because project state was refreshed.
+
+### G65 — PR/CI visibility in Web UI
+
+Accepted SHOULD:
+
+- Showing pull-request/check/CI status in the Web UI is useful but not required.
+- If the selected frontend exposes it cleanly, prefer to keep it enabled.
+- Absence of this feature does not block frontend selection because agents can inspect GitHub state through `gh`.
+
+### G66 — Project Workflow V2 integration timing
+
+Accepted:
+
+- Do not make Project Workflow V2 part of the first Pi deployment/acceptance slice.
+- First validate Pi as a normal standalone coding harness on Unraid.
+- Integrate/evaluate Project Workflow V2 only after the base Pi environment, sessions, Web UI and required extensions are proven usable.
