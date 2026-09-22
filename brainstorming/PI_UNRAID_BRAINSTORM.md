@@ -733,12 +733,12 @@ Accepted:
 - A session may later switch model/effort without requiring a separate project.
 - Model/effort are session/runtime choices, not project identity.
 
-### G32 — Web search in v0
+### G32 — Web search in the first normal setup
 
 Accepted:
 
-- Web search is required in the first useful Pi setup; stock Pi without Internet research is not the intended daily baseline.
-- Select a high-quality Pi web-search extension through explicit research rather than choosing the first available package.
+- Web search is required in the first useful **normal/daily** Pi setup, but it does not block the minimal base Pi bootstrap.
+- Bring up and validate the base Pi runtime first, then select a high-quality Pi web-search extension through explicit post-bootstrap research rather than choosing the first available package.
 - The chosen solution should be evaluated for:
   - search quality;
   - source/citation usefulness;
@@ -748,12 +748,12 @@ Accepted:
   - behavior in multi-step research rather than only one-shot queries.
 - Exact package selection remains open pending bounded extension research.
 
-### G33 — Subagents in v0
+### G33 — Subagents in the first normal setup
 
 Accepted:
 
-- Subagent capability is required in the first useful Pi setup.
-- Select a mature Pi subagent extension through explicit research rather than freezing an arbitrary package during brainstorming.
+- Subagent capability is required in the first useful **normal/daily** Pi setup, but it does not block the minimal base Pi bootstrap.
+- Bring up and validate the base Pi runtime first, then select a mature Pi subagent extension through explicit post-bootstrap research rather than freezing an arbitrary package during brainstorming.
 - Evaluation should cover:
   - independent child context;
   - model selection per child where supported;
@@ -944,11 +944,12 @@ Accepted:
 - Do not require Docker secrets for these normal interactive credential stores.
 - Secrets/credentials must never be committed to the repository or baked into the image.
 
-### G52 — Bounded component research before implementation
+### G52 — Bounded component research after base bootstrap
 
 Accepted:
 
-- Before freezing implementation choices, perform a bounded current-source research phase comparing real candidates for:
+- First bring up and validate the minimal Pi runtime/container.
+- Then, before freezing the normal daily setup, perform bounded current-source research comparing real candidates for:
   - Pi Web UI/project-session frontend;
   - web-search extension;
   - subagent extension;
