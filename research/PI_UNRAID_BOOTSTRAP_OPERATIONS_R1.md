@@ -21,9 +21,9 @@ Synthesized 2026-09-22 from three complementary factual lanes; not Plan Review. 
 
 ## Sources / evidence (checked 2026-09-22)
 
-- npm `@earendil-works/pi-coding-agent`: `latest=0.87.0` (published 2026-09-21); https://registry.npmjs.org/@earendil-works%2fpi-coding-agent
-- Stable API `{"ok":true,"version":"0.87.0"}`; https://pi.dev/api/latest-version
-- Release `v0.87.0` = `16787ad5b2dc748047f314ca1bfe7708f30f54f3`; https://github.com/earendil-works/pi (tag `v0.87.1` exists but is not stable-selection authority; select via registry/API, never git)
+- Initial snapshot: npm `@earendil-works/pi-coding-agent`, `latest=0.87.0` (published 2026-09-21); https://registry.npmjs.org/@earendil-works%2fpi-coding-agent
+- Initial stable API snapshot `{"ok":true,"version":"0.87.0"}`; https://pi.dev/api/latest-version
+- Release `v0.87.0` = `16787ad5b2dc748047f314ca1bfe7708f30f54f3`; https://github.com/earendil-works/pi (at initial inspection tag `v0.87.1` already existed before npm publication; Git tags alone do not establish a published stable npm candidate)
 - Release permalinks under `https://github.com/earendil-works/pi/blob/16787ad5b2dc748047f314ca1bfe7708f30f54f3/packages/coding-agent/src/`: `main.ts`, `config.ts`, `migrations.ts`, `core/session-manager.ts`, `core/auth-storage.ts`, `cli/auth-command.ts`, `utils/version-check.ts`, `package-manager-cli.ts`, `modes/interactive/interactive-mode.ts`, `modes/print-mode.ts`, `modes/rpc/rpc-mode.ts`
 - Scan provenance: one lane first read main `@a8ed497`; recheck found all 10 load-bearing files byte-identical to `v0.87.0`, so release is now primary
 - npm v11 install/dist-tag/config semantics; https://docs.npmjs.com/cli/v11/commands/npm-install (global `{prefix}/lib/node_modules`, bins `{prefix}/bin`)
@@ -49,7 +49,7 @@ In-place-only update without a retained runtime, mutable-tag-only rollback witho
 
 - Static source/doc reads only; probe, migration, stop, TUI, forward-compat, and failure behavior are code/doc-evidenced, not observed. Actual package/TUI/stop/compatibility/failure tests and target/credential checks are execution obligations.
 - Future session tests must separate persisted sessions from in-flight turns and pre-first-response state (mid-stream `SIGTERM` then resume/inspect JSONL).
-- Re-verify registry/API/upstream at planning-consumption time (releases land frequently); docs.docker.com is rolling and Tini was read from master (both 2026-09-22); CHANGELOG sampled by grep; installer/Bun/issues out of scope; no Unraid host/daemon/Compose versions inspected.
+- Consumption-time refresh on 2026-09-22: direct npm `/latest` and Pi API both returned `0.87.1` (Node engine `>=22.19.0`); publication advanced during this work. Source-behavior findings remain explicitly pinned to inspected `v0.87.0`, not represented as an execution test or source audit of `0.87.1`. Refresh the selected release/source again at the M01/M02 JIT boundaries; docs.docker.com is rolling and Tini was read from master (both 2026-09-22); CHANGELOG sampled by grep; installer/Bun/issues out of scope; no Unraid host/daemon/Compose versions inspected.
 
 ## Analysis
 
