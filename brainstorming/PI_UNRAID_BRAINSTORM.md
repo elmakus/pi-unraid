@@ -690,7 +690,8 @@ Accepted:
 
 - New-project automation asks for repository visibility when creating a GitHub repository.
 - The interaction should make the visibility choice explicit rather than silently forcing one global policy.
-- A sensible default may be offered by the implementation, but the user can choose per project.
+- `private` is the preselected/default choice.
+- The user can switch to `public` per project before creation.
 
 ### G28 — Main branch protection
 
