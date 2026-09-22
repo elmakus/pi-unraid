@@ -4,8 +4,8 @@ Date: `2026-09-22`
 Scope ID: `pi-unraid-bootstrap`
 Revision: `R1`
 Status: `ready_for_definition`
-Definition promotion authorization: `pending`
-Definition promotion subject: `none`
+Definition promotion authorization: `user_authorized`
+Definition promotion subject: `pi-unraid-bootstrap@R1`
 Repository: `elmakus/pi-unraid`
 Active workstream: `feature-pi-unraid-bootstrap` on `feat/pi-unraid-bootstrap`
 
@@ -1655,3 +1655,12 @@ Exact evidence: `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`.
 - Definition promotion subject when/if authorized: `pi-unraid-bootstrap@R1`.
 
 No Project Definition, planning, Task Board or implementation artifact is authorized by this readiness result alone.
+
+
+## Definition promotion
+
+- Authorization: **user_authorized**
+- Exact promotion subject: `pi-unraid-bootstrap@R1`
+- User authorization: explicit “Promuj” on 2026-09-22, immediately following the workflow gate naming this exact subject.
+- Promotion target: Project Definition for **Phase 1 minimal Pi bootstrap only**.
+- Later Web UI/extensions/mobile/research scopes remain unpromoted.
