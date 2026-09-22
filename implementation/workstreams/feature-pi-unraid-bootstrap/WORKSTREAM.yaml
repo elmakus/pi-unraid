@@ -1,6 +1,6 @@
 id: "feature-pi-unraid-bootstrap"
 kind: "feature"
-status: "discovery"
+status: "planning"
 
 branch: "feat/pi-unraid-bootstrap"
 base_ref: "main"
@@ -15,15 +15,19 @@ intake:
   record: null
 
 routing:
-  exploratory_scope: "brainstorming/PI_UNRAID_BRAINSTORM.md"
+  exploratory_scope: null
   research_obligation: null
   plan_review: null
 
 task_board: null
 
 authority:
-  requirements: null
-  decisions: []
+  requirements: "requirements/PI_UNRAID_BOOTSTRAP.md"
+  decisions:
+    - "decisions/PIB_ADR_001_PHASE1_SCOPE.md"
+    - "decisions/PIB_ADR_002_RUNTIME_LAYOUT.md"
+    - "decisions/PIB_ADR_003_UPDATE_ROLLBACK.md"
+    - "decisions/PIB_ADR_004_WORKFLOW_ROLES.md"
   plan: null
 
 review:
