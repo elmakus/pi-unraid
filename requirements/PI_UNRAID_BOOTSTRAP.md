@@ -39,6 +39,7 @@ This Phase 1 exists to prove the base Pi runtime and persistence model before an
 | PIB-REQ-018 | The persistent Pi home, including normal interactive credential stores, MUST remain within the user's ordinary Unraid appdata backup scope; no Pi-specific secret-backup exclusion/encryption requirement is added by this project. | MUST | G20, G45, G51, G123 | accepted |
 | PIB-REQ-019 | The existing `chatgpt-ce-workstation` deployment MUST remain independent and unchanged; Phase 1 MUST NOT depend on its runtime, secrets, routing stack or availability. | MUST | initial scope; relationship-to-workstation decision | accepted |
 | PIB-REQ-020 | The deployment MUST provide one normal user-facing update operation/script that handles the expected repository/image/deployment update path, while lower-level Compose commands remain available for recovery/development. | MUST | G96 | accepted |
+| PIB-REQ-021 | Planned service/container shutdown for restart or update MUST give active Pi processes a bounded graceful-stop opportunity to persist native session state before forced termination; persisted sessions MUST remain resumable afterward. | MUST | G102 | accepted |
 
 ## Constraints
 
@@ -127,7 +128,8 @@ Phase 1 Definition is satisfied when planning/execution can prove all of the fol
 15. Logs are bounded by rotation/retention.
 16. The normal user-facing update operation is documented and executable.
 17. Existing ChatGPT CE workstation operation is unaffected.
-18. No prescribed real coding benchmark is required for workflow acceptance; after these technical checks, the user performs their own real-world Pi evaluation and decides whether later scopes proceed.
+18. A planned service restart/update provides a bounded graceful-stop path, and a previously persisted Pi session remains resumable afterward.
+19. No prescribed real coding benchmark is required for workflow acceptance; after these technical checks, the user performs their own real-world Pi evaluation and decides whether later scopes proceed.
 
 ## Definition completeness
 
