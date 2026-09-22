@@ -873,3 +873,85 @@ Accepted:
 - Preserve normal Docker/container logs.
 - Also keep readable Pi backend/Web UI diagnostic logs under durable appdata where the selected components support file logging.
 - Full metrics/observability infrastructure is not required initially.
+
+
+### G45 — Persistent home boundary
+
+Accepted:
+
+- Persist the entire Pi service user's home directory under Unraid appdata rather than mounting only individual state subdirectories.
+- Target shape:
+  - host: `/mnt/user/appdata/pi-unraid/home`
+  - container: `/home/pi`
+- This persistent home should contain Pi state plus user-level credentials/configuration such as:
+  - `~/.pi`;
+  - `~/.ssh`;
+  - GitHub CLI configuration;
+  - user-level package/tool configuration;
+  - other normal per-user state required by accepted extensions/tools.
+- Repository source must never contain these credentials/secrets.
+
+### G46 — Pi update-on-start policy
+
+Accepted:
+
+- The Pi runtime should check/install the latest available Pi release on normal container/service startup rather than remaining on the image-baked version until a rebuild.
+- Restarting the deployment may therefore advance Pi when a newer release exists.
+- Durable user state remains in persistent home and must survive the runtime update.
+- The implementation must fail safely if an update cannot be completed; a failed update must not destroy persistent Pi state.
+- Exact rollback/version-retention mechanics are deferred to planning/research.
+
+### G47 — Tailscale placement
+
+Accepted:
+
+- Tailscale remains outside the Pi container/deployment.
+- Pi/Web UI exposes the required service port(s) on the trusted host/LAN boundary.
+- Existing host/network Tailscale reachability provides remote access to those services.
+- Do not add a second Tailscale client inside the Pi container unless a future concrete need appears.
+
+### G48 — HTTPS for Web UI/PWA
+
+Accepted:
+
+- Expose the normal Web UI through HTTPS so PWA/mobile browser features are not unnecessarily constrained by an insecure origin.
+- HTTPS may be provided by an external reverse proxy, Tailscale Serve or another existing trusted ingress layer.
+- TLS termination does not need to live inside the Pi container if the surrounding deployment provides it cleanly.
+
+### G49 — Health checks
+
+Accepted:
+
+- Health checking should verify more than process existence.
+- The deployment should check the relevant HTTP backend/Web UI health surface.
+- Health should also verify that required persistent session/storage state is reachable enough for normal service operation.
+- Exact endpoint/check implementation is deferred.
+
+### G50 — Automatic deployment startup
+
+Accepted:
+
+- The complete Pi deployment starts automatically after Unraid/Docker restart using an `unless-stopped`-style policy.
+- If Pi backend/runtime and Web UI are packaged in one container, that container owns the policy.
+- If architecture requires separate backend and Web UI containers, **both** use automatic restart/startup behavior.
+- Manual startup is not the normal operating model.
+
+### G51 — Secret and credential storage
+
+Accepted:
+
+- Interactive/user credentials such as ChatGPT OAuth state, SSH private keys and GitHub CLI authentication may live in the persistent Pi user home/appdata with appropriate filesystem permissions.
+- Do not require Docker secrets for these normal interactive credential stores.
+- Secrets/credentials must never be committed to the repository or baked into the image.
+
+### G52 — Bounded component research before implementation
+
+Accepted:
+
+- Before freezing implementation choices, perform a bounded current-source research phase comparing real candidates for:
+  - Pi Web UI/project-session frontend;
+  - web-search extension;
+  - subagent extension;
+  - Android/PWA/remote-control surface.
+- Prefer official/upstream documentation and source first, then issues/trackers and relevant community evidence.
+- The research should produce explicit candidate selection evidence rather than installing the first plausible package.
