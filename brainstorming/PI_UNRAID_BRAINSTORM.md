@@ -519,3 +519,27 @@ Accepted:
 - No separate Pi Web UI username/password is required initially.
 - Access control is provided by trusted-LAN reachability and Tailscale.
 - Direct public exposure is not part of the accepted initial design.
+
+
+### G08 — Worktree storage and policy boundary
+
+Accepted:
+
+- Use a dedicated global worktree root separate from the canonical projects root, for example:
+  - host: `/mnt/user/pi-worktrees`
+  - container: `/worktrees`
+- Canonical repositories remain under the projects root and are not cluttered with embedded `.worktrees` directories.
+- Worktree placement is standardized by the Pi runtime environment, but branch/worktree **creation, reuse, merge and retirement policy belongs to the higher-level workflow** (for example Project Workflow V2).
+- Sessions may bind to an existing worktree path and must resume against that same path.
+- Web UI project discovery must not treat worktree directories as duplicate top-level projects by default.
+
+### G09 — Persistent backend-owned sessions
+
+Accepted:
+
+- The container/service remains available continuously.
+- Starting a Pi session from Web UI creates/attaches to a backend-owned session/process on Unraid.
+- Closing the browser tab, browser, phone app or network connection must not terminate the Pi session.
+- A running session may continue working while no UI client is connected.
+- Reopening the Web UI reconnects to the existing session state.
+- Multiple backend sessions may run concurrently across projects/worktrees.
