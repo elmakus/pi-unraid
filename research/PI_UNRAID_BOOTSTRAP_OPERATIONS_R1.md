@@ -3,15 +3,15 @@
 ## Durable continuation metadata
 
 Research ID: `pi-bootstrap-operations-r1`
-Status: `complete`
+Status: `consumed`
 Origin role: `strategic_planning`
 Origin subject: `feature-pi-unraid-bootstrap:planning-R1`
 Origin authority: `requirements/PI_UNRAID_BOOTSTRAP.md (pi-unraid-bootstrap@R1)`
 Workstream: `feature-pi-unraid-bootstrap`
 Return target: `strategic_planning:feature-pi-unraid-bootstrap:planning-R1`
 Research question: `What current upstream Pi and Docker behavior must constrain a safe last-known-working Pi runtime across container recreation, candidate validation/activation and deployment-image rollback, and a bounded graceful stop of native Pi TUI processes launched through Docker exec? Verify available startup probes, session-write/shutdown semantics, Docker process/signal boundaries and state-compatibility limits; distinguish verified facts from JIT validation obligations.`
-Return reconciliation: `pending`
-Return reconciliation result: `none`
+Return reconciliation: `applied`
+Return reconciliation result: `planning/MASTER_PLAN.md@bc2f2cec2007a09e2d11882a2df1170879392948 (Git blob; pi-unraid-bootstrap-plan@R1)`; `planning/audits/R1.md`; `planning/reviews/R1.md (pending; same exact Review subject)`
 
 ## Scope
 
@@ -56,3 +56,7 @@ In-place-only update without a retained runtime, mutable-tag-only rollback witho
 No material evidence gap remains for milestone strategy. Definition intent is unchanged. Continuation belongs to the exact stored Return target `strategic_planning:feature-pi-unraid-bootstrap:planning-R1`; the workstream `routing.research_obligation` pointer stays on this record through `complete` until that target reconciles it.
 
 Research is evidence, not accepted requirement/decision/plan authority.
+
+## Planning reconciliation
+
+Strategic Planning consumed these findings into the R1 draft's runtime-selection, state-compatibility, stop and image-recovery strategy (§3), milestone/JIT obligations (§4) and verification matrix (§6). Accepted Definition/decisions remain unchanged. The exact plan blob and pending review result above are persisted with this reconciliation; the Research pointer is cleared and the manifest now locates the pending independent Plan Review. Re-entry must not replay Research consumption or create another semantic plan revision.

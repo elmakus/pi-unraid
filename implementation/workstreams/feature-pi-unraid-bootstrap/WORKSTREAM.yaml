@@ -16,8 +16,8 @@ intake:
 
 routing:
   exploratory_scope: null
-  research_obligation: "research/PI_UNRAID_BOOTSTRAP_OPERATIONS_R1.md"
-  plan_review: null
+  research_obligation: null
+  plan_review: "planning/reviews/R1.md"
 
 task_board: null
 
@@ -28,7 +28,7 @@ authority:
     - "decisions/PIB_ADR_002_RUNTIME_LAYOUT.md"
     - "decisions/PIB_ADR_003_UPDATE_ROLLBACK.md"
     - "decisions/PIB_ADR_004_WORKFLOW_ROLES.md"
-  plan: null
+  plan: "planning/MASTER_PLAN.md"
 
 review:
   requirement: null
