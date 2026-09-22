@@ -1386,7 +1386,9 @@ Accepted:
 
 - Cloning/importing an existing GitHub repository should not automatically modify its working tree.
 - Clone/fetch/import is a neutral operation.
-- Pi-specific instructions/configuration files, workflow files or other repository changes may be added later only as ordinary branch-based project changes.
+- Existing repository-owned instruction/configuration files are preserved and used normally; Pi currently supports project context through `AGENTS.md` (and also `CLAUDE.md`, with `AGENTS.override.md` override semantics).
+- Pi-specific instruction/configuration files that do **not** already exist must not be auto-created or overwritten merely because the repository was cloned.
+- Any new repository-owned Pi/workflow files are added later as ordinary branch-based project changes.
 
 ### G100 — Git LFS
 
@@ -1394,3 +1396,83 @@ Accepted:
 
 - Install Git LFS in the base development image.
 - Repositories using LFS should work without requiring an ad-hoc runtime package install first.
+
+
+### G101 — Per-session process isolation
+
+Accepted:
+
+- Prefer a separate backend process/runtime boundary per active Pi session.
+- Failure/crash of one session must not terminate the Web UI/backend service or unrelated active sessions.
+- Exact worker/process supervision architecture is deferred to Web UI/backend research and planning.
+
+### G102 — Graceful shutdown without session disappearance
+
+Accepted:
+
+- On planned container/service shutdown or update, give active Pi session processes a bounded opportunity to flush/persist their current durable state before termination.
+- Terminating the runtime process must **not** delete or hide the session from the project's historical session list.
+- After restart, the same Project -> Session entries remain visible and reopenable according to G19.
+- In-flight tool processes are not required to resume mid-command.
+
+### G103 — Health isolation from individual sessions
+
+Accepted:
+
+- One stuck/crashed individual session must not make the entire deployment unhealthy when the backend/Web UI and persistent session store remain operational.
+- Session-specific failures should be surfaced as session state/errors rather than container-wide health failure.
+
+### G104 — Outbound network access
+
+Accepted:
+
+- Pi/agents have normal outbound Internet access for GitHub, package registries, documentation, APIs, web research and development dependencies.
+- The base deployment focuses restrictions on inbound exposure rather than applying a broad outbound network deny policy.
+
+### G105 — Pi release channel
+
+Accepted:
+
+- Automatic startup update follows the latest **stable** Pi release.
+- Do not automatically consume beta, nightly, prerelease or development channels.
+- Fallback behavior follows G53.
+
+### G106 — Persistent Git identity
+
+Accepted:
+
+- Configure durable global Git `user.name` and `user.email` for the Pi service user, matching the intended GitHub commit identity.
+- Allow per-repository override when needed.
+- Exact values are deployment/user configuration, not hard-coded repository secrets.
+
+### G107 — Remote branch cleanup after merge
+
+Accepted:
+
+- Merged remote feature/work branches should normally be removed after successful integration.
+- The user's GitHub repositories already use GitHub's automatic branch deletion after merge, so the Pi deployment does not need to duplicate that action when GitHub has already performed it.
+- Workflow/runtime cleanup should tolerate either case and must not treat an already-deleted remote branch as an error.
+
+### G108 — Upload retention follows session retention
+
+Accepted:
+
+- Files under the dedicated project/session upload namespace persist with the session, including when the session is Archived.
+- No automatic age-based deletion is required.
+- Upload deletion occurs only through an explicit session/project cleanup or explicit attachment cleanup.
+
+### G109 — Automatic project discovery
+
+Accepted:
+
+- The backend/Web UI should discover newly added or removed Git repositories beneath `/projects` without requiring a manual import-registration workflow.
+- A refresh or short rescan is acceptable; permanent manual catalog maintenance is not.
+- Discovery must continue to respect canonical-project vs worktree separation.
+
+### G110 — No Docker-level per-project sandbox
+
+Accepted:
+
+- A normal session is associated with its intended repository/worktree, but the Pi container may technically access the full mounted `/projects` tree.
+- Do not create a separate Docker/container sandbox per project solely to prevent cross-repository filesystem access.
+- Higher-level workflow/instruction policy may constrain cross-project work when appropriate.
