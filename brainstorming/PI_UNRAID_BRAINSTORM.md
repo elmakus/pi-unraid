@@ -408,3 +408,15 @@ Accepted:
 - noVNC/desktop GUI is out of scope for the Pi deployment unless a future concrete requirement appears.
 
 Open follow-up: decide whether the project should depend on an existing third-party Pi Web UI, require an official/native Pi surface, or own a thin repository-managed frontend.
+
+
+### G02 — Session lifetime and concurrency
+
+Accepted:
+
+- Browser disconnect, tab close or navigation away must **not** terminate the Pi session.
+- Active sessions continue running on Unraid independently of the client UI.
+- Reopening the Web UI must reconnect to the existing session and current state.
+- Multiple Pi sessions may run concurrently.
+- Concurrency must work across different projects and may also be needed within the same project.
+- The Web UI therefore cannot be only a terminal attachment layer; the backend needs durable session/process ownership independent of any one browser connection.
