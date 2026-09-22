@@ -1,8 +1,13 @@
 # Pi on Unraid — Brainstorming
 
-Status: brainstorming
-Date: 2026-09-22
+Date: `2026-09-22`
+Scope ID: `pi-unraid-bootstrap`
+Revision: `R1`
+Status: `tentative`
+Definition promotion authorization: `pending`
+Definition promotion subject: `none`
 Repository: `elmakus/pi-unraid`
+Active workstream: `feature-pi-unraid-bootstrap` on `feat/pi-unraid-bootstrap`
 
 ## Why this exists
 
@@ -1556,3 +1561,68 @@ Accepted:
 - Do **not** create the Project Definition, implementation plan, milestones or task decomposition in this brainstorming session.
 - The next Definition/plan stage will be performed separately by another Codex/Astra Max session using this durable brainstorming record as input.
 - Extension/Web UI selection remains outside the bootstrap plan until the base Pi deployment is proven according to the accepted sequencing above.
+
+
+## Completion audit and final challenge pass — R1
+
+This section reconciles the historical brainstorming record with the current branch-first Project Workflow contract. Earlier sections are retained as exploration history; when an older statement conflicts with a later numbered Grill decision, the later explicit user choice is the current exploratory choice for eventual Definition reconciliation.
+
+### G121 — Definition promotion scope
+
+Accepted:
+
+- The next Project Definition, if explicitly authorized by the user, covers **Phase 1 only: the minimal Pi bootstrap on Unraid**.
+- Web UI, native Android, web search, subagents, MCP, browser automation, extended remote UX and other extension selection remain post-bootstrap Research/follow-on scope.
+- Those later desired capabilities remain recorded exploratory direction but are not requirements for the Phase 1 Definition.
+
+### G122 — Workflow policy and role assignment
+
+Accepted:
+
+- Project execution policy is `chatgpt_only`.
+- Brainstorming, pre-Definition Research and Project Definition are owned by ChatGPT.
+- The Strategic Planning role for this Phase 1 scope is to be authored by **Codex/Astra Max** at the user's direction.
+- Independent Plan Review and the downstream Execution Prep / Execution / implementation review / Close lifecycle return to ChatGPT under the selected `chatgpt_only` policy.
+- Assigning Codex/Astra Max to the Strategic Planning role does not switch the project to `codex_only`; Project Workflow roles are not model identities, and the fixed Task Card execution policy remains `chatgpt_only`.
+- This supersedes the role-allocation implication in G120 that Definition itself would be handed to Codex/Astra Max.
+
+### G123 — Backup treatment for credentials
+
+Accepted:
+
+- Use the user's normal existing Unraid appdata backup behavior for the persistent Pi home.
+- Do not add a special Pi-specific exclusion or encryption requirement for ChatGPT OAuth state, GitHub CLI auth or SSH credentials.
+- G20/G45/G51 therefore remain simple: persistent home belongs to normal appdata backup scope.
+
+### G124 — Real-world Pi evaluation gate
+
+Accepted:
+
+- Do **not** make a prescribed real coding task a formal Phase 1 bootstrap acceptance gate.
+- Phase 1 acceptance remains the technical bootstrap surface defined by G86 and its applicable supporting constraints.
+- The user will perform their own real-world Pi test after bootstrap and personally decide whether the project should proceed into the later Web UI/extension research scopes.
+
+### Relevant-surface audit
+
+Bounded audit result for the Phase 1 promotion subject:
+
+- **Goal / non-goals:** settled. Phase 1 proves a reproducible stock/minimal Pi runtime on Unraid without replacing or depending on the current ChatGPT CE workstation.
+- **User experience:** settled for Phase 1. Terminal/TUI access is sufficient for bootstrap; Web UI/mobile UX is intentionally post-bootstrap.
+- **Runtime architecture:** settled at product/strategic level. Docker/Compose deployment, persistent user home, non-root service user with sudo, fixed projects/worktrees mounts, automatic startup/update/fallback and no Docker socket/host-root mount.
+- **Data/state:** settled at product/strategic level. Pi auth/settings/sessions persist in the user's home; normal appdata backup applies.
+- **Git/GitHub:** settled. SSH transport + `gh`, Git LFS, persistent Git identity, GitHub-first repositories and branch/worktree capability are expected.
+- **Networking/security:** settled for Phase 1. Trusted LAN/Tailscale environment, normal outbound Internet, no inbound SSH service, strict GitHub host-key verification.
+- **Operations/recovery:** settled. stable-release update-on-start preference, fallback to last working Pi runtime, previous Docker image rollback, log rotation, graceful shutdown and automatic restart.
+- **Coexistence/migration:** settled. Existing workstation remains independent and unchanged.
+- **Acceptance:** settled by G86 + G124. A real user coding trial is valuable but is not a workflow-enforced bootstrap gate.
+- **Later capabilities:** deliberately out of Phase 1. Web UI, Android, web research, subagents, MCP, browser automation, notifications and Project Workflow-on-Pi integration require later bounded Research/scopes.
+
+### Final challenge/discovery result
+
+No further material user/product/strategic question was found whose answer has meaningful expected value for changing the Phase 1 scope.
+
+One evidence obligation remains before this scope can be marked `ready_for_definition`: verify the **current Pi implementation facts** that Phase 1 relies on (current official install/runtime/container guidance, ChatGPT subscription OAuth support/persistence and session persistence/resume behavior). These are agent-findable facts, not user decisions, so they route to Research rather than another grill round.
+
+Next action: `research`.
+
+Definition promotion remains `pending`; this audit does not authorize Project Definition.
