@@ -1065,3 +1065,92 @@ Accepted:
 - Do not make Project Workflow V2 part of the first Pi deployment/acceptance slice.
 - First validate Pi as a normal standalone coding harness on Unraid.
 - Integrate/evaluate Project Workflow V2 only after the base Pi environment, sessions, Web UI and required extensions are proven usable.
+
+
+### G67 — File upload into sessions
+
+Accepted MUST:
+
+- Web UI must allow uploading files directly into a Pi session from desktop and Android.
+- This should support common development/research inputs such as images, PDFs, logs, text files and archives where the selected frontend/runtime can handle them.
+- Uploading a file must not require manually copying it into the repository first.
+- Uploaded artifacts should have a clear durable/session-scoped storage model so reopening the session does not silently lose referenced files.
+
+### G68 — Vision/image inputs
+
+Accepted MUST:
+
+- When the selected model/provider supports image input, the Pi session/UI must be able to pass uploaded/pasted screenshots and images to the model.
+- Image support should use the provider/model's real multimodal capability rather than converting every image to OCR text by default.
+- Capability truth should follow the selected model/provider.
+
+### G69 — Clipboard expectations
+
+Accepted:
+
+- Normal text paste plus file/image upload is sufficient.
+- Do not build a separate shared clipboard synchronization feature between PC/Android and Pi unless a later concrete need appears.
+
+### G70 — Local tool approvals
+
+Accepted:
+
+- The base Pi environment should not require interactive approval before ordinary local tools/bash commands.
+- Agents may execute authorized local development commands autonomously.
+- Higher-level workflows may still impose their own policy where required, but `pi-unraid` should not add a mandatory per-command approval layer.
+
+### G71 — Browser automation capability
+
+Accepted future capability:
+
+- Pi should eventually support real browser automation/computer-style interaction in addition to web search.
+- This is **not required for the first-day acceptance slice**.
+- Select the browser automation extension/tool through bounded research before adoption.
+- Research should compare:
+  - active maintenance and Pi compatibility;
+  - Chromium/Playwright/Puppeteer architecture;
+  - headless/headful requirements;
+  - persistent browser/session/profile handling;
+  - download/upload handling;
+  - tool surface quality for agents;
+  - security/isolation implications;
+  - mobile/Web UI visibility where relevant.
+
+### G72 — MCP capability
+
+Accepted:
+
+- MCP client capability should be available in the normal Pi environment from an early stage.
+- No specific MCP servers need to be preconfigured merely to satisfy this requirement.
+- Do **not** select an MCP extension during brainstorming.
+- Perform bounded research across current Pi MCP implementations before freezing one.
+- Research should compare at least:
+  - maintenance/activity and compatibility with current Pi;
+  - stdio and HTTP/SSE/streamable-HTTP transport support where relevant;
+  - server lifecycle/process cleanup;
+  - auth and secret handling;
+  - tool/resource/prompt support;
+  - reconnect/error behavior;
+  - namespacing/tool-collision handling;
+  - configuration UX and project/global scoping;
+  - security/approval controls;
+  - session/context overhead;
+  - interoperability with future Project Workflow V2.
+- Prefer one well-maintained general MCP client over accumulating multiple overlapping MCP extensions unless evidence shows a real gap.
+
+### G73 — Project-level instructions
+
+Accepted MUST:
+
+- Each repository/project must support durable project-level agent instructions that are automatically available to Pi sessions working in that project.
+- Prefer a repository-owned instruction file/convention supported by Pi so behavior travels with the repository and survives recreation.
+- Project-level instructions may define development conventions, workflow requirements and repository-specific constraints.
+- Exact filename/convention should follow current Pi capabilities and research rather than being invented unnecessarily.
+
+### G74 — Global instructions
+
+Accepted:
+
+- Pi should also support durable global instructions/policy applied across projects.
+- Global instructions should live in persistent Pi user state/appdata and survive recreate/update.
+- Repository-specific instructions remain able to add or refine project behavior without requiring duplication of all global policy.
