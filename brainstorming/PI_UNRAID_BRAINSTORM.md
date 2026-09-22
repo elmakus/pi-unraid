@@ -778,3 +778,98 @@ Mobile/PWA:
 - responsive Android use is still expected;
 - installable PWA behavior is preferred;
 - a native Android app remains a desirable bonus.
+
+
+### G35 — Projects root
+
+Accepted:
+
+- Host projects root: `/mnt/user/projects`.
+- Container projects root: `/projects`.
+- Pi should use the same durable Unraid project repository root rather than creating a separate Pi-only project share.
+
+### G36 — Worktrees root
+
+Accepted:
+
+- Host worktree root: `/mnt/user/pi-worktrees`.
+- Container worktree root: `/worktrees`.
+- Keep worktrees physically separate from canonical repositories under `/mnt/user/projects`.
+
+### G37 — GitHub repository owner
+
+Accepted:
+
+- New-project automation creates repositories under the GitHub owner `elmakus`.
+- Do not prompt for alternate owner/organization in the normal creation path.
+- Support for alternate owners/orgs may be added later only if a concrete need appears.
+
+### G38 — Project/repository naming
+
+Accepted:
+
+- Normal project name, local canonical repository directory name and GitHub repository name are identical.
+- This one-name rule is the default project identity convention.
+
+### G39 — Base development image
+
+Accepted:
+
+- Use a reasonably complete development base rather than an ultra-minimal Pi-only image.
+- Initial image should include common tooling needed by coding agents, including at least:
+  - Node/runtime required by Pi;
+  - Python;
+  - Git;
+  - OpenSSH client;
+  - GitHub CLI;
+  - curl;
+  - jq;
+  - ripgrep;
+  - fd/find tooling;
+  - archive/unzip utilities;
+  - standard build toolchain/build-essential or equivalent.
+- Avoid turning the image into an all-SDK workstation without a concrete requirement.
+
+### G40 — Runtime tool installation and reproducibility
+
+Accepted:
+
+- Agents may install additional tools/packages at runtime with sudo when needed for experimentation or a task.
+- Runtime-only installation is acceptable temporarily.
+- If a tool becomes part of the normal expected Pi environment, its installation must be captured in the repository/image definition so recreate/rebuild remains reproducible.
+
+### G41 — Web UI development views
+
+Accepted SHOULD:
+
+- Prefer a Web UI that also provides useful development context such as:
+  - file tree;
+  - diff viewer;
+  - Git status;
+  - current branch/worktree visibility.
+- These features are desirable but are **not hard blockers** if the strongest Web UI for projects/sessions/concurrency lacks them.
+- Core Web UI acceptance remains governed by G34.
+
+### G42 — Integrated Web UI terminal
+
+Accepted:
+
+- An integrated terminal inside the Web UI is not required.
+- Terminal/TUI recovery and advanced access are already provided through the container access path defined by G15.
+- A frontend may include a terminal, but its presence must not drive frontend selection.
+
+### G43 — Session workspace binding
+
+Accepted MUST:
+
+- A session opened in a particular repository checkout/worktree remains bound to that exact workspace path.
+- Reopening/resuming the session must return to the same worktree/checkout rather than silently switching to the canonical repository or another branch.
+- Branch name alone is insufficient session identity when multiple worktrees may exist.
+
+### G44 — Logs and diagnostics
+
+Accepted:
+
+- Preserve normal Docker/container logs.
+- Also keep readable Pi backend/Web UI diagnostic logs under durable appdata where the selected components support file logging.
+- Full metrics/observability infrastructure is not required initially.
