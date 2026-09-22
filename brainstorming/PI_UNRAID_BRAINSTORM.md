@@ -477,3 +477,13 @@ Deferred:
 - exact SSH key provisioning method;
 - exact `gh` authentication/token mechanism and scope;
 - whether destructive GitHub operations need an additional policy/approval layer.
+
+
+### G06 — Agent GitHub autonomy
+
+Accepted:
+
+- Agents may have full operational GitHub autonomy within the permissions granted to the configured GitHub identity.
+- This includes creating/pushing branches, creating/updating/merging pull requests, deleting branches, managing releases and performing other repository operations when needed by the active workflow.
+- The Pi deployment itself should not introduce an additional mandatory human-approval gate for these GitHub actions.
+- Higher-level workflow rules may still define the preferred development process, but the runtime credentials/capabilities should not artificially block the agent from completing an authorized workflow end to end.
