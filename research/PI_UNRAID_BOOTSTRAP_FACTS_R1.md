@@ -6,12 +6,12 @@ Research question: `Verify the current official Pi installation/runtime/containe
 ## Durable continuation metadata
 
 Research ID: `pi-bootstrap-facts-r1`
-Status: `complete`
+Status: `consumed`
 Origin role: `brainstorming`
 Origin subject: `pi-unraid-bootstrap@R1`
 Return target: `brainstorming:pi-unraid-bootstrap@R1`
-Return reconciliation: `pending`
-Return reconciliation result: `none`
+Return reconciliation: `applied`
+Return reconciliation result: `brainstorming/PI_UNRAID_BRAINSTORM.md@d7d958672563d6501ec96a8eee8070919f15e8e8`
 
 ## Scope
 
