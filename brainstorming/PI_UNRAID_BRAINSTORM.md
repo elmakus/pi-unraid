@@ -543,3 +543,36 @@ Accepted:
 - A running session may continue working while no UI client is connected.
 - Reopening the Web UI reconnects to the existing session state.
 - Multiple backend sessions may run concurrently across projects/worktrees.
+
+
+### G13 — Pi state path
+
+Accepted:
+
+- Preserve Pi's native agent-state layout under `~/.pi/agent` rather than relocating it to a generic `/config` path.
+- The host bind/volume must persist that native path across container recreation.
+- Auth, settings, sessions and installed Pi resources that belong under the native agent directory must survive rebuild/recreate.
+
+### G15 — Terminal fallback
+
+Accepted:
+
+- Web UI is the normal user interface.
+- The deployment must also allow direct terminal/TUI access for debugging, recovery and advanced use (for example through `docker exec` or an equivalent container shell path).
+- Terminal access is a fallback/maintenance capability, not the primary daily UI.
+
+### G16 — Pi update policy
+
+Accepted:
+
+- Prefer the latest available Pi release rather than deliberately pinning a long-lived version.
+- Container update/rebuild flow should advance Pi to the current release.
+- Exact reproducibility/provenance mechanics may be added later if needed; the product preference is freshness over a permanent fixed pin.
+
+### G17 — Extension/package lifecycle
+
+Accepted:
+
+- Extensions/packages may be installed experimentally at runtime with agent assistance.
+- Runtime experimentation is allowed and does not require every trial package to be declared in repository source first.
+- Once an extension/package is accepted as part of the normal setup, its installation/configuration should be captured reproducibly in the repository so rebuild/recreate does not depend on memory or manual repetition.
