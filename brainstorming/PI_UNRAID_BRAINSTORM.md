@@ -576,3 +576,36 @@ Accepted:
 - Extensions/packages may be installed experimentally at runtime with agent assistance.
 - Runtime experimentation is allowed and does not require every trial package to be declared in repository source first.
 - Once an extension/package is accepted as part of the normal setup, its installation/configuration should be captured reproducibly in the repository so rebuild/recreate does not depend on memory or manual repetition.
+
+
+### G14 — Container user and privilege model
+
+Accepted:
+
+- Run Pi as a non-root user whose UID/GID can be aligned with the Unraid project-share ownership.
+- The Pi user must be able to read/write mounted repositories and worktrees without producing unintended root-owned files.
+- Provide sudo inside the container for legitimate package/tool installation and maintenance tasks.
+- The base deployment should not require Docker socket access, host-root mounts or equivalent host-level privilege.
+- Broader future access to Unraid resources is intentionally deferred and must be added through an explicit mechanism rather than being implicit in the base container.
+
+Deferred:
+- exact PUID/PGID defaults;
+- whether broader Unraid control later uses SSH, a skill/extension, MCP, or another bounded integration.
+
+### G18 — Resource policy
+
+Accepted:
+
+- Do not impose hard CPU or RAM limits initially.
+- Configure a reasonable container shared-memory size (`shm_size`) to avoid avoidable failures for browser/Chromium-style tooling or future extensions.
+- Exact shared-memory sizing is a planning/implementation detail.
+
+### G19 — Session persistence across restart
+
+Accepted:
+
+- After container/service restart or recreation, the Web UI must still show the same project list and the previously created sessions beneath each project.
+- Session metadata/history must persist independently of the running process.
+- A user must be able to reopen/resume a prior session after restart from the normal project/session UI.
+- If the container was restarted while a tool/process was actively executing, that in-flight process is not required to continue automatically.
+- The persisted session should instead be reopenable with enough history/state to continue intentionally.
