@@ -6,7 +6,7 @@ current_milestone: "M02"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "ffc14249d0b4834e312174a48db48e0212441f01"
+  head: "70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1"
 
 research_obligation: null
 
@@ -96,13 +96,13 @@ cards:
     depends_on: ["M01-T03"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T01.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1"
     review_evidence: null
-    result_commit: null
+    result_commit: "70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1"
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T01.md"
+    tests_summary: "GREEN on Tower disposable fixtures at subject 70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1: real latest stable 0.87.1 staged with engine-strict/ignore-scripts, exact version + Pi RPC get_state readiness proven; recreation/overlap, probe/install failure, cooldown/retry, prerelease rejection, registry-offline LKG, seed fallback and unavailable-health paths GREEN; M01 base/Compose regressions GREEN."
 
   - id: "M02-T02"
     title: "Managed Pi lifecycle, readiness and bounded shutdown"
