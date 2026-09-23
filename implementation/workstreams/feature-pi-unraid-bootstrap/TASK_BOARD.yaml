@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "4279728d3db72294bb2325c4f507544ef9e5977a"
+  head: "4267f707ae121d54625e537fb7e8e3820c654997"
 
 research_obligation: null
 
@@ -37,7 +37,7 @@ milestones:
 
   M03:
     decision_state: accepted
-    execution_status: blocked
+    execution_status: in_progress
     contract: "planning/MASTER_PLAN.md#M03 — Codex-LB-integrated on-Unraid acceptance and recoverable handoff"
     checkpoint: null
     implementation_head: null
@@ -172,18 +172,18 @@ cards:
     title: "Codex-LB dependency readiness and Pi client boundary"
     milestone: "M03"
     decision_state: accepted
-    execution_status: blocked
+    execution_status: in_progress
     executor: chatgpt
     depends_on: ["M02-T03"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T02.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "4267f707ae121d54625e537fb7e8e3820c654997"
     review_evidence: null
-    result_commit: null
+    result_commit: "4267f707ae121d54625e537fb7e8e3820c654997"
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T02.md"
-    tests_summary: "PARTIAL GREEN / BLOCKED: upstream v1.25.0-beta.9 is deployed on Tower with HTTP 200 health, 3 active accounts, capacity_weighted routing, sticky threads and API-key auth preserved across a Codex-LB restart; host-gateway reachability is GREEN and the fork-derived container is retained stopped for rollback. Automated plaintext client-key materialization is blocked by tool secret-safety controls; the unusable orphan key was deactivated and active-key count returned to 3. Remaining blocker: user manually creates pi-unraid-phase1 and stores it as the documented protected env file without exposing the value."
+    tests_summary: "GREEN implementation subject 4267f707ae121d54625e537fb7e8e3820c654997: Tower codex-lb-clean runs exact upstream v1.25.0-beta.9 image and remains healthy across restart; 3 active accounts, capacity_weighted routing, sticky threads and API-key auth persisted; dedicated pi-unraid-phase1 key exists via protected mode-600 env file; authenticated /v1/models is HTTP 200 from host and disposable bridge container via host-gateway; unauthenticated access remains 401; prior fork container is retained stopped for rollback; chatgpt-ce-workstation identity/health unchanged. RECOMMENDED independent review pending."
 
   - id: "M03-T03"
     title: "Pi Codex-LB integration and disposable validation"
