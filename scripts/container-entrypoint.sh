@@ -24,10 +24,9 @@ uid_owner="$(getent passwd "$PI_UID" | cut -d: -f1 || true)"
 gid_owner="$(getent group "$PI_GID" | cut -d: -f1 || true)"
 
 [ -z "$uid_owner" ] || [ "$uid_owner" = "pi" ] || fail "requested PI_UID=$PI_UID is already used by user $uid_owner"
-[ -z "$gid_owner" ] || [ "$gid_owner" = "pi" ] || fail "requested PI_GID=$PI_GID is already used by group $gid_owner"
 
 current_gid="$(id -g pi)"
-if [ "$current_gid" != "$PI_GID" ]; then
+if [ "$current_gid" != "$PI_GID" ] && [ -z "$gid_owner" ]; then
   groupmod --gid "$PI_GID" pi
 fi
 
