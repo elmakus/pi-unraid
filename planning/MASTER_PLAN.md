@@ -2,7 +2,7 @@
 
 Plan revision: `R2`
 Plan subject: `pi-unraid-bootstrap-plan@R2`
-Status: `draft`
+Status: `approved`
 Definition subject: `pi-unraid-bootstrap@R2`
 Workstream: `feature-pi-unraid-bootstrap`
 Branch: `feat/pi-unraid-bootstrap`
