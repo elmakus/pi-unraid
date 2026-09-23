@@ -8,7 +8,6 @@ services:
     environment:
       PI_UID: "${PI_UID:-1000}"
       PI_GID: "${PI_GID:-1000}"
-      PI_UNRAID_MANAGED_GRACE_SECONDS: "${PI_UNRAID_MANAGED_GRACE_SECONDS:-12}"
       TZ: Europe/Zurich
     stdin_open: true
     tty: true

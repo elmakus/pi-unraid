@@ -49,9 +49,13 @@ import pty
 import sys
 
 cid = sys.argv[1]
+session_file = sys.argv[2]
 pid, fd = pty.fork()
 if pid == 0:
-    os.execvp("docker", ["docker", "exec", "-it", "-u", "pi", cid, "pi", "--no-session"])
+    os.execvp(
+        "docker",
+        ["docker", "exec", "-it", "-u", "pi", cid, "pi", "--offline", "--session", session_file],
+    )
 
 try:
     while True:
@@ -146,14 +150,25 @@ host_pid="$(docker inspect -f '{{.State.Pid}}' "$cid")"
 test "$(ps -o uid= -p "$host_pid" | tr -d ' ')" = "$uid"
 test "$(ps -o gid= -p "$host_pid" | tr -d ' ')" = "$gid"
 grep -F 'stop_grace_period: 20s' "$repo_root/compose.yaml" >/dev/null
+base_config="$(PI_UNRAID_MANAGED_GRACE_SECONDS=30 docker compose -f "$repo_root/compose.yaml" config)"
+if printf '%s\n' "$base_config" | grep -F 'PI_UNRAID_MANAGED_GRACE_SECONDS:' >/dev/null; then
+  printf '%s\n' 'production Compose must not expose an operator override that can exceed the 20s outer grace' >&2
+  exit 1
+fi
 docker inspect -f '{{json .Config.Healthcheck.Test}}' "$cid" | grep -F 'pi-unraid-service' >/dev/null
 
-mkdir -p "$root/home/.pi/agent/sessions/m02-fixture"
-printf '%s\n' '{"fixture":"persisted-before-stop"}' > "$root/home/.pi/agent/sessions/m02-fixture/state.json"
-chown -R "$uid:$gid" "$root/home/.pi"
-state_before="$(sha256sum "$root/home/.pi/agent/sessions/m02-fixture/state.json" | awk '{print $1}')"
+native_session=/home/pi/.pi/agent/sessions/m02-fixture/native.jsonl
+docker exec -u pi "$cid" sh -ec 'mkdir -p /home/pi/.pi/agent/sessions/m02-fixture; : > /home/pi/.pi/agent/sessions/m02-fixture/native.jsonl'
+native_create="$(printf '%s\n' '{"type":"get_state","id":"native-create"}' | docker exec -i -u pi "$cid" pi --mode rpc --offline --session "$native_session")"
+native_session_id="$(printf '%s\n' "$native_create" | jq -r 'select(.type == "response" and .command == "get_state" and .success == true) | .data.sessionId' | tail -n 1)"
+[ -n "$native_session_id" ]
+printf '%s\n' "$native_create" | jq -e --arg path "$native_session" --arg id "$native_session_id" \
+  'select(.type == "response" and .command == "get_state" and .success == true) | .data.sessionFile == $path and .data.sessionId == $id' >/dev/null
+host_session="$root/home/${native_session#/home/pi/}"
+[ -s "$host_session" ]
+head -n 1 "$host_session" | jq -e --arg id "$native_session_id" 'select(.type == "session") | .id == $id' >/dev/null
 
-python3 "$fixture/run-tty.py" "$cid" >"$root/real-pi-tty.log" 2>&1 &
+python3 "$fixture/run-tty.py" "$cid" "$native_session" >"$root/real-pi-tty.log" 2>&1 &
 tty_job=$!
 real_pid=""
 for _ in $(seq 1 80); do
@@ -162,6 +177,24 @@ for _ in $(seq 1 80); do
   sleep 0.25
 done
 [ -n "$real_pid" ]
+state_before=""
+previous_hash=""
+stable_samples=0
+for _ in $(seq 1 20); do
+  current_hash="$(sha256sum "$host_session" | awk '{print $1}')"
+  if [ "$current_hash" = "$previous_hash" ]; then
+    stable_samples=$(( stable_samples + 1 ))
+  else
+    stable_samples=0
+    previous_hash="$current_hash"
+  fi
+  if [ "$stable_samples" -ge 2 ]; then
+    state_before="$current_hash"
+    break
+  fi
+  sleep 0.25
+done
+[ -n "$state_before" ] || { printf '%s\n' 'native Pi session did not stabilize before planned stop' >&2; exit 1; }
 
 "${dc[@]}" stop pi >/dev/null
 wait "$tty_job" || true
@@ -175,8 +208,18 @@ fi
 PI_UID="$uid" PI_GID="$gid" "${dc[@]}" down >/dev/null
 PI_UID="$uid" PI_GID="$gid" "${dc[@]}" up -d
 wait_health healthy
-state_after="$(sha256sum "$root/home/.pi/agent/sessions/m02-fixture/state.json" | awk '{print $1}')"
-[ "$state_before" = "$state_after" ]
+cid="$("${dc[@]}" ps -q pi)"
+state_after="$(sha256sum "$host_session" | awk '{print $1}')"
+if [ "$state_before" != "$state_after" ]; then
+  printf '%s\n' 'native Pi session changed across planned stop/recreation' >&2
+  exit 1
+fi
+native_reopen="$(printf '%s\n' '{"type":"get_state","id":"native-reopen"}' | docker exec -i -u pi "$cid" pi --mode rpc --offline --session "$native_session")"
+if ! printf '%s\n' "$native_reopen" | jq -e --arg path "$native_session" --arg id "$native_session_id" \
+  'select(.type == "response" and .command == "get_state" and .success == true) | .data.sessionFile == $path and .data.sessionId == $id' >/dev/null; then
+  printf '%s\n' 'packaged Pi could not reopen the persisted native session after recreation' >&2
+  exit 1
+fi
 
 printf '%s\n' 'M02-T02: concurrent registrations, stale PID defense and bounded escalation'
 cid="$("${dc[@]}" ps -q pi)"
