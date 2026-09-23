@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: 1
-  head: "0e337aec18ba1e8807d1a0b7bf1ac31713aa37c9"
+  head: "804006643ac24417301c2beca3faedcce7d50961"
 
 research_obligation: null
 
