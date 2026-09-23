@@ -62,7 +62,7 @@ cards:
     title: "Native TUI, Git/worktree and operator setup path"
     milestone: "M01"
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: done
     executor: chatgpt
     depends_on: ["M01-T02"]
     openspec_change: null
