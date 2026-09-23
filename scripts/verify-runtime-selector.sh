@@ -5,7 +5,8 @@ IMAGE="${1:-pi-unraid:m02-t01}"
 ROOT="$(mktemp -d /tmp/pi-unraid-m02-t01.XXXXXX)"
 HOME_DIR="$ROOT/home"
 EMPTY_HOME="$ROOT/empty-home"
-FIXTURE_PACKAGE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/tests/fixtures/m02/pi-package"
+FIXTURE_PACKAGE_SOURCE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/tests/fixtures/m02/pi-package"
+FIXTURE_PACKAGE="$ROOT/fixture-package"
 UID_FIXTURE="${PI_TEST_UID:-21001}"
 GID_FIXTURE="${PI_TEST_GID:-21001}"
 
@@ -15,6 +16,8 @@ cleanup() {
 trap cleanup EXIT
 
 mkdir -p "$HOME_DIR" "$EMPTY_HOME"
+cp -a "$FIXTURE_PACKAGE_SOURCE" "$FIXTURE_PACKAGE"
+chown -R "$UID_FIXTURE:$GID_FIXTURE" "$FIXTURE_PACKAGE"
 
 run_home() {
   docker run --rm     -e PI_UID="$UID_FIXTURE"     -e PI_GID="$GID_FIXTURE"     -v "$HOME_DIR:/home/pi"     "$IMAGE" "$@"
@@ -25,7 +28,7 @@ status_json() {
 }
 
 run_fixture() {
-  docker run --rm     -e PI_UID="$UID_FIXTURE"     -e PI_GID="$GID_FIXTURE"     -e PI_UNRAID_TEST_LATEST_OVERRIDE="${PI_TEST_LATEST:?}"     -e PI_UNRAID_TEST_INSTALL_SPEC_OVERRIDE="file:/fixture/pi-package"     -e PI_TEST_VERSION="${PI_TEST_LATEST}"     -e PI_TEST_PROBE_FAIL="${PI_TEST_PROBE_FAIL:-0}"     -v "$HOME_DIR:/home/pi"     -v "$FIXTURE_PACKAGE:/fixture/pi-package:ro"     "$IMAGE" "$@"
+  docker run --rm     -e PI_UID="$UID_FIXTURE"     -e PI_GID="$GID_FIXTURE"     -e PI_UNRAID_TEST_LATEST_OVERRIDE="${PI_TEST_LATEST:?}"     -e PI_UNRAID_TEST_INSTALL_SPEC_OVERRIDE="file:/fixture/pi-package"     -e PI_TEST_VERSION="${PI_TEST_LATEST}"     -e PI_TEST_PROBE_FAIL="${PI_TEST_PROBE_FAIL:-0}"     -v "$HOME_DIR:/home/pi"     -v "$FIXTURE_PACKAGE:/fixture/pi-package"     "$IMAGE" "$@"
 }
 
 printf '%s\n' 'M02-T01: real latest-stable staging and RPC readiness'
@@ -73,7 +76,7 @@ status="$(status_json)"
 printf '%s\n' 'M02-T01: install failure preserves LKG'
 export PI_TEST_LATEST=9.9.8
 export PI_TEST_PROBE_FAIL=0
-docker run --rm   -e PI_UID="$UID_FIXTURE" -e PI_GID="$GID_FIXTURE"   -e PI_UNRAID_TEST_LATEST_OVERRIDE="$PI_TEST_LATEST"   -e PI_UNRAID_TEST_INSTALL_SPEC_OVERRIDE="file:/fixture/does-not-exist"   -v "$HOME_DIR:/home/pi"   -v "$FIXTURE_PACKAGE:/fixture/pi-package:ro"   "$IMAGE" pi-unraid-runtime reconcile
+docker run --rm   -e PI_UID="$UID_FIXTURE" -e PI_GID="$GID_FIXTURE"   -e PI_UNRAID_TEST_LATEST_OVERRIDE="$PI_TEST_LATEST"   -e PI_UNRAID_TEST_INSTALL_SPEC_OVERRIDE="file:/fixture/does-not-exist"   -v "$HOME_DIR:/home/pi"   -v "$FIXTURE_PACKAGE:/fixture/pi-package"   "$IMAGE" pi-unraid-runtime reconcile
 status="$(status_json)"
 [ "$(printf '%s\n' "$status" | jq -r '.outcome')" = candidate_install_failed ]
 [ "$(printf '%s\n' "$status" | jq -r '.selected.version')" = "$version" ]
