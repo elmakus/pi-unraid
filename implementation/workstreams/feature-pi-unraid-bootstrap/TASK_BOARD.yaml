@@ -211,7 +211,7 @@ cards:
     depends_on: ["M03-T03"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T04.md"
-    review_state: pending
+    review_state: in_progress
     review_subject: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
     review_evidence: null
     result_commit: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
