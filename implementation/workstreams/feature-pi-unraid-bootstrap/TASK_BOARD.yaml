@@ -86,3 +86,54 @@ cards:
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T03.md"
     tests_summary: "GREEN on Tower disposable fixtures after RED correction: explicit /projects and linked /worktrees cwd/metadata/write ownership verified at 21001:21001; strict GitHub host trust remains effective despite a pre-existing conflicting SSH stanza; unrelated SSH config is preserved; persistent Git identity/known_hosts survive recreation; current official Ed25519/ECDSA/RSA fingerprints and gh availability verified without live credentials."
+
+  - id: "M02-T01"
+    title: "Stable runtime selector and persistent LKG state"
+    milestone: "M02"
+    decision_state: accepted
+    execution_status: ready
+    executor: chatgpt
+    depends_on: ["M01-T03"]
+    openspec_change: "openspec/changes/m02-runtime-lifecycle"
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T01.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
+
+  - id: "M02-T02"
+    title: "Managed Pi lifecycle, readiness and bounded shutdown"
+    milestone: "M02"
+    decision_state: accepted
+    execution_status: planned
+    executor: chatgpt
+    depends_on: ["M02-T01"]
+    openspec_change: "openspec/changes/m02-runtime-lifecycle"
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T02.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
+
+  - id: "M02-T03"
+    title: "Host update operation and previous deployment rollback"
+    milestone: "M02"
+    decision_state: accepted
+    execution_status: planned
+    executor: chatgpt
+    depends_on: ["M02-T02"]
+    openspec_change: "openspec/changes/m02-runtime-lifecycle"
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T03.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null

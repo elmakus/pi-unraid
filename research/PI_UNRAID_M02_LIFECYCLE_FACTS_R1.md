@@ -9,8 +9,8 @@ Status: `complete`
 Origin role: `execution_prep`
 Origin subject: `M02`
 Return target: `execution_prep:M02`
-Return reconciliation: `pending`
-Return reconciliation result: `none`
+Return reconciliation: `applied`
+Return reconciliation result: `openspec/changes/m02-runtime-lifecycle/proposal.md@754774d07619f7272a58db8febaf20c19c4404a6; openspec/changes/m02-runtime-lifecycle/specs/runtime-lifecycle/spec.md@9b2fe0ed1c3f1dfe5d0ac1e4efaf0a467a669a2b; openspec/changes/m02-runtime-lifecycle/design.md@77f7af02061703e434c0587a4123590412107ab3; implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T01.md@eadaeb00e115166e57a91ae71f182b688391e97e; implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T02.md@2e71e1742e44dabb6981be56f84f645762a976e2; implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T03.md@f0ccc3638573e4a1db75c28d281a2b3e4cf37207; implementation/workstreams/feature-pi-unraid-bootstrap/TASK_BOARD.yaml@3de99543120cae68d8c82713c813e27ccd511fb3`
 
 ## Research question
 
