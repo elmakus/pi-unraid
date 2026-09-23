@@ -241,7 +241,7 @@ cards:
     title: "R3 final acceptance reconciliation and handoff"
     milestone: "M03"
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: done
     executor: chatgpt
     depends_on: ["M03-T04"]
     openspec_change: null
