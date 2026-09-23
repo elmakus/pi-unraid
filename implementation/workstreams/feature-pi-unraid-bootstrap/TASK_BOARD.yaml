@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "4267f707ae121d54625e537fb7e8e3820c654997"
+  head: "288b9f4502c50b8aacba381223f4265f64f3d4cd"
 
 research_obligation: null
 
@@ -189,10 +189,10 @@ cards:
     title: "Pi Codex-LB integration and disposable validation"
     milestone: "M03"
     decision_state: accepted
-    execution_status: planned
+    execution_status: ready
     executor: chatgpt
     depends_on: ["M03-T02"]
-    openspec_change: null
+    openspec_change: "openspec/changes/m03-codex-lb-integration"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T03.md"
     review_state: null
     review_subject: null
