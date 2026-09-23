@@ -6,7 +6,7 @@ current_milestone: "M01"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "1d5d306c2767d192ac13499a04df98702a174a55"
+  head: "e5355016eb217b6b4260208de523f5e32d20f08e"
 
 research_obligation: null
 
@@ -67,10 +67,10 @@ cards:
     depends_on: ["M01-T02"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T03.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "e5355016eb217b6b4260208de523f5e32d20f08e"
     review_evidence: null
-    result_commit: null
+    result_commit: "e5355016eb217b6b4260208de523f5e32d20f08e"
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T03.md"
+    tests_summary: "GREEN on Tower disposable fixtures: explicit /projects and linked /worktrees cwd/metadata/write ownership verified at 21001:21001; persistent Git identity and strict GitHub host trust survive recreation; current official Ed25519/ECDSA/RSA fingerprints verified; gh availability confirmed without live credentials."
