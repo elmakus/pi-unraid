@@ -189,7 +189,7 @@ cards:
     title: "Pi Codex-LB integration and disposable validation"
     milestone: "M03"
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: done
     executor: chatgpt
     depends_on: ["M03-T02"]
     openspec_change: "openspec/changes/m03-codex-lb-integration"
