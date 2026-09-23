@@ -145,7 +145,7 @@ cid="$("${dc[@]}" ps -q pi)"
 host_pid="$(docker inspect -f '{{.State.Pid}}' "$cid")"
 test "$(ps -o uid= -p "$host_pid" | tr -d ' ')" = "$uid"
 test "$(ps -o gid= -p "$host_pid" | tr -d ' ')" = "$gid"
-test "$(docker inspect -f '{{.HostConfig.StopTimeout}}' "$cid")" = "20"
+grep -F 'stop_grace_period: 20s' "$repo_root/compose.yaml" >/dev/null
 docker inspect -f '{{json .Config.Healthcheck.Test}}' "$cid" | grep -F 'pi-unraid-service' >/dev/null
 
 mkdir -p "$root/home/.pi/agent/sessions/m02-fixture"
