@@ -246,10 +246,10 @@ cards:
     depends_on: ["M03-T04"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T06.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "ad086e06bf929681c1db4c6f3e0e57b430bf6142"
     review_evidence: null
-    result_commit: null
+    result_commit: "ad086e06bf929681c1db4c6f3e0e57b430bf6142"
     result_pr: null
-    evidence: null
-    tests_summary: "READY: repository-only R3 reconciliation/finalization using existing M01/M02/M03 evidence; no production/dependency live-write and no broad restart exercise."
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T06.md"
+    tests_summary: "GREEN repository-only R3 reconciliation at subject ad086e06bf929681c1db4c6f3e0e57b430bf6142: 24/24 canonical requirements and A01-A21 mapped to durable evidence/current R3 proof obligations; M03-T05 superseded only for obsolete restart acceptance under PIB-ADR-007; broad restart explicitly not executed; implementation delta contains only M03-T06 evidence + M03 handoff; no runtime/deployment/secret live-write. REQUIRED independent review pending."
