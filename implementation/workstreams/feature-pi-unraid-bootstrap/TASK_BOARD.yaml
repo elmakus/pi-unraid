@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "48fe36889515a0ab2deb29aabf5205a1921dfea2"
+  head: "906ba4020905981be75c1b44e23d7f0ef6589535"
 
 research_obligation: null
 
@@ -194,13 +194,13 @@ cards:
     depends_on: ["M03-T02"]
     openspec_change: "openspec/changes/m03-codex-lb-integration"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T03.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "906ba4020905981be75c1b44e23d7f0ef6589535"
     review_evidence: null
-    result_commit: null
+    result_commit: "906ba4020905981be75c1b44e23d7f0ef6589535"
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T03.md"
+    tests_summary: "GREEN implementation subject 906ba4020905981be75c1b44e23d7f0ef6589535: disposable Codex-LB provider/secret/persistence integration passed fresh/populated/recreated-home, valid/missing/invalid credential, unreachable endpoint, redaction and pi --list-models checks; affected M01/M02 regressions and full M02 update/rollback remained GREEN on image sha256:b2eb64b04aedd6a6dfc1429f2016de95d1d4102be0727cd3f11f1c174c063ce3. REQUIRED independent review pending."
 
   - id: "M03-T04"
     title: "Authorized production bootstrap and live functional acceptance"
