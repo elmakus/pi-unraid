@@ -1,0 +1,207 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODELS_FILE="${PI_MODELS_FILE:-${HOME:-/home/pi}/.pi/agent/models.json}"
+BASE_URL="${PI_CODEX_LB_BASE_URL:-http://host.docker.internal:2455/v1}"
+MODEL_ID="${PI_CODEX_LB_MODEL:-gpt-5.6-sol}"
+SECRET_FILE="${PI_CODEX_LB_SECRET_FILE:-/run/secrets/pi-unraid-codex-lb}"
+
+log() { printf 'pi-unraid provider: %s\n' "$*" >&2; }
+die() { log "$*"; exit 1; }
+
+init_config() {
+  mkdir -p "$(dirname "$MODELS_FILE")"
+  python3 - "$MODELS_FILE" "$BASE_URL" "$MODEL_ID" <<'PY'
+import json
+import os
+import sys
+import tempfile
+
+path, base_url, model_id = sys.argv[1:4]
+base_url = base_url.rstrip("/")
+if not base_url or not base_url.endswith("/v1"):
+    print("pi-unraid provider: PI_CODEX_LB_BASE_URL must end in /v1", file=sys.stderr)
+    raise SystemExit(11)
+if not model_id or any(ch.isspace() for ch in model_id):
+    print("pi-unraid provider: PI_CODEX_LB_MODEL must be one non-empty model id", file=sys.stderr)
+    raise SystemExit(11)
+
+doc = {}
+if os.path.exists(path):
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            doc = json.load(handle)
+    except Exception:
+        print("pi-unraid provider: existing models.json is not valid JSON; preserved unchanged", file=sys.stderr)
+        raise SystemExit(12)
+    if not isinstance(doc, dict):
+        print("pi-unraid provider: existing models.json root must be an object; preserved unchanged", file=sys.stderr)
+        raise SystemExit(12)
+
+providers = doc.setdefault("providers", {})
+if not isinstance(providers, dict):
+    print("pi-unraid provider: existing models.json providers must be an object; preserved unchanged", file=sys.stderr)
+    raise SystemExit(12)
+
+existing = providers.get("codex-lb")
+if existing is not None:
+    models = existing.get("models") if isinstance(existing, dict) else None
+    compatible = (
+        isinstance(existing, dict)
+        and existing.get("api") == "openai-responses"
+        and isinstance(existing.get("baseUrl"), str)
+        and existing["baseUrl"].rstrip("/").endswith("/v1")
+        and existing.get("apiKey") in ("$CODEX_LB_API_KEY", "${CODEX_LB_API_KEY}")
+        and isinstance(models, list)
+        and any(isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] for item in models)
+    )
+    if not compatible:
+        print("pi-unraid provider: existing codex-lb provider conflicts with the required Responses/secret-reference contract; preserved unchanged", file=sys.stderr)
+        raise SystemExit(12)
+    os.chmod(path, 0o600)
+    print("pi-unraid provider: existing compatible codex-lb configuration preserved")
+    raise SystemExit(0)
+
+providers["codex-lb"] = {
+    "baseUrl": base_url,
+    "api": "openai-responses",
+    "apiKey": "${CODEX_LB_API_KEY}",
+    "models": [{"id": model_id}],
+}
+
+directory = os.path.dirname(path)
+fd, tmp = tempfile.mkstemp(prefix=".models.json.", dir=directory, text=True)
+try:
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump(doc, handle, indent=2, sort_keys=True)
+        handle.write("\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(tmp, path)
+finally:
+    try:
+        os.unlink(tmp)
+    except FileNotFoundError:
+        pass
+print("pi-unraid provider: codex-lb configuration materialized")
+PY
+}
+
+config_base_url() {
+  python3 - "$MODELS_FILE" <<'PY'
+import json
+import sys
+
+path = sys.argv[1]
+try:
+    with open(path, "r", encoding="utf-8") as handle:
+        doc = json.load(handle)
+except Exception:
+    print("pi-unraid provider: provider configuration is unavailable or invalid", file=sys.stderr)
+    raise SystemExit(31)
+
+provider = doc.get("providers", {}).get("codex-lb") if isinstance(doc, dict) else None
+models = provider.get("models") if isinstance(provider, dict) else None
+if not (
+    isinstance(provider, dict)
+    and provider.get("api") == "openai-responses"
+    and provider.get("apiKey") in ("$CODEX_LB_API_KEY", "${CODEX_LB_API_KEY}")
+    and isinstance(provider.get("baseUrl"), str)
+    and provider["baseUrl"].rstrip("/").endswith("/v1")
+    and isinstance(models, list)
+    and any(isinstance(item, dict) and item.get("id") for item in models)
+):
+    print("pi-unraid provider: provider configuration does not satisfy the codex-lb contract", file=sys.stderr)
+    raise SystemExit(31)
+print(provider["baseUrl"].rstrip("/"))
+PY
+}
+
+read_secret() {
+  python3 - "$SECRET_FILE" <<'PY'
+from pathlib import Path
+import sys
+
+path = Path(sys.argv[1])
+try:
+    text = path.read_text(encoding="utf-8")
+except Exception:
+    raise SystemExit(20)
+
+lines = [line.strip() for line in text.splitlines() if line.strip() and not line.lstrip().startswith("#")]
+if len(lines) != 1:
+    raise SystemExit(20 if not lines else 21)
+line = lines[0]
+if "=" in line:
+    name, value = line.split("=", 1)
+    if name != "CODEX_LB_API_KEY":
+        raise SystemExit(21)
+else:
+    value = line
+value = value.strip()
+if not value or any(ch.isspace() for ch in value) or "\x00" in value:
+    raise SystemExit(21)
+sys.stdout.write(value)
+PY
+}
+
+provider_check() {
+  local base_url health_url models_url key code rc
+  base_url="$(config_base_url)" || exit $?
+  if key="$(read_secret)"; then
+    :
+  else
+    rc=$?
+    if [ "$rc" -eq 20 ]; then
+      die "credential unavailable from dedicated runtime secret"
+    fi
+    die "credential file is invalid"
+  fi
+
+  health_url="${base_url%/v1}/health"
+  models_url="$base_url/models"
+
+  if ! code="$(curl -sS --connect-timeout 2 --max-time 5 -o /dev/null -w '%{http_code}' "$health_url" 2>/dev/null)"; then
+    die "Codex-LB endpoint unreachable"
+  fi
+  [ "$code" = "200" ] || die "Codex-LB health returned HTTP $code"
+
+  if ! code="$(curl -sS --connect-timeout 2 --max-time 5 -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $key" "$models_url" 2>/dev/null)"; then
+    die "Codex-LB models endpoint unreachable"
+  fi
+  case "$code" in
+    200) ;;
+    401|403) die "Codex-LB authentication rejected" ;;
+    *) die "Codex-LB models endpoint returned HTTP $code" ;;
+  esac
+  printf 'pi-unraid provider: ready base_url=%s\n' "$base_url"
+}
+
+provider_exec() {
+  local key
+  init_config >/dev/null || log "configuration reconciliation failed; launching Pi without changing persistent user configuration"
+  if key="$(read_secret)"; then
+    export CODEX_LB_API_KEY="$key"
+  else
+    unset CODEX_LB_API_KEY || true
+  fi
+  [ "$#" -gt 0 ] || die "exec requires a command"
+  exec "$@"
+}
+
+case "${1:-}" in
+  init)
+    init_config
+    ;;
+  check)
+    provider_check
+    ;;
+  exec)
+    shift
+    provider_exec "$@"
+    ;;
+  *)
+    die "usage: pi-unraid-provider {init|check|exec <command> [args...]}"
+    ;;
+esac
