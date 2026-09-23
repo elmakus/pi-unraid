@@ -40,6 +40,16 @@ start_container() {
 }
 
 start_container
+docker exec -u pi "$name" sh -ec '
+  mkdir -p "$HOME/.ssh"
+  cat > "$HOME/.ssh/config" <<'"'"'EOF'"'"'
+Host github.com
+  StrictHostKeyChecking no
+  UserKnownHostsFile /tmp/insecure-known-hosts
+Host preserved.example
+  Port 2222
+EOF
+'
 docker exec -u pi "$name" /opt/pi-unraid-src/scripts/configure-operator.sh \
   "Fixture User" "fixture@example.invalid"
 
@@ -75,6 +85,7 @@ docker exec -u pi "$name" sh -ec '
   test "$(git config --global user.email)" = "fixture@example.invalid"
   ssh -G github.com 2>/dev/null | grep -Eq "^stricthostkeychecking (yes|true)$"
   ssh -G github.com 2>/dev/null | grep -Fx "userknownhostsfile /home/pi/.ssh/known_hosts" >/dev/null
+  ssh -G preserved.example 2>/dev/null | grep -Fx "port 2222" >/dev/null
   ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | grep -F "SHA256:+DiY3wvvV6TuJJhbpZisF/zLDA0zPMSvHdkr4UvCOqU" >/dev/null
   ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | grep -F "SHA256:p2QAMXNIC1TJYWeIOttrVc98/R1BUFWu3/LiyKgUfQM" >/dev/null
   ssh-keygen -lf "$HOME/.ssh/known_hosts" -E sha256 | grep -F "SHA256:uNiVztksCsDhcc0u9e8BujQXVUpKZIDTMczCvj3tD2s" >/dev/null
