@@ -8,7 +8,9 @@ uid="${PI_TEST_UID:-21001}"
 gid="${PI_TEST_GID:-21001}"
 active="pi-unraid:m02-t03-active-$$"
 candidate="pi-unraid:m02-t03-candidate-$$"
-previous="pi-unraid:m02-t03-previous-$$"
+previous="pi-unraid:m02-t03-previous-$"
+mismatch="pi-unraid:m02-t03-tag-drift-$"
+fixture_branch="m02-t03-fixture-$"
 baseline_image="${1:-pi-unraid:m02-t02-r2}"
 remote="$root/remote.git"
 work="$root/work"
@@ -19,23 +21,21 @@ bad_override="$root/compose.bad-cutover.yaml"
 
 cleanup() {
   docker compose -p "$project" -f "$work/compose.yaml" -f "$override" down -v >/dev/null 2>&1 || true
-  docker image rm "$active" "$candidate" "$previous" >/dev/null 2>&1 || true
+  docker image rm "$active" "$candidate" "$previous" "$mismatch" >/dev/null 2>&1 || true
   rm -rf "$root"
 }
 trap cleanup EXIT
 
-for tag in "$active" "$candidate" "$previous"; do
+for tag in "$active" "$candidate" "$previous" "$mismatch"; do
   docker image rm "$tag" >/dev/null 2>&1 || true
 done
 docker image inspect "$baseline_image" >/dev/null
 docker image tag "$baseline_image" "$active"
 
-git clone --bare "$repo_root" "$remote" >/dev/null
-git clone "$remote" "$work" >/dev/null
-git clone "$remote" "$author" >/dev/null
-git -C "$work" checkout feat/pi-unraid-bootstrap >/dev/null
-git -C "$author" checkout feat/pi-unraid-bootstrap >/dev/null
-git -C "$work" branch --set-upstream-to=origin/feat/pi-unraid-bootstrap >/dev/null
+git init --bare "$remote" >/dev/null
+git -C "$repo_root" push "$remote" "HEAD:refs/heads/$fixture_branch" >/dev/null
+git clone --branch "$fixture_branch" "$remote" "$work" >/dev/null
+git clone --branch "$fixture_branch" "$remote" "$author" >/dev/null
 git -C "$author" config user.name "M02 fixture"
 git -C "$author" config user.email "m02@example.invalid"
 
@@ -121,7 +121,35 @@ before_hash="$(hash_sources)"
 before_failed_candidate="$(failed_candidate_marker)"
 [ "$before_failed_candidate" != "null" ]
 before_owners="$(ownership_sources)"
-old_id="$(docker image inspect "$active" --format '{{.Id}}')"
+old_id="$(docker inspect -f '{{.Image}}' "$cid")"
+[ "$(docker image inspect "$active" --format '{{.Id}}')" = "$old_id" ]
+
+printf '%s\n' 'M02-T03: snapshot follows running deployment image when active tag has drifted'
+drift_state="$root/deployment-state-tag-drift"
+mkdir -p "$drift_state" "$root/mismatch-context"
+cat >"$root/mismatch-context/Dockerfile" <<EOF
+FROM $baseline_image
+LABEL m02_t03_tag_drift="1"
+EOF
+docker build -q -t "$mismatch" "$root/mismatch-context" >/dev/null
+docker image tag "$mismatch" "$active"
+drift_id="$(docker image inspect "$active" --format '{{.Id}}')"
+[ "$drift_id" != "$old_id" ]
+set +e
+env \
+  PI_UID="$uid" PI_GID="$gid" \
+  PI_UNRAID_DEPLOYMENT_STATE_ROOT="$drift_state" \
+  PI_UNRAID_ACTIVE_TAG="$active" PI_UNRAID_CANDIDATE_TAG="$candidate" PI_UNRAID_PREVIOUS_TAG="$previous" \
+  PI_UNRAID_COMPOSE_PROJECT="$project" PI_UNRAID_COMPOSE_OVERRIDE="$override" \
+  PI_UNRAID_TEST_FAIL_BUILD=1 \
+  bash "$work/scripts/update.sh"
+rc=$?
+set -e
+[ "$rc" -ne 0 ]
+drift_tx="$drift_state/$(readlink "$drift_state/latest")"
+[ "$(cat "$drift_tx/pre-image-id")" = "$old_id" ]
+[ "$(docker image inspect "$active" --format '{{.Id}}')" = "$drift_id" ]
+docker image tag "$old_id" "$active"
 
 printf '%s\n' 'M02-T03: fast-forward source + verified candidate + healthy cutover'
 python3 - "$author/Dockerfile" <<'PY'
@@ -134,7 +162,7 @@ p.write_text(s)
 PY
 git -C "$author" add Dockerfile
 git -C "$author" commit -m 'test: advance disposable deployment image' >/dev/null
-git -C "$author" push origin feat/pi-unraid-bootstrap >/dev/null
+git -C "$author" push origin "$fixture_branch" >/dev/null
 success_head="$(git -C "$author" rev-parse HEAD)"
 
 env \
@@ -188,18 +216,54 @@ set -e
 [ "$rc" -ne 0 ]
 [ "$(docker image inspect "$active" --format '{{.Id}}')" = "$pre_fail_image" ]
 
+printf '%s\n' 'M02-T03: post-health runtime readback failure automatically restores previous image/config'
+python3 - "$author/Dockerfile" <<'PY'
+from pathlib import Path
+import sys
+p=Path(sys.argv[1])
+s=p.read_text().replace('M02 update fixture', 'M02 readback fixture', 1)
+p.write_text(s)
+PY
+git -C "$author" add Dockerfile
+git -C "$author" commit -m 'test: create disposable readback-failure candidate' >/dev/null
+git -C "$author" push origin "$fixture_branch" >/dev/null
+before_readback_image="$(docker inspect -f '{{.Image}}' "$(docker compose -p "$project" -f "$work/compose.yaml" -f "$override" ps -q pi)")"
+
+set +e
+env \
+  PI_UID="$uid" PI_GID="$gid" \
+  PI_UNRAID_DEPLOYMENT_STATE_ROOT="$state" \
+  PI_UNRAID_ACTIVE_TAG="$active" PI_UNRAID_CANDIDATE_TAG="$candidate" PI_UNRAID_PREVIOUS_TAG="$previous" \
+  PI_UNRAID_COMPOSE_PROJECT="$project" PI_UNRAID_COMPOSE_OVERRIDE="$override" \
+  PI_UNRAID_TEST_VERIFY_COMMAND='docker image inspect "$PI_UNRAID_CANDIDATE_TAG" >/dev/null' \
+  PI_UNRAID_TEST_FORCE_RUNTIME_READBACK_FAIL=1 \
+  PI_UNRAID_UPDATE_HEALTH_TIMEOUT_SECONDS=20 \
+  bash "$work/scripts/update.sh"
+rc=$?
+set -e
+[ "$rc" -ne 0 ]
+readback_tx="$state/$(readlink "$state/latest")"
+[ "$(cat "$readback_tx/status")" = rolled_back ]
+[ "$(docker image inspect "$active" --format '{{.Id}}')" = "$before_readback_image" ]
+[ "$(hash_sources)" = "$before_hash" ]
+[ "$(failed_candidate_marker)" = "$before_failed_candidate" ]
+[ "$(ownership_sources)" = "$before_owners" ]
+readback_cid="$(docker compose -p "$project" -f "$readback_tx/pre-update.compose.yaml" ps -q pi)"
+[ -n "$readback_cid" ]
+[ "$(docker inspect -f '{{.State.Health.Status}}' "$readback_cid")" = healthy ]
+
 printf '%s\n' 'M02-T03: unhealthy post-cutover deployment automatically restores previous image/config'
 # Advance source again so the candidate has a distinct source/image identity.
 python3 - "$author/Dockerfile" <<'PY'
 from pathlib import Path
 import sys
 p=Path(sys.argv[1])
-s=p.read_text().replace('M02 update fixture', 'M02 rollback fixture', 1)
+s=p.read_text().replace('M02 readback fixture', 'M02 rollback fixture', 1)
 p.write_text(s)
 PY
 git -C "$author" add Dockerfile
 git -C "$author" commit -m 'test: create disposable unhealthy cutover candidate' >/dev/null
-git -C "$author" push origin feat/pi-unraid-bootstrap >/dev/null
+git -C "$author" push origin "$fixture_branch" >/dev/null
 before_broken_image="$(docker image inspect "$active" --format '{{.Id}}')"
 
 set +e
