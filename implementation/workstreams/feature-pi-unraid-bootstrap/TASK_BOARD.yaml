@@ -234,4 +234,4 @@ cards:
     result_commit: null
     result_pr: null
     evidence: null
-    tests_summary: "PARTIAL GREEN: authorized non-disruptive M03-T05 recovery passed on production, including full update verification, controlled runtime LKG recovery, graceful stop/session resume, actual retained-image rollback with durable-mount preservation, plain update with inherited live settings, Codex-LB outage/restart recovery, bounded logging/security and workstation independence. BLOCKED only on separate Docker-wide/host-restart authorization; see implementation/workstreams/feature-pi-unraid-bootstrap/blockers/M03-T05-disruptive-restart.md."
+    tests_summary: "PARTIAL GREEN evidence remains valid. The former disruptive-restart blocker is resolved by explicit user authority change (PIB-ADR-007); no broad restart was executed. Card remains BLOCKED only while Definition/Plan R3 is independently reviewed and downstream execution state is reconciled without rewriting completed evidence."
