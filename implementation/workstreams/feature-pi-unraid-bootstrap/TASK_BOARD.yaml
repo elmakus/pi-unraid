@@ -1,6 +1,6 @@
 project: "elmakus/pi-unraid"
 workstream_id: "feature-pi-unraid-bootstrap"
-plan_revision: "R2"
+plan_revision: "R3"
 current_milestone: "M03"
 
 execution_ref:
@@ -223,7 +223,7 @@ cards:
     title: "Production recovery, restart and final technical handoff"
     milestone: "M03"
     decision_state: accepted
-    execution_status: blocked
+    execution_status: superseded
     executor: chatgpt
     depends_on: ["M03-T04"]
     openspec_change: null
@@ -234,4 +234,22 @@ cards:
     result_commit: null
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-partial.md"
-    tests_summary: "PARTIAL GREEN evidence remains valid. The former disruptive-restart blocker is resolved by explicit user authority change (PIB-ADR-007); no broad restart was executed. Card remains BLOCKED only while Definition/Plan R3 is independently reviewed and downstream execution state is reconciled without rewriting completed evidence."
+    tests_summary: "SUPERSEDED under PIB-ADR-007 / approved R3 only for the obsolete broad-restart acceptance obligation. All authorized non-disruptive production recovery evidence in M03-T05-partial.md remains valid and is consumed by M03-T06; no Docker-wide/Unraid host restart was executed."
+
+
+  - id: "M03-T06"
+    title: "R3 final acceptance reconciliation and handoff"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: ready
+    executor: chatgpt
+    depends_on: ["M03-T04"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T06.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: "READY: repository-only R3 reconciliation/finalization using existing M01/M02/M03 evidence; no production/dependency live-write and no broad restart exercise."
