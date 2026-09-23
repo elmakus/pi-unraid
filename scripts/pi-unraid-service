@@ -101,10 +101,10 @@ shutdown_service() {
   begin_shutdown
   signal_all TERM
 
-  local deadline
-  deadline=$(( $(date +%s) + GRACE_SECONDS ))
+  local deadline_ms
+  deadline_ms=$(( $(date +%s%3N) + GRACE_SECONDS * 1000 ))
   while has_active_managed; do
-    if [ "$(date +%s)" -ge "$deadline" ]; then
+    if [ "$(date +%s%3N)" -ge "$deadline_ms" ]; then
       break
     fi
     sleep 0.1
