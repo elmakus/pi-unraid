@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "e5ca17b98f0f7177e7e616e19a29d613902bb460"
+  head: "df9e8dfbc363a1f5cdfebca2d8452c4361e14b0d"
 
 research_obligation: null
 
@@ -241,7 +241,7 @@ cards:
     title: "R3 final acceptance reconciliation and handoff"
     milestone: "M03"
     decision_state: accepted
-    execution_status: ready
+    execution_status: in_progress
     executor: chatgpt
     depends_on: ["M03-T04"]
     openspec_change: null
