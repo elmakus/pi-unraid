@@ -157,6 +157,41 @@ The entries below are explicit user/product choices from this Brainstorming. "St
 | Main may automatically commit, push, open PRs and merge when the current PW route authorizes those mechanics and no separate user gate exists. | Asking the user for every Git operation maximizes control but creates unnecessary stops. | Stable. |
 | Lightweight pre-mutation sanity/readback should verify expected repo/worktree/branch/PW binding before writes; do not run a full doctor before every mutation. | Full verification each time is safer but wasteful and noisy. | Stable. |
 
+
+#### J. Conversation-reconciliation additions
+
+These choices were recovered by a line-by-line audit of the current Brainstorming conversation against this durable record on 2026-09-24. They were explicitly accepted earlier but were missing or only implicit in the first retroactive persistence pass.
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Reproducible Paseo/Pi deployment configuration belongs in `pi-unraid` (Dockerfile/Compose/template/config/inventory); Unraid GUI is an execution/deployment surface, not a second configuration authority. | GUI-only configuration is convenient but becomes hidden mutable state that fresh recovery cannot reconstruct from Git. | Stable. |
+| Keep one production Paseo+Pi image variant rather than several parallel image flavors. | Multiple images can isolate optional capabilities but multiply update/rollback combinations without a current need. | Stable. |
+| Paseo and Pi are updated as one controlled image promotion unit even though both track `latest`; the retained previous image provides rollback. | Independent runtime upgrades offer finer control but create a larger compatibility matrix. | Stable. |
+| Host appdata for Paseo is separate from the retired standalone Pi appdata; the persistent Paseo HOME lives under the Paseo appdata area while code/worktrees stay outside appdata. | Reusing the old Pi appdata would reduce paths but would mix bootstrap state into the new canonical environment. | Stable. |
+| Paseo/Pi gets read-write access to the intended `pi-unraid` workspace/repos/worktrees root, not broad arbitrary Unraid storage. | Per-repo Docker mounts provide narrower isolation but add friction for Main-managed worktrees and later project onboarding. | Stable. |
+| Use a separate secrets layer/source where possible while presenting credentials to tools through their native expected path/env; never put secrets in the repository. | Keeping all credentials as ordinary HOME files is simpler but weakens separation and backup hygiene. | Stable; exact per-tool materialization remains a research/design detail. |
+| Pi/Main retains a normal shell toolchain inside the container even though the user does not use a terminal. Do not give Main `sudo`; system-level packages are added through the image/deployment workflow. | Removing shell access would cripple normal coding work; giving sudo would enable uncontrolled runtime mutation. | Stable. |
+| Main may edit Dockerfile/Compose/deployment source in a legal PW branch, but live self-deployment/rebuild of its own production environment must go through the intended deployment workflow rather than an ad-hoc mid-turn mutation. | Direct self-rebuild is fast but can destroy the running control plane and bypass acceptance/rollback gates. | Stable. |
+| Runtime logs use rotation/finite retention; durable project evidence belongs in Git/PW rather than indefinite operational logs. | Infinite logs maximize forensic history but waste storage and blur authority. | Stable. |
+| Approved Pi extensions normally follow their current/latest release line; the environment/inventory should retain enough installed-version evidence to diagnose and roll back a bad update. | Full version pinning is more reproducible but conflicts with the user's latest-first preference. | Stable; exact release-channel semantics remain open. |
+| Main may close/clean up completed worker sessions after durable handoff/result capture; history may remain for debugging but is not authority. | Keeping every worker alive preserves immediate context but consumes resources and clutters UI. | Stable. |
+| A logical Paseo work session is bound to one project rather than freely mutating across projects. The last-used project may be highlighted/defaulted in the picker, but Main must not bind to a project until the user selects/enters it. | Auto-binding the last project saves a click but conflicts with the user's explicit desire to choose the project. | Stable reconciliation of both accepted UX choices. |
+| Paseo may remember the configured model/provider selection per project/session, but Main must not change that selection autonomously. | Forgetting it forces repetitive setup; autonomous switching removes user control. | Stable. |
+| If Paseo exposes it natively, the active branch/worktree should be visible in the UI/session context. | Hiding Git placement simplifies UI but makes mutation mistakes harder to notice. | Stable. |
+| Multiple mutating workers inside the same workstream are allowed only when the governing plan/obligation explicitly permits parallel decomposition and each worker has isolated scope/worktree; otherwise mutate sequentially. | Unrestricted parallel writes increase throughput but can violate PW seriality and create conflicts. | Stable. |
+| Main should emit very short user-visible phase/status transitions when materially useful (for example review GREEN → next phase), while routine worker progress remains local. | No progress messages is quieter but makes GUI operation opaque during long workflows. | Stable. |
+| Session search/filter by project/workstream/card should be used when Paseo supports it natively. | Relying only on chronological history is simpler but degrades quickly with many workstreams. | Stable. |
+| Use the existing normal Unraid/appdata backup mechanism for Paseo HOME rather than building a dedicated backup engine; if that mechanism safely stops containers during backup, that is acceptable. | A custom backup engine could optimize consistency but is unnecessary complexity. | Stable. |
+
+### Conversation-to-durable audit
+
+- Audit performed: `2026-09-24`.
+- Scope: every explicit user acceptance/correction in the current Paseo grilling conversation up to the user's question asking how completeness can be trusted.
+- Result: the first retroactive persistence pass was **not complete**; the missing/implicit choices are the entries in section J above.
+- The final unanswered 15-question batch about image build location/tagging/update polling/stable channel/etc. remains **unaccepted** and is intentionally represented only by open decisions where applicable.
+- Superseded/rejected choices remain preserved separately below; they are not silently overwritten.
+- Future Brainstorming rounds must persist accepted/rejected/reopened choices before asking the next batch so this kind of retrospective reconstruction is not required again.
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
