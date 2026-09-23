@@ -194,7 +194,7 @@ cards:
     depends_on: ["M03-T02"]
     openspec_change: "openspec/changes/m03-codex-lb-integration"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T03.md"
-    review_state: pending
+    review_state: in_progress
     review_subject: "906ba4020905981be75c1b44e23d7f0ef6589535"
     review_evidence: null
     result_commit: "906ba4020905981be75c1b44e23d7f0ef6589535"
