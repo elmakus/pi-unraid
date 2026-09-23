@@ -30,13 +30,7 @@ done < "$host_keys"
 begin="# BEGIN pi-unraid github"
 end="# END pi-unraid github"
 tmp="$(mktemp "$HOME/.ssh/config.XXXXXX")"
-awk -v begin="$begin" -v end="$end" '
-  $0 == begin { skip=1; next }
-  $0 == end { skip=0; next }
-  !skip { print }
-' "$HOME/.ssh/config" > "$tmp"
-
-cat >> "$tmp" <<'EOF'
+cat > "$tmp" <<'EOF'
 # BEGIN pi-unraid github
 Host github.com
   HostName github.com
@@ -45,6 +39,12 @@ Host github.com
   UserKnownHostsFile ~/.ssh/known_hosts
 # END pi-unraid github
 EOF
+
+awk -v begin="$begin" -v end="$end" '
+  $0 == begin { skip=1; next }
+  $0 == end { skip=0; next }
+  !skip { print }
+' "$HOME/.ssh/config" >> "$tmp"
 
 mv "$tmp" "$HOME/.ssh/config"
 chmod 600 "$HOME/.ssh/config" "$HOME/.ssh/known_hosts"
