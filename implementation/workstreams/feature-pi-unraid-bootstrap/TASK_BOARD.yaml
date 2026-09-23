@@ -91,7 +91,7 @@ cards:
     title: "Stable runtime selector and persistent LKG state"
     milestone: "M02"
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: done
     executor: chatgpt
     depends_on: ["M01-T03"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
