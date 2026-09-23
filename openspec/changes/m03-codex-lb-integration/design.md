@@ -8,7 +8,7 @@ The Pi service keeps the accepted M01/M02 container layout. It gains:
 - one Compose secret whose default host source is the dedicated Pi secret path `/mnt/user/appdata/pi-unraid/secrets/codex-lb.env`;
 - the secret mounted read-only at `/run/secrets/pi-unraid-codex-lb`.
 
-The secret host source path is configurable through `PI_CODEX_LB_SECRET_SOURCE` for disposable tests/recovery. The secret value is not placed in Compose environment, image layers, Git or rendered Compose snapshots.
+The secret host source path is configurable through `PI_CODEX_LB_SECRET_SOURCE` for disposable tests/recovery. Because local Docker Compose implements file-backed secrets as bind-backed files and does not apply Swarm-style uid/gid/mode controls, the host source itself must be owned/readable by the configured Pi service UID/GID and remain non-world-readable (production target: mode `0600`). The secret value is not placed in Compose environment, image layers, Git or rendered Compose snapshots.
 
 The container does not join Codex-LB's Docker network and does not mount Codex-LB appdata.
 
