@@ -6,7 +6,7 @@ current_milestone: "M01"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "412c9ce143f883f13b885aa93502651184809a10"
+  head: "1d5d306c2767d192ac13499a04df98702a174a55"
 
 research_obligation: null
 
@@ -62,8 +62,8 @@ cards:
     title: "Native TUI, Git/worktree and operator setup path"
     milestone: "M01"
     decision_state: accepted
-    execution_status: ready
-    executor: null
+    execution_status: in_progress
+    executor: chatgpt
     depends_on: ["M01-T02"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T03.md"
