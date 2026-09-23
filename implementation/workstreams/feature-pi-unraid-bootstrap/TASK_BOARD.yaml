@@ -206,18 +206,18 @@ cards:
     title: "Authorized production bootstrap and live functional acceptance"
     milestone: "M03"
     decision_state: accepted
-    execution_status: blocked
+    execution_status: in_progress
     executor: chatgpt
     depends_on: ["M03-T03"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T04.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
     review_evidence: null
-    result_commit: null
+    result_commit: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T04.md"
-    tests_summary: "PARTIAL GREEN at production source a78ea7a7e749bd64c1012b47847680712fb1e3ab / image sha256:ddb23ca173e47cbd77739e6177a5860190221bc9556eeff561e8b2c9c888f005: production bootstrap, gpt-6-sol thinking=low real Codex-LB call, provider/runtime health, native TUI session persistence across stop/recreate, canonical project/worktree local write, security/logging/backup and workstation-independence checks GREEN. Blocked only on missing Pi-user GitHub SSH and gh authentication; see implementation/workstreams/feature-pi-unraid-bootstrap/blockers/M03-T04-github-auth.md."
+    tests_summary: "GREEN implementation/result subject a78ea7a7e749bd64c1012b47847680712fb1e3ab / production image sha256:ddb23ca173e47cbd77739e6177a5860190221bc9556eeff561e8b2c9c888f005: target-GID correction regression GREEN; production bootstrap and separate runtime/provider health GREEN; first real Codex-LB call GREEN on gpt-6-sol thinking=low; native TUI/session persistence GREEN across planned stop/recreate; canonical project/worktree local writes GREEN; authenticated SSH Git push/readback/delete GREEN; authenticated gh API write/readback/delete GREEN; credentials persisted across final recreate; security/logging/backup/workstation-independence checks GREEN. RECOMMENDED independent review pending."
 
   - id: "M03-T05"
     title: "Production recovery, restart and final technical handoff"
