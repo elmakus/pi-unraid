@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Project Definition R3 GREEN and Master Plan R3 approved after independent Plan Review GREEN; Execution Prep must reconcile the stale R2-bound M03-T05 contract under PIB-ADR-007 without replaying completed recovery evidence.** M01/M02 and M03-T02/T03/T04 remain completed GREEN; authorized non-disruptive M03-T05 recovery evidence is GREEN and preserved; no Docker-wide/Unraid host restart was executed.
+- High-level status: **Phase 1 R3 is technically complete and integrated into `main` through PR #1.** M01, M02 and M03 are terminal GREEN; final M03-T06 REQUIRED independent review and the workstream final-integration gate are GREEN. The Docker-wide/Unraid host restart exercise was intentionally not executed under PIB-ADR-007, and that residual risk remains explicitly accepted.
 
 ## Execution policy
 
@@ -18,7 +18,7 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
 
 ## Canonical authority pointers
 
-- Active workstream: `implementation/workstreams/feature-pi-unraid-bootstrap/WORKSTREAM.yaml`
+- Completed Phase 1 workstream: `implementation/workstreams/feature-pi-unraid-bootstrap/WORKSTREAM.yaml`
 - Approved requirements: `requirements/PI_UNRAID_BOOTSTRAP.md`
 - Accepted decisions:
   - `decisions/PIB_ADR_001_PHASE1_SCOPE.md`
@@ -53,6 +53,6 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
 
 This file is a high-level integrated-project router/index, not live execution state.
 
-The historical brainstorming record originally accumulated on `main` before the current branch-first managed-change contract was applied. The active managed continuation was recovered onto `feat/pi-unraid-bootstrap`; the historical `main` copy remains provenance and is not rewritten as if it had always been branch-isolated.
+The historical brainstorming record originally accumulated on `main` before the branch-first managed-change contract was applied. The managed Phase 1 continuation was recovered onto `feat/pi-unraid-bootstrap`, completed under the namespaced workstream package and merged back to `main` through PR #1; GitHub then automatically removed the source branch. Terminal recovery truth now lives in the target-side namespaced workstream package.
 
-The R2 plan is approved after the required independent Plan Review GREEN verdict was consumed by Planning. Live implementation/review state remains owned only by the selected branch-isolated workstream manifest and its manifest-bound Task Board.
+Master Plan R3 is approved after independent Plan Review GREEN. Phase 1 has no remaining implementation, review or Close obligation. Any later Web UI/extensions/subagents/MCP/browser/research capability is outside this completed scope and must enter through a new accepted workflow route rather than extending the closed workstream implicitly.
