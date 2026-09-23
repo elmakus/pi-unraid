@@ -76,6 +76,23 @@ test "$(docker inspect -f '{{index .HostConfig.LogConfig.Config "max-size"}}' "$
 test "$(docker inspect -f '{{index .HostConfig.LogConfig.Config "max-file"}}' "$cid")" = "3"
 ! docker exec "$cid" sh -ec 'command -v sshd >/dev/null'
 
+printf '%s\n' 'M01-T02: existing target GID may be reused without taking over its group'
+existing_gid=100
+existing_group="$(docker run --rm --entrypoint getent "$image" group "$existing_gid" | cut -d: -f1)"
+test -n "$existing_group"
+mkdir -p "$fixture/gid-home" "$fixture/gid-projects" "$fixture/gid-worktrees"
+chown "$uid_a:$existing_gid" "$fixture/gid-home" "$fixture/gid-projects" "$fixture/gid-worktrees"
+docker run --rm \
+  -e PI_UID="$uid_a" -e PI_GID="$existing_gid" -e PI_EXPECT_GROUP="$existing_group" \
+  -v "$fixture/gid-home:/home/pi" \
+  -v "$fixture/gid-projects:/projects" \
+  -v "$fixture/gid-worktrees:/worktrees" \
+  "$image" sh -ec '
+    test "$(id -u)" = "$PI_UID"
+    test "$(id -g)" = "$PI_GID"
+    test "$(getent group "$PI_GID" | cut -d: -f1)" = "$PI_EXPECT_GROUP"
+  '
+
 PI_UID="$uid_a" PI_GID="$gid_a" "${dc[@]}" down >/dev/null
 PI_UID="$uid_b" PI_GID="$gid_b" "${dc[@]}" up -d >/dev/null || true
 sleep 1
