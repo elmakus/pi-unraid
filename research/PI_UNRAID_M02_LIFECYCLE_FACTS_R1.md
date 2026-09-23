@@ -5,7 +5,7 @@ Date: `2026-09-23`
 ## Durable continuation metadata
 
 Research ID: `pi-unraid-m02-lifecycle-facts-r1`
-Status: `complete`
+Status: `consumed`
 Origin role: `execution_prep`
 Origin subject: `M02`
 Return target: `execution_prep:M02`

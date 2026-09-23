@@ -8,7 +8,7 @@ execution_ref:
   pr: null
   head: "d016731a276e33f09b9a23df682951e89b21c8dc"
 
-research_obligation: "research/PI_UNRAID_M02_LIFECYCLE_FACTS_R1.md"
+research_obligation: null
 
 milestones:
   M01:
