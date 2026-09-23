@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Project Definition R2 GREEN; Master Plan R2 independently reviewed GREEN and approved; M03 is ready for JIT Execution Prep.** M01/M02 remain completed historical checkpoints; no production M03 deployment has occurred.
+- High-level status: **Project Definition R2 GREEN; Master Plan R2 independently reviewed GREEN and approved; M03 Execution Prep is complete and M03-T02 is blocked at the explicit Codex-LB dependency live-write authorization gate.** M01/M02 remain completed historical checkpoints; no production M03 deployment has occurred.
 
 ## Execution policy
 
@@ -54,4 +54,4 @@ This file is a high-level integrated-project router/index, not live execution st
 
 The historical brainstorming record originally accumulated on `main` before the current branch-first managed-change contract was applied. The active managed continuation was recovered onto `feat/pi-unraid-bootstrap`; the historical `main` copy remains provenance and is not rewritten as if it had always been branch-isolated.
 
-The current R2 plan is not approved until the required independent Plan Review is GREEN and Planning consumes that verdict. Live implementation/review state remains owned only by the selected branch-isolated workstream manifest and its manifest-bound Task Board.
+The R2 plan is approved after the required independent Plan Review GREEN verdict was consumed by Planning. Live implementation/review state remains owned only by the selected branch-isolated workstream manifest and its manifest-bound Task Board.
