@@ -26,6 +26,7 @@ authority:
   decisions:
     - "decisions/PIE_ADR_001_EXTENSION_BASELINE.md"
     - "decisions/PIE_ADR_002_TOOLING_SELECTIONS.md"
+    - "decisions/PIE_ADR_003_SPECPI_CORE.md"
   plan: null
 
 review:
