@@ -1,6 +1,6 @@
 id: "change-pi-extension-evaluation"
 kind: "change"
-status: "discovery"
+status: "definition"
 
 branch: "work/pi-extension-evaluation"
 base_ref: "feat/pi-unraid-bootstrap"
@@ -16,14 +16,15 @@ intake:
 
 routing:
   exploratory_scope: null
-  research_obligation: "research/PI_EXTENSION_EVALUATION_R1.md"
+  research_obligation: null
   plan_review: null
 
 task_board: null
 
 authority:
-  requirements: null
-  decisions: []
+  requirements: "requirements/PI_EXTENSION_TOOLING.md"
+  decisions:
+    - "decisions/PIE_ADR_001_EXTENSION_BASELINE.md"
   plan: null
 
 review:
@@ -40,4 +41,4 @@ branch_cleanup:
   evidence: null
 
 pr: null
-result: null
+result: "Definition is intentionally incomplete; user/product choices remain in brainstorming/PI_EXTENSION_OPEN_QUESTIONS.md."

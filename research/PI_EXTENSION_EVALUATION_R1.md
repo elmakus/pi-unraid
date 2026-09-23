@@ -1,7 +1,7 @@
 # Research — Pi extension/tooling evaluation R1
 
 - Research ID: `pi-extension-evaluation-r1`
-- Status: `complete`
+- Status: `consumed`
 - Origin role: `other`
 - Origin subject: `change-pi-extension-evaluation`
 - Return target: `project_definition:pi-extension-tooling-selection-r1`
