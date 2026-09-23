@@ -2,7 +2,7 @@
 
 - Card: `M03-T05 — Production recovery, restart and final technical handoff`
 - Date: 2026-09-23
-- Status: **WAITING_USER_AUTHORIZATION**
+- Status: **RESOLVED — bounded M03-T05 recovery authorized**
 - Origin: post-M03-T04 router continuation / Execution Prep
 
 ## Why execution is blocked
@@ -34,3 +34,9 @@ No M03-T05 production mutation has been executed while this gate is unresolved.
 ## Return route
 
 After explicit user authorization for the bounded scope above, Execution Prep may reconcile M03-T05 from blocked to ready and return through the router to Execution. The later Docker-wide/host-restart gate remains independent.
+
+## Resolution
+
+The user explicitly authorized the bounded non-disruptive M03-T05 recovery scope on 2026-09-23. Canonical authorization evidence: `implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-authorization.md`.
+
+Docker-wide/host restart remains separately gated and unauthorized.
