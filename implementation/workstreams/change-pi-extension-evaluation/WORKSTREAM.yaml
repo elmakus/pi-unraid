@@ -25,6 +25,7 @@ authority:
   requirements: "requirements/PI_EXTENSION_TOOLING.md"
   decisions:
     - "decisions/PIE_ADR_001_EXTENSION_BASELINE.md"
+    - "decisions/PIE_ADR_002_TOOLING_SELECTIONS.md"
   plan: null
 
 review:
@@ -41,4 +42,4 @@ branch_cleanup:
   evidence: null
 
 pr: null
-result: "Definition is intentionally incomplete; user/product choices remain in brainstorming/PI_EXTENSION_OPEN_QUESTIONS.md."
+result: "Definition remains incomplete pending web/research live A/B validation and final pi-blackhole selection/configuration."
