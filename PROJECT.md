@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Master Plan R1 approved** after required independent Plan Review GREEN; planning-only scope is complete and no Execution Prep/Task Board has been created.
+- High-level status: **Master Plan R1 approved** after required independent Plan Review GREEN; Phase 1 implementation is authorized and active through the selected branch-isolated workstream.
 
 ## Execution policy
 
@@ -48,4 +48,4 @@ This file is a high-level integrated-project router/index, not live execution st
 
 The historical brainstorming record originally accumulated on `main` before the current branch-first managed-change contract was applied. The active managed continuation was recovered onto `feat/pi-unraid-bootstrap`; the historical `main` copy remains provenance and is not rewritten as if it had always been branch-isolated.
 
-No Task Board exists yet. The approved plan covers the approved requirements and accepted decisions above. The current planning-only scope does not by itself authorize deployment or create implementation state; Execution Prep begins only when implementation is authorized.
+The approved plan covers the approved requirements and accepted decisions above. Live implementation/review state is owned only by the selected branch-isolated workstream manifest and its manifest-bound Task Board.
