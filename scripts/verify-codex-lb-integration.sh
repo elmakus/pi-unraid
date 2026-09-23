@@ -77,6 +77,7 @@ server_pid=$!
 base_url="http://host.docker.internal:$port/v1"
 secret_source="$root/codex-lb.env"
 printf 'CODEX_LB_API_KEY=%s\n' "$fixture_key" >"$secret_source"
+chown "$uid:$gid" "$secret_source"
 chmod 0600 "$secret_source"
 
 cat >"$root/compose.fixture.yaml" <<EOF
@@ -140,6 +141,8 @@ docker exec -u pi "$cid" getent hosts host.docker.internal >/dev/null
 
 models="$root/home/.pi/agent/models.json"
 test -s "$models"
+test "$(stat -c '%a' "$secret_source")" = "600"
+test "$(stat -c '%u:%g' "$secret_source")" = "$uid:$gid"
 test "$(stat -c '%a' "$models")" = "600"
 test "$(stat -c '%u:%g' "$models")" = "$uid:$gid"
 python3 - "$models" "$base_url" "$model_id" <<'PY'
@@ -238,6 +241,7 @@ printf '%s\n' 'M03-T03: invalid secret is classified without leakage'
 invalid_key="invalid-m03-key-$$-not-real"
 secret_source="$root/invalid.env"
 printf 'CODEX_LB_API_KEY=%s\n' "$invalid_key" >"$secret_source"
+chown "$uid:$gid" "$secret_source"
 chmod 0600 "$secret_source"
 dc up -d --force-recreate >/dev/null
 wait_health healthy
