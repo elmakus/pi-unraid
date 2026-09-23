@@ -1,10 +1,10 @@
 # Pi on Unraid — Phase 1 Bootstrap Requirements
 
-Revision: `R2`
+Revision: `R3`
 Status: `approved`
 Updated: `2026-09-23`
 
-Definition subject: `pi-unraid-bootstrap@R2`
+Definition subject: `pi-unraid-bootstrap@R3`
 Workstream: `feature-pi-unraid-bootstrap`
 Source brainstorming: `brainstorming/PI_UNRAID_BRAINSTORM.md`
 Verified evidence:
@@ -33,7 +33,7 @@ This Phase 1 exists to prove the base Pi runtime and persistence model before an
 | PIB-REQ-010 | The Pi service user MUST have persistent configurable Git identity, normal outbound Internet access, and technical authority to perform normal authorized Git/GitHub operations without per-command local approval gates. | MUST | G06, G70, G104, G106 | accepted |
 | PIB-REQ-011 | The base deployment MUST NOT mount the Docker socket, host root or unrelated appdata, and MUST NOT run an inbound SSH server merely for shell/TUI access. | MUST | initial scope, G14, G24, G111 | accepted |
 | PIB-REQ-012 | Direct terminal/TUI fallback MUST be available through the Unraid/Docker exec path; a Web UI is not required for Phase 1 acceptance. | MUST | G15, G42, G86, G121 | accepted |
-| PIB-REQ-013 | The deployment MUST start automatically after Unraid/Docker restart with `unless-stopped`-style behavior and MUST use timezone `Europe/Zurich`. | MUST | G50, G115 | accepted |
+| PIB-REQ-013 | The deployment MUST be configured for automatic start after Unraid/Docker restart with `unless-stopped`-style behavior and MUST use timezone `Europe/Zurich`. Phase 1 acceptance does not require executing a Docker-wide or host restart; the residual risk of not live-verifying that broad restart path is explicitly accepted by the user. | MUST | G50, G115; user acceptance-scope change 2026-09-23 | accepted |
 | PIB-REQ-014 | Normal Pi startup MUST target the latest stable Pi release, excluding prerelease/nightly channels. A failed runtime update MUST fall back to the last known working Pi runtime rather than making the service unavailable. | MUST | G16, G46, G53, G105 | accepted |
 | PIB-REQ-015 | The deployment MUST preserve a previous known-working Docker image/deployment candidate so a broken image/dependency/startup change can be rolled back without losing persistent home, repositories or worktrees. | MUST | G119 | accepted |
 | PIB-REQ-016 | Runtime-installed tools are allowed for experimentation, but any tool that becomes part of the normal expected environment MUST be captured in repository/image source for reproducibility. | MUST | G17, G40 | accepted |
@@ -122,7 +122,7 @@ Those items remain later follow-on Research/Definition scopes after the user has
 Phase 1 Definition is satisfied when planning/execution can prove all of the following without requiring any later Web UI/extension scope:
 
 1. The repository-owned deployment builds and starts on Unraid.
-2. The Pi container/service returns after host/Docker restart according to the automatic restart policy.
+2. The production deployment has the accepted automatic restart policy (`unless-stopped`-style) and timezone configured/read back; a Docker-wide or host restart is explicitly not required as a Phase 1 acceptance exercise, and the corresponding unverified broad-restart risk is user-accepted.
 3. `pi` runs from the terminal/TUI path using a current stable Pi release on a supported Node runtime.
 4. Codex-LB has usable authorized ChatGPT/Codex account capacity and Pi completes a real model interaction through the authenticated Codex-LB path without performing direct Pi ChatGPT/Codex OAuth.
 5. Pi → Codex-LB access survives a normal Pi container restart and image/container recreation using the approved persistent/runtime client configuration, while Codex-LB OAuth/account state remains independently persistent and does not require import into Pi.
@@ -143,6 +143,10 @@ Phase 1 Definition is satisfied when planning/execution can prove all of the fol
 20. With the configured Codex-LB account pool, normal Pi requests are routed by Codex-LB according to its accepted routing configuration; evidence explicitly records that account-owned continuation state is not guaranteed to migrate transparently across accounts.
 21. Pi and Codex-LB remain separately persistent/deployed: Pi restart/recreation does not mount or mutate Codex-LB data, Codex-LB health/compatibility/persistence are verified, and the existing ChatGPT CE workstation remains outside this dependency chain.
 
+## R3 acceptance-scope change
+
+On 2026-09-23 the user explicitly chose to skip the remaining Docker-wide/host restart exercise. This does **not** claim that such a restart was tested. It changes Phase 1 acceptance so configuration/readback of the automatic restart policy is sufficient for this project phase, while the residual broad-restart behavior remains unverified and user-accepted. All completed M01/M02/M03 evidence remains valid and is not rewritten.
+
 ## Definition completeness
 
 Definition Complete: **GREEN**
@@ -152,8 +156,8 @@ Definition Complete: **GREEN**
 - Phase 1 non-goals prevent later extension scope creep;
 - verified current Pi runtime/session facts and current Pi → Codex-LB compatibility/OAuth/routing facts are incorporated;
 - strategic choices needed before planning, including Codex-LB as the mandatory Phase 1 access layer, are captured in accepted decision records;
-- completed M01/M02 implementation/evidence remain valid historical checkpoints; R2 changes the remaining M03 authority rather than rewriting them;
-- no unresolved user/product choice remains that can materially alter the Phase 1 planning architecture;
+- completed M01/M02 implementation/evidence remain valid historical checkpoints; R3 preserves the completed R2/M03 evidence while removing the previously mandatory disruptive-restart acceptance exercise;
+- no unresolved user/product choice remains that can materially alter the Phase 1 planning architecture; the user explicitly chose to omit Docker-wide/host restart testing from Phase 1 acceptance;
 - implementation-specific mechanics such as the exact updater/fallback script design remain properly delegated to Strategic Planning rather than being hidden product decisions.
 
 ## Downstream coverage
