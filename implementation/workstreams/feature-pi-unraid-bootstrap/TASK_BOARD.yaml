@@ -6,7 +6,7 @@ current_milestone: "M02"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "d016731a276e33f09b9a23df682951e89b21c8dc"
+  head: "ffc14249d0b4834e312174a48db48e0212441f01"
 
 research_obligation: null
 
@@ -25,7 +25,7 @@ milestones:
 
   M02:
     decision_state: accepted
-    execution_status: ready
+    execution_status: in_progress
     contract: "planning/MASTER_PLAN.md#M02 — Recoverable runtime and deployment lifecycle"
     checkpoint: null
     implementation_head: null
@@ -91,7 +91,7 @@ cards:
     title: "Stable runtime selector and persistent LKG state"
     milestone: "M02"
     decision_state: accepted
-    execution_status: ready
+    execution_status: in_progress
     executor: chatgpt
     depends_on: ["M01-T03"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
