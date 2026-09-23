@@ -13,12 +13,12 @@ research_obligation: null
 milestones:
   M01:
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: done
     contract: "planning/MASTER_PLAN.md#M01 — Reproducible non-root development environment"
-    checkpoint: null
-    implementation_head: null
-    handoff: null
-    acceptance_evidence: null
+    checkpoint: "d016731a276e33f09b9a23df682951e89b21c8dc"
+    implementation_head: "d016731a276e33f09b9a23df682951e89b21c8dc"
+    handoff: "implementation/workstreams/feature-pi-unraid-bootstrap/handoffs/M01_HANDOFF.md"
+    acceptance_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-acceptance.md"
     review_state: null
     review_subject: null
     review_evidence: null
