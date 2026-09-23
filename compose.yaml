@@ -1,0 +1,33 @@
+services:
+  pi:
+    build:
+      context: .
+    image: pi-unraid:local
+    restart: unless-stopped
+    environment:
+      PI_UID: "${PI_UID:-1000}"
+      PI_GID: "${PI_GID:-1000}"
+      TZ: Europe/Zurich
+    stdin_open: true
+    tty: true
+    volumes:
+      - type: bind
+        source: /mnt/user/appdata/pi-unraid/home
+        target: /home/pi
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/user/projects
+        target: /projects
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /mnt/user/pi-worktrees
+        target: /worktrees
+        bind:
+          create_host_path: false
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
