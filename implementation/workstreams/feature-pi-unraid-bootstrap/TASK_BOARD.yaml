@@ -6,7 +6,7 @@ current_milestone: "M02"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "3ee4fd740bfa4afb1ec3f1fba5f4452624588d72"
+  head: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
 
 research_obligation: null
 
@@ -113,13 +113,13 @@ cards:
     depends_on: ["M02-T01"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T02.md"
-    review_state: red
-    review_subject: "3ee4fd740bfa4afb1ec3f1fba5f4452624588d72"
-    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T02-review.md"
-    result_commit: "3ee4fd740bfa4afb1ec3f1fba5f4452624588d72"
+    review_state: pending
+    review_subject: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
+    review_evidence: null
+    result_commit: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T02.md"
-    tests_summary: "GREEN on Tower disposable fixtures at subject 3ee4fd740bfa4afb1ec3f1fba5f4452624588d72: real TTY-backed packaged Pi receives planned SIGTERM without supervisor SIGKILL; concurrent registrations/stale-PID defense/full 3s grace + bounded escalation GREEN; stale readiness becomes unhealthy; T01 runtime selector and all M01 regressions GREEN; image sha256:3ad9ef172eefd26be1a7a0ba139153478d943a129735d31bdf4a1df1750f696e."
+    tests_summary: "GREEN on Tower at corrected subject 7152b99f7e4844d3a2328aeffc0a0f4d099891c0: packaged Pi native JSONL is opened by the real managed TUI, survives planned stop/recreation unchanged, and reopens with the same sessionId; production Compose keeps fixed 12s-inner/20s-outer policy while only disposable fixtures override to 3s; two consecutive lifecycle runs GREEN (3253/3205 ms escalation), M02-T01 real stable 0.87.1 GREEN, M01 base/Compose/Git regressions GREEN; image sha256:3ad9ef172eefd26be1a7a0ba139153478d943a129735d31bdf4a1df1750f696e."
 
   - id: "M02-T03"
     title: "Host update operation and previous deployment rollback"
