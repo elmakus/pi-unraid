@@ -125,7 +125,7 @@ cards:
     title: "Host update operation and previous deployment rollback"
     milestone: "M02"
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: done
     executor: chatgpt
     depends_on: ["M02-T02"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
