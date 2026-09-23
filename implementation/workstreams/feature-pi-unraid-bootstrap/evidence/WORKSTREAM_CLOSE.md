@@ -7,7 +7,7 @@
 - Merged source head: `804006643ac24417301c2beca3faedcce7d50961`
 - Target pre-merge head: `18da68d9183382195889fe3dc797a9a3a1d51f47`
 - Merge commit/result: `73c295209a46f0bc9245934d84cd3cc224f1f989`
-- Closure publication: pending closure-only PR from `chore/pi-unraid-bootstrap-close`
+- Closure publication: closure-only PR `#2` from `chore/pi-unraid-bootstrap-close`
 - Result: **GREEN — final-target merge succeeded; target-side terminal reconciliation is bookkeeping-only**
 - Runtime/deployment mutation: **none**
 
