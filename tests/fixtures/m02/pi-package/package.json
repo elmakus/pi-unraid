@@ -1,0 +1,11 @@
+{
+  "name": "pi-unraid-m02-fixture",
+  "version": "0.0.0",
+  "private": true,
+  "bin": {
+    "pi": "cli.js"
+  },
+  "engines": {
+    "node": ">=22.19.0"
+  }
+}

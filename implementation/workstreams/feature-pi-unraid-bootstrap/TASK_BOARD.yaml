@@ -1,0 +1,255 @@
+project: "elmakus/pi-unraid"
+workstream_id: "feature-pi-unraid-bootstrap"
+plan_revision: "R3"
+current_milestone: "M03"
+
+execution_ref:
+  branch: "feat/pi-unraid-bootstrap"
+  pr: 1
+  head: "0e337aec18ba1e8807d1a0b7bf1ac31713aa37c9"
+
+research_obligation: null
+
+milestones:
+  M01:
+    decision_state: accepted
+    execution_status: done
+    contract: "planning/MASTER_PLAN.md#M01 — Reproducible non-root development environment"
+    checkpoint: "d016731a276e33f09b9a23df682951e89b21c8dc"
+    implementation_head: "d016731a276e33f09b9a23df682951e89b21c8dc"
+    handoff: "implementation/workstreams/feature-pi-unraid-bootstrap/handoffs/M01_HANDOFF.md"
+    acceptance_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-acceptance.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+
+  M02:
+    decision_state: accepted
+    execution_status: done
+    contract: "planning/MASTER_PLAN.md#M02 — Recoverable runtime and deployment lifecycle"
+    checkpoint: "340121090f4b78ef3d2a3c1377d8bf5477026835"
+    implementation_head: "340121090f4b78ef3d2a3c1377d8bf5477026835"
+    handoff: "implementation/workstreams/feature-pi-unraid-bootstrap/handoffs/M02_HANDOFF.md"
+    acceptance_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-acceptance.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+
+  M03:
+    decision_state: accepted
+    execution_status: done
+    contract: "planning/MASTER_PLAN.md#M03 — Codex-LB-integrated on-Unraid acceptance and recoverable handoff"
+    checkpoint: "ad086e06bf929681c1db4c6f3e0e57b430bf6142"
+    implementation_head: "ad086e06bf929681c1db4c6f3e0e57b430bf6142"
+    handoff: "implementation/workstreams/feature-pi-unraid-bootstrap/handoffs/M03_HANDOFF.md"
+    acceptance_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T06.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+
+cards:
+  - id: "M01-T01"
+    title: "Reproducible base image and stable Pi seed"
+    milestone: "M01"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: []
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T01.md"
+    review_state: green
+    review_subject: "bd25b5317d9b53cd9d2d17d21adfc75e9c86beb3"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T01-review.md"
+    result_commit: "bd25b5317d9b53cd9d2d17d21adfc75e9c86beb3"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T01.md"
+    tests_summary: "GREEN on Tower: pinned Node 24 Bookworm base built as image sha256:30f47019edfb97619b6bdcd9d86b0441c7eca817d279eb4bbe9c515bc3099d0f; Pi stable seed 0.87.1 and complete required base tool inventory verified; exact identities and scope/safety readback recorded in M01-T01 evidence."
+
+  - id: "M01-T02"
+    title: "Non-root Compose and persistent-home foundation"
+    milestone: "M01"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M01-T01"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T02.md"
+    review_state: green
+    review_subject: "412c9ce143f883f13b885aa93502651184809a10"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T02-review.md"
+    result_commit: "412c9ce143f883f13b885aa93502651184809a10"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T02.md"
+    tests_summary: "GREEN on Tower disposable fixtures: Compose security/mount/restart/timezone/logging foundation verified; PID1 runs as configurable 21001:21001 with working sudo; restart preserves home marker/ownership; changed UID/GID fails safely without takeover; T01 base-image regression remains GREEN."
+
+  - id: "M01-T03"
+    title: "Native TUI, Git/worktree and operator setup path"
+    milestone: "M01"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M01-T02"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T03.md"
+    review_state: green
+    review_subject: "d016731a276e33f09b9a23df682951e89b21c8dc"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T03-review-02.md"
+    result_commit: "d016731a276e33f09b9a23df682951e89b21c8dc"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T03.md"
+    tests_summary: "GREEN on Tower disposable fixtures after RED correction: explicit /projects and linked /worktrees cwd/metadata/write ownership verified at 21001:21001; strict GitHub host trust remains effective despite a pre-existing conflicting SSH stanza; unrelated SSH config is preserved; persistent Git identity/known_hosts survive recreation; current official Ed25519/ECDSA/RSA fingerprints and gh availability verified without live credentials."
+
+  - id: "M02-T01"
+    title: "Stable runtime selector and persistent LKG state"
+    milestone: "M02"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M01-T03"]
+    openspec_change: "openspec/changes/m02-runtime-lifecycle"
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T01.md"
+    review_state: green
+    review_subject: "70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T01-review.md"
+    result_commit: "70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T01.md"
+    tests_summary: "GREEN on Tower disposable fixtures at subject 70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1: real latest stable 0.87.1 staged with engine-strict/ignore-scripts, exact version + Pi RPC get_state readiness proven; recreation/overlap, probe/install failure, cooldown/retry, prerelease rejection, registry-offline LKG, seed fallback and unavailable-health paths GREEN; M01 base/Compose regressions GREEN."
+
+  - id: "M02-T02"
+    title: "Managed Pi lifecycle, readiness and bounded shutdown"
+    milestone: "M02"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M02-T01"]
+    openspec_change: "openspec/changes/m02-runtime-lifecycle"
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T02.md"
+    review_state: green
+    review_subject: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T02-review-02.md"
+    result_commit: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T02.md"
+    tests_summary: "GREEN on Tower at corrected subject 7152b99f7e4844d3a2328aeffc0a0f4d099891c0: packaged Pi native JSONL is opened by the real managed TUI, survives planned stop/recreation unchanged, and reopens with the same sessionId; production Compose keeps fixed 12s-inner/20s-outer policy while only disposable fixtures override to 3s; two consecutive lifecycle runs GREEN (3253/3205 ms escalation), M02-T01 real stable 0.87.1 GREEN, M01 base/Compose/Git regressions GREEN; image sha256:3ad9ef172eefd26be1a7a0ba139153478d943a129735d31bdf4a1df1750f696e."
+
+  - id: "M02-T03"
+    title: "Host update operation and previous deployment rollback"
+    milestone: "M02"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M02-T02"]
+    openspec_change: "openspec/changes/m02-runtime-lifecycle"
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T03.md"
+    review_state: green
+    review_subject: "340121090f4b78ef3d2a3c1377d8bf5477026835"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T03-review-02.md"
+    result_commit: "340121090f4b78ef3d2a3c1377d8bf5477026835"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T03.md"
+    tests_summary: "GREEN on Tower from detached exact subject 340121090f4b78ef3d2a3c1377d8bf5477026835: diff/shell syntax checks GREEN; full integrated M01 + M02-T01/T02 candidate gate GREEN (stable Pi 0.87.1, managed lifecycle escalation 3256 ms); active-tag drift snapshots the actual running healthy LKG; successful cutover, explicit offline rollback, pre-cutover build failure, post-health runtime-readback auto-rollback, unhealthy auto-rollback, bind data/ownership + failed-candidate marker preservation and log rotation GREEN; previous image sha256:3ad9ef172eefd26be1a7a0ba139153478d943a129735d31bdf4a1df1750f696e, candidate sha256:8cc449b04f4de729e394f20c98effe8e1931446103738ea760f58205221c531a, retained tx_count=2."
+
+  - id: "M03-T01"
+    title: "On-target bootstrap and initial production deployment"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: superseded
+    executor: chatgpt
+    depends_on: ["M02-T03"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T01.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-readiness.md"
+    tests_summary: "SUPERSEDED by explicit user product/architecture redefinition before any production write: Phase 1 must use Codex-LB as the ChatGPT/Codex OAuth access layer from first real Pi start. Prior read-only Tower readiness remains historical evidence only; no deployment was performed under this Card."
+
+
+  - id: "M03-T02"
+    title: "Codex-LB dependency readiness and Pi client boundary"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M02-T03"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T02.md"
+    review_state: green
+    review_subject: "4267f707ae121d54625e537fb7e8e3820c654997"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T02-review.md"
+    result_commit: "4267f707ae121d54625e537fb7e8e3820c654997"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T02.md"
+    tests_summary: "GREEN: implementation subject 4267f707ae121d54625e537fb7e8e3820c654997 satisfied the Card and RECOMMENDED independent review is GREEN at implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T02-review.md; independent upstream/Tower readback reconfirmed exact v1.25.0-beta.9 identity, auth/persistence/routing, dedicated Pi key boundary, rollback preservation, host-gateway reachability and unchanged workstation."
+
+  - id: "M03-T03"
+    title: "Pi Codex-LB integration and disposable validation"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M03-T02"]
+    openspec_change: "openspec/changes/m03-codex-lb-integration"
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T03.md"
+    review_state: green
+    review_subject: "906ba4020905981be75c1b44e23d7f0ef6589535"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T03-review.md"
+    result_commit: "906ba4020905981be75c1b44e23d7f0ef6589535"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T03.md"
+    tests_summary: "GREEN implementation subject 906ba4020905981be75c1b44e23d7f0ef6589535: disposable Codex-LB provider/secret/persistence integration passed fresh/populated/recreated-home, valid/missing/invalid credential, unreachable endpoint, redaction and pi --list-models checks; affected M01/M02 regressions and full M02 update/rollback remained GREEN on image sha256:b2eb64b04aedd6a6dfc1429f2016de95d1d4102be0727cd3f11f1c174c063ce3; REQUIRED independent review GREEN at implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T03-review.md."
+
+  - id: "M03-T04"
+    title: "Authorized production bootstrap and live functional acceptance"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M03-T03"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T04.md"
+    review_state: green
+    review_subject: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T04-review.md"
+    result_commit: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T04.md"
+    tests_summary: "GREEN implementation/result subject a78ea7a7e749bd64c1012b47847680712fb1e3ab / production image sha256:ddb23ca173e47cbd77739e6177a5860190221bc9556eeff561e8b2c9c888f005: production bootstrap, routed model call, native session persistence, project/worktree/Git/GitHub acceptance, security/logging/backup/workstation-independence checks GREEN; target-GID regression independently rerun GREEN; RECOMMENDED independent review GREEN at implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T04-review.md."
+
+  - id: "M03-T05"
+    title: "Production recovery, restart and final technical handoff"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: superseded
+    executor: chatgpt
+    depends_on: ["M03-T04"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T05.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-partial.md"
+    tests_summary: "SUPERSEDED under PIB-ADR-007 / approved R3 only for the obsolete broad-restart acceptance obligation. All authorized non-disruptive production recovery evidence in M03-T05-partial.md remains valid and is consumed by M03-T06; no Docker-wide/Unraid host restart was executed."
+
+
+  - id: "M03-T06"
+    title: "R3 final acceptance reconciliation and handoff"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: done
+    executor: chatgpt
+    depends_on: ["M03-T04"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T06.md"
+    review_state: green
+    review_subject: "ad086e06bf929681c1db4c6f3e0e57b430bf6142"
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T06-review.md"
+    result_commit: "ad086e06bf929681c1db4c6f3e0e57b430bf6142"
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T06.md"
+    tests_summary: "GREEN terminal M03-T06 result at subject ad086e06bf929681c1db4c6f3e0e57b430bf6142: 24/24 canonical requirements and A01-A21 mapped to durable evidence/current R3 proof obligations; M03-T05 superseded only for obsolete restart acceptance under PIB-ADR-007; broad restart explicitly not executed; implementation delta contains only R3 reconciliation/evidence/handoff; no runtime/deployment/secret live-write; REQUIRED independent review GREEN at implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T06-review.md."

@@ -1,0 +1,50 @@
+id: "feature-pi-unraid-bootstrap"
+kind: "feature"
+status: "active"
+
+branch: "feat/pi-unraid-bootstrap"
+base_ref: "main"
+integration_target: "main"
+
+parent_workstream: null
+parent_branch: null
+parent_dependency: null
+
+intake:
+  state: null
+  record: null
+
+routing:
+  exploratory_scope: null
+  research_obligation: null
+  plan_review: null
+
+task_board: "implementation/workstreams/feature-pi-unraid-bootstrap/TASK_BOARD.yaml"
+
+authority:
+  requirements: "requirements/PI_UNRAID_BOOTSTRAP.md"
+  decisions:
+    - "decisions/PIB_ADR_001_PHASE1_SCOPE.md"
+    - "decisions/PIB_ADR_002_RUNTIME_LAYOUT.md"
+    - "decisions/PIB_ADR_003_UPDATE_ROLLBACK.md"
+    - "decisions/PIB_ADR_004_WORKFLOW_ROLES.md"
+    - "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md"
+    - "decisions/PIB_ADR_006_CHATGPT_STRATEGIC_PLANNER_OVERRIDE.md"
+    - "decisions/PIB_ADR_007_SKIP_DISRUPTIVE_RESTART_ACCEPTANCE.md"
+  plan: "planning/MASTER_PLAN.md"
+
+review:
+  requirement: "RECOMMENDED"
+  state: "green"
+  subject: "045388b38f119757cfa00eb54374666c88bf1e1b"
+  evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/FINAL_INTEGRATION.md"
+  covered_by: "M03-T06 REQUIRED review @ ad086e06bf929681c1db4c6f3e0e57b430bf6142"
+
+branch_cleanup:
+  state: null
+  ref: null
+  verified_head: null
+  evidence: null
+
+pr: 1
+result: null

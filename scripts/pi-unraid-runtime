@@ -1,0 +1,257 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PACKAGE="${PI_UNRAID_PACKAGE:-@earendil-works/pi-coding-agent}"
+RUNTIME_ROOT="${PI_UNRAID_RUNTIME_SHARE_ROOT:-$HOME/.local/share/pi-unraid/runtimes}"
+STATE_ROOT="${PI_UNRAID_RUNTIME_STATE_ROOT:-$HOME/.local/state/pi-unraid}"
+STATE_FILE="${PI_UNRAID_RUNTIME_STATE_FILE:-$STATE_ROOT/runtime.json}"
+LOCK_FILE="${PI_UNRAID_RUNTIME_LOCK_FILE:-$STATE_ROOT/runtime.lock}"
+SEED_CLI="${PI_UNRAID_SEED_CLI:-/usr/local/bin/pi-seed}"
+LOOKUP_TIMEOUT="${PI_UNRAID_LOOKUP_TIMEOUT_SECONDS:-15}"
+INSTALL_TIMEOUT="${PI_UNRAID_INSTALL_TIMEOUT_SECONDS:-180}"
+PROBE_TIMEOUT="${PI_UNRAID_PROBE_TIMEOUT_SECONDS:-10}"
+LOCK_TIMEOUT="${PI_UNRAID_LOCK_TIMEOUT_SECONDS:-180}"
+FAILED_COOLDOWN="${PI_UNRAID_FAILED_COOLDOWN_SECONDS:-3600}"
+TEST_LATEST_OVERRIDE="${PI_UNRAID_TEST_LATEST_OVERRIDE:-}"
+TEST_INSTALL_SPEC_OVERRIDE="${PI_UNRAID_TEST_INSTALL_SPEC_OVERRIDE:-}"
+
+log() { printf 'pi-unraid runtime: %s\n' "$*" >&2; }
+die() { log "$*"; exit 1; }
+
+ensure_dirs() {
+  mkdir -p "$RUNTIME_ROOT" "$STATE_ROOT"
+  chmod 0700 "$STATE_ROOT"
+}
+
+stable_semver() {
+  [[ "$1" =~ ^[0-9]+\.[0-9]+\.[0-9]+(\+[0-9A-Za-z.-]+)?$ ]]
+}
+
+seed_version() {
+  if [ -n "${PI_UNRAID_SEED_VERSION:-}" ]; then
+    printf '%s\n' "$PI_UNRAID_SEED_VERSION"
+  else
+    "$SEED_CLI" --version 2>/dev/null | tail -n 1 | tr -d '\r'
+  fi
+}
+
+slot_cli() { printf '%s/%s/node_modules/.bin/pi\n' "$RUNTIME_ROOT" "$1"; }
+
+version_ok() {
+  local cli="$1" expected="$2" actual
+  [ -x "$cli" ] || return 1
+  actual="$("$cli" --version 2>/dev/null | tail -n 1 | tr -d '\r')" || return 1
+  [ "$actual" = "$expected" ]
+}
+
+probe_cli() {
+  local cli="$1" expected="$2" out
+  version_ok "$cli" "$expected" || return 1
+  out="$(
+    printf '%s\n' '{"id":"pi-unraid-probe","type":"get_state"}' |
+      timeout --signal=TERM --kill-after=2s "${PROBE_TIMEOUT}s"         "$cli" --mode rpc --no-session 2>/dev/null
+  )" || return 1
+  printf '%s\n' "$out" |
+    jq -e -s 'any(.[]; .type=="response" and .command=="get_state" and .success==true and .id=="pi-unraid-probe")' >/dev/null
+}
+
+state_value() {
+  local filter="$1"
+  [ -s "$STATE_FILE" ] || return 0
+  jq -r "$filter // empty" "$STATE_FILE" 2>/dev/null || true
+}
+
+write_state() {
+  local status="$1" source="$2" version="$3" cli="$4"
+  local lkg="$5" previous="$6" latest="$7"
+  local failed_version="$8" failed_at="$9" failed_reason="${10}" outcome="${11}"
+  local tmp seed now
+  seed="$(seed_version || true)"
+  now="$(date +%s)"
+  tmp="$(mktemp "$STATE_ROOT/.runtime.json.XXXXXX")"
+  jq -n     --arg status "$status"     --arg source "$source"     --arg version "$version"     --arg cli "$cli"     --arg lkg "$lkg"     --arg previous "$previous"     --arg latest "$latest"     --arg failed_version "$failed_version"     --arg failed_at "$failed_at"     --arg failed_reason "$failed_reason"     --arg seed "$seed"     --arg node "$(node --version)"     --arg outcome "$outcome"     --argjson updated_at "$now" '
+      def null_if_empty: if . == "" then null else . end;
+      {
+        schema: 1,
+        status: $status,
+        selected: {
+          source: ($source | null_if_empty),
+          version: ($version | null_if_empty),
+          cli: ($cli | null_if_empty)
+        },
+        lkg_version: ($lkg | null_if_empty),
+        previous_lkg_version: ($previous | null_if_empty),
+        latest_observed_version: ($latest | null_if_empty),
+        failed_candidate:
+          (if $failed_version == "" then null else {
+            version: $failed_version,
+            at: ($failed_at | tonumber),
+            reason: $failed_reason
+          } end),
+        image_seed_version: ($seed | null_if_empty),
+        node_version: $node,
+        outcome: $outcome,
+        updated_at: $updated_at
+      }' >"$tmp"
+  chmod 0600 "$tmp"
+  mv -f "$tmp" "$STATE_FILE"
+}
+
+choose_fallback() {
+  local lkg="$1" previous="$2" cli seed
+  if [ -n "$lkg" ]; then
+    cli="$(slot_cli "$lkg")"
+    if probe_cli "$cli" "$lkg"; then
+      printf 'persistent\t%s\t%s\n' "$lkg" "$cli"
+      return 0
+    fi
+  fi
+  if [ -n "$previous" ] && [ "$previous" != "$lkg" ]; then
+    cli="$(slot_cli "$previous")"
+    if probe_cli "$cli" "$previous"; then
+      printf 'persistent\t%s\t%s\n' "$previous" "$cli"
+      return 0
+    fi
+  fi
+  seed="$(seed_version || true)"
+  if [ -n "$seed" ] && probe_cli "$SEED_CLI" "$seed"; then
+    printf 'seed\t%s\t%s\n' "$seed" "$SEED_CLI"
+    return 0
+  fi
+  return 1
+}
+
+publish_fallback() {
+  local outcome="$1" latest="$2" lkg="$3" previous="$4"
+  local failed_version="$5" failed_at="$6" failed_reason="$7"
+  local fallback source version cli
+  if fallback="$(choose_fallback "$lkg" "$previous")"; then
+    IFS=$'\t' read -r source version cli <<<"$fallback"
+    write_state degraded "$source" "$version" "$cli" "$lkg" "$previous" "$latest"       "$failed_version" "$failed_at" "$failed_reason" "$outcome"
+    log "$outcome; selected $source runtime $version"
+    return 0
+  fi
+  write_state unavailable "" "" "" "$lkg" "$previous" "$latest"     "$failed_version" "$failed_at" "$failed_reason" "$outcome"
+  log "$outcome; no compatible runtime available"
+  return 1
+}
+
+reconcile() {
+  local force=0
+  [ "${1:-}" = "--force" ] && force=1
+  ensure_dirs
+  exec 9>"$LOCK_FILE"
+  flock -w "$LOCK_TIMEOUT" 9 || die "timed out waiting for runtime lock"
+
+  local lkg previous failed_version failed_at failed_reason now latest_json latest
+  local final_dir stage cli old_lkg
+  lkg="$(state_value '.lkg_version')"
+  previous="$(state_value '.previous_lkg_version')"
+  failed_version="$(state_value '.failed_candidate.version')"
+  failed_at="$(state_value '.failed_candidate.at')"
+  failed_reason="$(state_value '.failed_candidate.reason')"
+  now="$(date +%s)"
+
+  if [ -n "$TEST_LATEST_OVERRIDE" ]; then
+    latest_json="$(jq -Rn --arg value "$TEST_LATEST_OVERRIDE" '$value')"
+  elif ! latest_json="$(timeout --signal=TERM --kill-after=2s "${LOOKUP_TIMEOUT}s" npm view "$PACKAGE" dist-tags.latest --json 2>/dev/null)"; then
+    publish_fallback registry_unavailable "" "$lkg" "$previous" "$failed_version" "$failed_at" "$failed_reason"
+    return $?
+  fi
+
+  latest="$(printf '%s\n' "$latest_json" | jq -r 'if type=="string" then . else empty end' 2>/dev/null || true)"
+  if [ -z "$latest" ]; then
+    publish_fallback registry_invalid_response "" "$lkg" "$previous"       "$failed_version" "$failed_at" "$failed_reason"
+    return $?
+  fi
+
+  if ! stable_semver "$latest"; then
+    publish_fallback unstable_latest_rejected "$latest" "$lkg" "$previous"       "$latest" "$now" unstable_latest
+    return $?
+  fi
+
+  cli="$(slot_cli "$latest")"
+  if probe_cli "$cli" "$latest"; then
+    old_lkg="$lkg"
+    [ -z "$old_lkg" ] || [ "$old_lkg" = "$latest" ] || previous="$old_lkg"
+    lkg="$latest"
+    write_state ready persistent "$latest" "$cli" "$lkg" "$previous" "$latest" "" "" "" current_slot_ready
+    log "selected existing persistent runtime $latest"
+    return 0
+  fi
+
+  if [ "$force" -eq 0 ] && [ "$failed_version" = "$latest" ] &&
+     [[ "$failed_at" =~ ^[0-9]+$ ]] && [ $((now - failed_at)) -lt "$FAILED_COOLDOWN" ]; then
+    publish_fallback candidate_cooldown "$latest" "$lkg" "$previous"       "$failed_version" "$failed_at" "$failed_reason"
+    return $?
+  fi
+
+  stage="$(mktemp -d "$RUNTIME_ROOT/.staging-${latest}.XXXXXX")"
+  local install_spec
+  install_spec="${TEST_INSTALL_SPEC_OVERRIDE:-$PACKAGE@$latest}"
+  if ! npm_config_engine_strict=true timeout --signal=TERM --kill-after=5s "${INSTALL_TIMEOUT}s" npm install --loglevel=warn --prefix "$stage" --ignore-scripts "$install_spec"; then
+    rm -rf "$stage"
+    publish_fallback candidate_install_failed "$latest" "$lkg" "$previous" "$latest" "$now" install_failed
+    return $?
+  fi
+
+  cli="$stage/node_modules/.bin/pi"
+  if ! probe_cli "$cli" "$latest"; then
+    rm -rf "$stage"
+    publish_fallback candidate_probe_failed "$latest" "$lkg" "$previous"       "$latest" "$now" probe_failed
+    return $?
+  fi
+
+  final_dir="$RUNTIME_ROOT/$latest"
+  rm -rf "$final_dir"
+  mv "$stage" "$final_dir"
+  cli="$(slot_cli "$latest")"
+  old_lkg="$lkg"
+  [ -z "$old_lkg" ] || [ "$old_lkg" = "$latest" ] || previous="$old_lkg"
+  lkg="$latest"
+  write_state ready persistent "$latest" "$cli" "$lkg" "$previous" "$latest" "" "" "" candidate_promoted
+  log "promoted persistent runtime $latest"
+}
+
+select_cli() {
+  local status cli version seed
+  if [ -s "$STATE_FILE" ]; then
+    status="$(state_value '.status')"
+    cli="$(state_value '.selected.cli')"
+    version="$(state_value '.selected.version')"
+    if { [ "$status" = ready ] || [ "$status" = degraded ]; } &&
+       [ -n "$cli" ] && [ -n "$version" ] && version_ok "$cli" "$version"; then
+      printf '%s\n' "$cli"
+      return 0
+    fi
+  fi
+  seed="$(seed_version || true)"
+  if [ -n "$seed" ] && version_ok "$SEED_CLI" "$seed"; then
+    printf '%s\n' "$SEED_CLI"
+    return 0
+  fi
+  return 1
+}
+
+health() {
+  local status cli version
+  [ -s "$STATE_FILE" ] || return 1
+  status="$(state_value '.status')"
+  { [ "$status" = ready ] || [ "$status" = degraded ]; } || return 1
+  cli="$(state_value '.selected.cli')"
+  version="$(state_value '.selected.version')"
+  [ -n "$cli" ] && [ -n "$version" ] && version_ok "$cli" "$version"
+}
+
+case "${1:-}" in
+  reconcile) shift; reconcile "${1:-}" ;;
+  retry) reconcile --force ;;
+  select) select_cli ;;
+  health) health ;;
+  status) [ -s "$STATE_FILE" ] || die "runtime state does not exist"; jq . "$STATE_FILE" ;;
+  probe)
+    [ "$#" -eq 3 ] || die "usage: pi-unraid-runtime probe <cli> <expected-version>"
+    probe_cli "$2" "$3"
+    ;;
+  *) die "usage: pi-unraid-runtime {reconcile [--force]|retry|select|health|status|probe <cli> <version>}" ;;
+esac
