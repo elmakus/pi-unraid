@@ -90,7 +90,9 @@ services:
 EOF
 
 dc=(docker compose -p "$project" -f "$work/compose.yaml" -f "$override")
-PI_UID="$uid" PI_GID="$gid" "${dc[@]}" up -d --no-build
+fixture_model="m02-fixture-model"
+fixture_base_url="http://host.docker.internal:9/v1"
+PI_UID="$uid" PI_GID="$gid" PI_CODEX_LB_MODEL="$fixture_model" PI_CODEX_LB_BASE_URL="$fixture_base_url" "${dc[@]}" up -d --no-build
 for _ in $(seq 1 80); do
   cid="$("${dc[@]}" ps -q pi)"
   status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid")"
@@ -138,8 +140,7 @@ docker image tag "$mismatch" "$active"
 drift_id="$(docker image inspect "$active" --format '{{.Id}}')"
 [ "$drift_id" != "$old_id" ]
 set +e
-env \
-  PI_UID="$uid" PI_GID="$gid" \
+env -u PI_UID -u PI_GID -u PI_CODEX_LB_MODEL -u PI_CODEX_LB_BASE_URL \
   PI_UNRAID_DEPLOYMENT_STATE_ROOT="$drift_state" \
   PI_UNRAID_ACTIVE_TAG="$active" PI_UNRAID_CANDIDATE_TAG="$candidate" PI_UNRAID_PREVIOUS_TAG="$previous" \
   PI_UNRAID_COMPOSE_PROJECT="$project" PI_UNRAID_COMPOSE_OVERRIDE="$override" \
@@ -150,6 +151,10 @@ set -e
 [ "$rc" -ne 0 ]
 drift_tx="$drift_state/$(readlink "$drift_state/latest")"
 [ "$(cat "$drift_tx/pre-image-id")" = "$old_id" ]
+grep -F "PI_UID: \"$uid\"" "$drift_tx/pre-update.compose.yaml" >/dev/null
+grep -F "PI_GID: \"$gid\"" "$drift_tx/pre-update.compose.yaml" >/dev/null
+grep -F "PI_CODEX_LB_MODEL: $fixture_model" "$drift_tx/pre-update.compose.yaml" >/dev/null
+grep -F "PI_CODEX_LB_BASE_URL: $fixture_base_url" "$drift_tx/pre-update.compose.yaml" >/dev/null
 [ "$(docker image inspect "$active" --format '{{.Id}}')" = "$drift_id" ]
 docker image tag "$old_id" "$active"
 
