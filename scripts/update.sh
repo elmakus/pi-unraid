@@ -74,6 +74,29 @@ checkout_upstream() {
   printf '%s\n' "$upstream"
 }
 
+current_deployment_settings() {
+  local cid name value secret_source
+  compose_args
+  cid="$(${COMPOSE_ARGS[@]} ps -q pi 2>/dev/null || true)"
+  [ -n "$cid" ] || die "current Compose service is not running; cannot inherit deployment settings"
+
+  for name in PI_UID PI_GID PI_CODEX_LB_BASE_URL PI_CODEX_LB_MODEL; do
+    if [ -z "$(printenv "$name" 2>/dev/null || true)" ]; then
+      value="$(docker inspect -f '{{range .Config.Env}}{{println .}}{{end}}' "$cid" | sed -n "s/^${name}=//p" | head -n 1)"
+      [ -n "$value" ] || die "running deployment does not expose $name; pass it explicitly"
+      printf -v "$name" '%s' "$value"
+      export "$name"
+    fi
+  done
+
+  if [ -z "${PI_CODEX_LB_SECRET_SOURCE:-}" ]; then
+    secret_source="$(docker inspect -f '{{range .Mounts}}{{if eq .Destination "/run/secrets/pi-unraid-codex-lb"}}{{println .Source}}{{end}}{{end}}' "$cid" | head -n 1)"
+    [ -n "$secret_source" ] || die "running deployment does not expose the Pi Codex-LB secret source; pass PI_CODEX_LB_SECRET_SOURCE explicitly"
+    PI_CODEX_LB_SECRET_SOURCE="$secret_source"
+    export PI_CODEX_LB_SECRET_SOURCE
+  fi
+}
+
 current_deployment_image_id() {
   local cid health image_id
   compose_args
@@ -212,6 +235,7 @@ continue_update() {
 start_update() {
   local upstream tx
   acquire_lock
+  current_deployment_settings
   compose_args
   upstream="$(checkout_upstream)"
   tx="$STATE_ROOT/tx-$(date -u +%Y%m%dT%H%M%SZ)-$$"
