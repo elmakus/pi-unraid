@@ -6,7 +6,7 @@ current_milestone: "M01"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "bd25b5317d9b53cd9d2d17d21adfc75e9c86beb3"
+  head: "412c9ce143f883f13b885aa93502651184809a10"
 
 research_obligation: null
 
@@ -50,13 +50,13 @@ cards:
     depends_on: ["M01-T01"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T02.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "412c9ce143f883f13b885aa93502651184809a10"
     review_evidence: null
-    result_commit: null
+    result_commit: "412c9ce143f883f13b885aa93502651184809a10"
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T02.md"
+    tests_summary: "GREEN on Tower disposable fixtures: Compose security/mount/restart/timezone/logging foundation verified; PID1 runs as configurable 21001:21001 with working sudo; restart preserves home marker/ownership; changed UID/GID fails safely without takeover; T01 base-image regression remains GREEN."
 
   - id: "M01-T03"
     title: "Native TUI, Git/worktree and operator setup path"
