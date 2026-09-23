@@ -6,7 +6,7 @@ current_milestone: "M02"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "70d0ed0c74c965a1ba6cc0196f14e256faa1b7a1"
+  head: "115567993a37063eafcde7526134d26b1b388702"
 
 research_obligation: null
 
@@ -108,7 +108,7 @@ cards:
     title: "Managed Pi lifecycle, readiness and bounded shutdown"
     milestone: "M02"
     decision_state: accepted
-    execution_status: ready
+    execution_status: in_progress
     executor: chatgpt
     depends_on: ["M02-T01"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
