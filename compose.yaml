@@ -17,7 +17,6 @@ services:
     secrets:
       - source: codex_lb_client
         target: pi-unraid-codex-lb
-        mode: 0400
     stdin_open: true
     tty: true
     healthcheck:
