@@ -11,7 +11,7 @@ parent_branch: null
 parent_dependency: null
 
 intake:
-  state: "active"
+  state: "complete"
   record: "implementation/workstreams/feature-paseo-gui-runtime/INTAKE.md"
 
 routing:
