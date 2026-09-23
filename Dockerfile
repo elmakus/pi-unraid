@@ -58,6 +58,7 @@ ENV HOME=/home/pi \
 COPY --chmod=0755 scripts/container-entrypoint.sh /usr/local/bin/pi-unraid-entrypoint
 COPY --chmod=0755 scripts/pi-unraid-runtime /usr/local/bin/pi-unraid-runtime
 COPY --chmod=0755 scripts/pi-unraid-service /usr/local/bin/pi-unraid-service
+COPY --chmod=0755 scripts/pi-unraid-provider /usr/local/bin/pi-unraid-provider
 COPY --chmod=0755 scripts/pi-launcher.sh /usr/local/bin/pi
 
 WORKDIR /home/pi
