@@ -67,9 +67,9 @@ cards:
     depends_on: ["M01-T02"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T03.md"
-    review_state: in_progress
+    review_state: green
     review_subject: "d016731a276e33f09b9a23df682951e89b21c8dc"
-    review_evidence: null
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T03-review-02.md"
     result_commit: "d016731a276e33f09b9a23df682951e89b21c8dc"
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T03.md"
