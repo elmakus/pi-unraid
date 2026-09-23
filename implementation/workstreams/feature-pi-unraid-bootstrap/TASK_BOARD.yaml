@@ -6,7 +6,7 @@ current_milestone: "M02"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "115567993a37063eafcde7526134d26b1b388702"
+  head: "3ee4fd740bfa4afb1ec3f1fba5f4452624588d72"
 
 research_obligation: null
 
@@ -113,13 +113,13 @@ cards:
     depends_on: ["M02-T01"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T02.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "3ee4fd740bfa4afb1ec3f1fba5f4452624588d72"
     review_evidence: null
-    result_commit: null
+    result_commit: "3ee4fd740bfa4afb1ec3f1fba5f4452624588d72"
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T02.md"
+    tests_summary: "GREEN on Tower disposable fixtures at subject 3ee4fd740bfa4afb1ec3f1fba5f4452624588d72: real TTY-backed packaged Pi receives planned SIGTERM without supervisor SIGKILL; concurrent registrations/stale-PID defense/full 3s grace + bounded escalation GREEN; stale readiness becomes unhealthy; T01 runtime selector and all M01 regressions GREEN; image sha256:3ad9ef172eefd26be1a7a0ba139153478d943a129735d31bdf4a1df1750f696e."
 
   - id: "M02-T03"
     title: "Host update operation and previous deployment rollback"
