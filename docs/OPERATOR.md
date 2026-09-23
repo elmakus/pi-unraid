@@ -12,7 +12,7 @@ The service home is the persistent bind:
 From the repository checkout mounted beneath `/projects`, configure the persistent Git identity and GitHub host trust once:
 
 ```sh
-docker compose exec -u pi pi \
+docker compose exec -u pi pi sh \
   /projects/pi-unraid/scripts/configure-operator.sh \
   "Your Name" "you@example.com"
 ```
