@@ -8,7 +8,7 @@ Research ID: `pi-unraid-m02-lifecycle-facts-r1`
 Status: `complete`
 Origin role: `execution_prep`
 Origin subject: `M02`
-Return target: `execution_resolution:M02`
+Return target: `execution_prep:M02`
 Return reconciliation: `pending`
 Return reconciliation result: `none`
 
@@ -179,6 +179,16 @@ M03 still owns:
 The upstream SIGTERM issues are relevant evidence that shutdown must be tested end-to-end rather than inferred from “SIGTERM is conventional”. Current source has the corrected signal path, but dead-terminal EIO remains a distinct failure class. Docker's PID1-only stop semantics similarly mean a naive `stop_grace_period` change would not satisfy the accepted exec-session requirement.
 
 No external evidence requires a new product/system decision.
+
+## Execution-resolution classification
+
+Classification: **return to Execution Prep**.
+
+- Accepted requirements/ADR-003/M02 outcome remain valid.
+- No finding changes user/product intent.
+- No finding requires a new strategic milestone shape.
+- Remaining choices are exact state layout, deadlines, locking, probes and rollback mechanics already delegated by the approved plan.
+- Final owner: `execution_prep:M02`.
 
 ## Execution-Prep implications
 
