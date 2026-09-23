@@ -131,8 +131,8 @@ active_pids() {
       read -r p s u extra < "$f" || continue
       [ -z "${extra:-}" ] || continue
       [ -r "/proc/$p/stat" ] || continue
-      [ "$(awk "{print \\$22}" "/proc/$p/stat")" = "$s" ] || continue
-      [ "$(awk "/^Uid:/ {print \\$2; exit}" "/proc/$p/status")" = "$u" ] || continue
+      [ "$(awk "{print \$22}" "/proc/$p/stat")" = "$s" ] || continue
+      [ "$(awk "/^Uid:/ {print \$2; exit}" "/proc/$p/status")" = "$u" ] || continue
       printf "%s\n" "$p"
     done
   '
