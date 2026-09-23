@@ -2,6 +2,7 @@
 
 - Workstream ID: `change-pi-extension-evaluation`
 - Intake kind: `change`
+- Intake state: `complete`
 - Branch: `work/pi-extension-evaluation`
 - Base ref: `feat/pi-unraid-bootstrap`
 - Integration target: `main`
@@ -41,15 +42,16 @@ The final integration target remains `main`. The child must not integrate direct
 - 16 `pi-btw`: rejected.
 - 17 `pi-github-pr`: determine whether it only helps the human UI or also the agent.
 - 18 `pi-zentui`: rejected.
-- 19 SpecPi/self-discovered extension/ability mechanism: locate the Reddit comment and identify the actual mechanism/project.
+- 19 SpecPi/self-discovered extension/ability mechanism: locate the Reddit comment and identify the actual extension/mechanism referred to.
 - 20 external workflow-engine prior art: research requested.
 - 21 `pi-code`: rejected; use clean Pi.
 - 22 subagent frameworks: research requested as prior art for Pi-native subagents/PWv3.
 - 23 Pi Desktop: rejected; Paseo selected instead.
 - MCP: research Pi extensions/approaches needed to use MCP cleanly.
 
-## Next route
+## Downstream materialization
 
 - Path: Research
 - Next route: `research:pi-extension-evaluation-r1`
-- Canonical research record to materialize: `research/PI_EXTENSION_EVALUATION_R1.md`
+- Canonical research record: `research/PI_EXTENSION_EVALUATION_R1.md`
+- Manifest routing locator: `routing.research_obligation = research/PI_EXTENSION_EVALUATION_R1.md`
