@@ -10,10 +10,7 @@ LABEL org.opencontainers.image.title="pi-unraid" \
       io.pi-unraid.pi-seed-version="${PI_SEED_VERSION}"
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    PI_UNRAID_SEED_VERSION="${PI_SEED_VERSION}" \
-    HOME=/home/pi \
-    USER=pi \
-    LOGNAME=pi
+    PI_UNRAID_SEED_VERSION="${PI_SEED_VERSION}"
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -46,11 +43,15 @@ RUN apt-get update \
 RUN npm install -g --ignore-scripts "@earendil-works/pi-coding-agent@${PI_SEED_VERSION}" \
     && pi --version | grep -F "${PI_SEED_VERSION}"
 
-RUN usermod --login pi --home /home/pi --move-home --shell /bin/bash node \
-    && groupmod --new-name pi node \
-    && install -d -m 0755 /projects /worktrees \
+RUN groupmod --new-name pi node \
+    && usermod --login pi --home /home/pi --shell /bin/bash node \
+    && install -d -o pi -g pi -m 0755 /home/pi /projects /worktrees \
     && printf 'pi ALL=(ALL) NOPASSWD:ALL\n' > /etc/sudoers.d/pi \
     && chmod 0440 /etc/sudoers.d/pi
+
+ENV HOME=/home/pi \
+    USER=pi \
+    LOGNAME=pi
 
 COPY --chmod=0755 scripts/container-entrypoint.sh /usr/local/bin/pi-unraid-entrypoint
 
