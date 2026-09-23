@@ -5,7 +5,7 @@ Kind: `feature`
 Branch: `feat/paseo-gui-runtime`
 Integration target: `main`
 Base: `ca196378bc38d87f5267b870de2c5545905279d4`
-State: `active`
+State: `complete`
 
 ## Operator intent
 
@@ -23,6 +23,9 @@ Establish Paseo as the normal GUI/control surface for Pi on Unraid and design th
 Path: `brainstorming`
 Next route: `brainstorming:paseo-gui-runtime@R1`
 
-Before Intake completes, the exact Brainstorming record and manifest `routing.exploratory_scope` locator must be materialized on this branch.
+Canonical exploratory record:
+`brainstorming/PASEO_GUI_RUNTIME.md`
+
+The selected workstream manifest now points `routing.exploratory_scope` to that exact record.
 
 Definition promotion remains user-owned and is not authorized by the original `#feature` directive.
