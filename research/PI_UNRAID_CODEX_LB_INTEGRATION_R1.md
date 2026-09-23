@@ -1,7 +1,7 @@
 # Research — Pi → Codex-LB Phase 1 integration facts
 
 Research ID: `pi-unraid-codex-lb-integration-r1`
-Status: `complete`
+Status: `consumed`
 Origin role: `project_definition`
 Origin subject: `pi-unraid-bootstrap@R2`
 Return target: `project_definition:pi-unraid-bootstrap@R2`
