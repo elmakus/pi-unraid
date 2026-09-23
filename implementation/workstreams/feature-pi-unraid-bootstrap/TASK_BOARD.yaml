@@ -6,7 +6,7 @@ current_milestone: "M02"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
+  head: "9b82c3373173327b7b4788f431eff91081eaa3e7"
 
 research_obligation: null
 
@@ -125,7 +125,7 @@ cards:
     title: "Host update operation and previous deployment rollback"
     milestone: "M02"
     decision_state: accepted
-    execution_status: ready
+    execution_status: in_progress
     executor: chatgpt
     depends_on: ["M02-T02"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
