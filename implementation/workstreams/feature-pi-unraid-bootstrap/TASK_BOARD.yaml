@@ -6,7 +6,7 @@ current_milestone: "M01"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "96ab28ea545a026385f7bfd7a90e118e46fa6c4b"
+  head: "bd25b5317d9b53cd9d2d17d21adfc75e9c86beb3"
 
 research_obligation: null
 
@@ -33,13 +33,13 @@ cards:
     depends_on: []
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T01.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "bd25b5317d9b53cd9d2d17d21adfc75e9c86beb3"
     review_evidence: null
-    result_commit: null
+    result_commit: "bd25b5317d9b53cd9d2d17d21adfc75e9c86beb3"
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M01-T01.md"
+    tests_summary: "GREEN on Tower: pinned Node 24 Bookworm base built as image sha256:30f47019edfb97619b6bdcd9d86b0441c7eca817d279eb4bbe9c515bc3099d0f; Pi stable seed 0.87.1 and complete required base tool inventory verified; exact identities and scope/safety readback recorded in M01-T01 evidence."
 
   - id: "M01-T02"
     title: "Non-root Compose and persistent-home foundation"
