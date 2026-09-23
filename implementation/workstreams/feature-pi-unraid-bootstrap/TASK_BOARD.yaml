@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "340121090f4b78ef3d2a3c1377d8bf5477026835"
+  head: "e0d9a6b9af6921d3e0050b6caab3d2e0d0558615"
 
 research_obligation: null
 
@@ -37,7 +37,7 @@ milestones:
 
   M03:
     decision_state: accepted
-    execution_status: blocked
+    execution_status: in_progress
     contract: "planning/MASTER_PLAN.md#M03 — Codex-LB-integrated on-Unraid acceptance and recoverable handoff"
     checkpoint: null
     implementation_head: null
@@ -172,7 +172,7 @@ cards:
     title: "Codex-LB dependency readiness and Pi client boundary"
     milestone: "M03"
     decision_state: accepted
-    execution_status: ready
+    execution_status: in_progress
     executor: chatgpt
     depends_on: ["M02-T03"]
     openspec_change: null
