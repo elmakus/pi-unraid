@@ -9,6 +9,15 @@ services:
       PI_UID: "${PI_UID:-1000}"
       PI_GID: "${PI_GID:-1000}"
       TZ: Europe/Zurich
+      PI_CODEX_LB_BASE_URL: "${PI_CODEX_LB_BASE_URL:-http://host.docker.internal:2455/v1}"
+      PI_CODEX_LB_MODEL: "${PI_CODEX_LB_MODEL:-gpt-5.6-sol}"
+      PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    secrets:
+      - source: codex_lb_client
+        target: pi-unraid-codex-lb
+        mode: 0400
     stdin_open: true
     tty: true
     healthcheck:
@@ -38,3 +47,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+secrets:
+  codex_lb_client:
+    file: "${PI_CODEX_LB_SECRET_SOURCE:-/mnt/user/appdata/pi-unraid/secrets/codex-lb.env}"
