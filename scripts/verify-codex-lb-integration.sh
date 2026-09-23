@@ -161,7 +161,7 @@ PY
 rendered="$(dc config)"
 ! printf '%s\n' "$rendered" | grep -F "$fixture_key" >/dev/null
 printf '%s\n' "$rendered" | grep -F 'source: codex_lb_client' >/dev/null
-printf '%s\n' "$rendered" | grep -F 'target: /run/secrets/pi-unraid-codex-lb' >/dev/null
+printf '%s\n' "$rendered" | grep -F 'target: pi-unraid-codex-lb' >/dev/null
 
 mounts_json="$(docker inspect -f '{{json .Mounts}}' "$cid")"
 python3 - "$mounts_json" <<'PY'
