@@ -1,6 +1,6 @@
 id: "feature-pi-unraid-bootstrap"
 kind: "feature"
-status: "active"
+status: "done"
 
 branch: "feat/pi-unraid-bootstrap"
 base_ref: "main"
@@ -47,4 +47,4 @@ branch_cleanup:
   evidence: null
 
 pr: 1
-result: null
+result: "73c295209a46f0bc9245934d84cd3cc224f1f989"
