@@ -113,9 +113,9 @@ cards:
     depends_on: ["M02-T01"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T02.md"
-    review_state: in_progress
+    review_state: green
     review_subject: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
-    review_evidence: null
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T02-review-02.md"
     result_commit: "7152b99f7e4844d3a2328aeffc0a0f4d099891c0"
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T02.md"
