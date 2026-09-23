@@ -6,7 +6,7 @@ current_milestone: "M02"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "9b82c3373173327b7b4788f431eff91081eaa3e7"
+  head: "f45bac572f139fa02dd7ddd04592409023501cfa"
 
 research_obligation: null
 
@@ -130,10 +130,10 @@ cards:
     depends_on: ["M02-T02"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M02-T03.md"
-    review_state: null
-    review_subject: null
+    review_state: pending
+    review_subject: "f45bac572f139fa02dd7ddd04592409023501cfa"
     review_evidence: null
-    result_commit: null
+    result_commit: "f45bac572f139fa02dd7ddd04592409023501cfa"
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T03.md"
+    tests_summary: "GREEN on Tower disposable integrated fixtures at subject f45bac572f139fa02dd7ddd04592409023501cfa: full candidate gate GREEN (M01 + M02-T01/T02 regressions, stable Pi 0.87.1); successful fast-forward candidate cutover, explicit offline rollback, pre-cutover build failure, unhealthy post-cutover auto-rollback, persistent bind data/ownership and failed-candidate marker preservation GREEN; previous image sha256:3ad9ef172eefd26be1a7a0ba139153478d943a129735d31bdf4a1df1750f696e, candidate sha256:8cc449b04f4de729e394f20c98effe8e1931446103738ea760f58205221c531a, bounded retained tx_count=2."
