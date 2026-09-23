@@ -77,7 +77,7 @@ services:
     environment:
       PI_UNRAID_MANAGED_GRACE_SECONDS: "$grace"
       PI_UNRAID_LOOKUP_TIMEOUT_SECONDS: "1"
-      PI_UNRAID_SEED_CLI: "${PI_TEST_SEED_CLI:-/usr/local/bin/pi-seed}"
+      PI_UNRAID_SEED_CLI: "\${PI_TEST_SEED_CLI:-/usr/local/bin/pi-seed}"
       npm_config_registry: "http://127.0.0.1:9"
       npm_config_fetch_retries: "0"
     healthcheck:
