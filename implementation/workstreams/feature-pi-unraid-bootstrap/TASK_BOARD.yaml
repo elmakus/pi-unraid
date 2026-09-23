@@ -108,7 +108,7 @@ cards:
     title: "Managed Pi lifecycle, readiness and bounded shutdown"
     milestone: "M02"
     decision_state: accepted
-    execution_status: planned
+    execution_status: ready
     executor: chatgpt
     depends_on: ["M02-T01"]
     openspec_change: "openspec/changes/m02-runtime-lifecycle"
