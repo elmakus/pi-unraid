@@ -25,6 +25,18 @@ start_container() {
     -v "$fixture/worktrees:/worktrees" \
     -v "$repo_root:/opt/pi-unraid-src:ro" \
     "$image" sleep infinity >/dev/null
+
+  for _ in $(seq 1 100); do
+    if docker exec "$name" sh -ec 'test "$(id -u pi)" = "$PI_UID"; test "$(id -g pi)" = "$PI_GID"' \
+      && docker exec -u pi "$name" test -w /home/pi; then
+      return 0
+    fi
+    sleep 0.1
+  done
+
+  docker logs "$name" >&2 || true
+  echo "M01-T03 fixture error: service-user initialization did not become ready" >&2
+  return 1
 }
 
 start_container
