@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+RUNTIME_MANAGER="${PI_UNRAID_RUNTIME_MANAGER:-/usr/local/bin/pi-unraid-runtime}"
+REGISTRY_ROOT="${PI_UNRAID_MANAGED_ROOT:-/tmp/pi-unraid/managed-pi}"
+STOP_MARKER="$REGISTRY_ROOT/stopping"
+LOCK_FILE="$REGISTRY_ROOT/.lock"
+READY_MARKER="${PI_UNRAID_SERVICE_READY_MARKER:-/tmp/pi-unraid/service-ready}"
+GRACE_SECONDS="${PI_UNRAID_MANAGED_GRACE_SECONDS:-12}"
+
+log() { printf 'pi-unraid service: %s\n' "$*" >&2; }
+die() { log "$*"; exit 1; }
+
+is_uint() {
+  [[ "${1:-}" =~ ^[0-9]+$ ]]
+}
+
+proc_start_time() {
+  awk '{print $22}' "/proc/$1/stat" 2>/dev/null
+}
+
+proc_uid() {
+  awk '/^Uid:/ {print $2; exit}' "/proc/$1/status" 2>/dev/null
+}
+
+registration_tuple() {
+  local file="$1" pid start uid extra actual_start actual_uid
+  IFS=' ' read -r pid start uid extra < "$file" || return 1
+  is_uint "$pid" && is_uint "$start" && is_uint "$uid" || return 1
+  [ -z "${extra:-}" ] || return 1
+  [ "$pid" != "$$" ] || return 1
+  [ -r "/proc/$pid/stat" ] && [ -r "/proc/$pid/status" ] || return 1
+  actual_start="$(proc_start_time "$pid")"
+  actual_uid="$(proc_uid "$pid")"
+  [ "$actual_start" = "$start" ] || return 1
+  [ "$actual_uid" = "$uid" ] || return 1
+  [ "$actual_uid" = "$(id -u)" ] || return 1
+  printf '%s %s %s\n' "$pid" "$start" "$uid"
+}
+
+prune_or_tuple() {
+  local file="$1" tuple
+  if tuple="$(registration_tuple "$file")"; then
+    printf '%s\n' "$tuple"
+    return 0
+  fi
+  rm -f "$file"
+  log "pruned stale managed-Pi registration $(basename "$file")"
+  return 1
+}
+
+registry_init() {
+  mkdir -p "$REGISTRY_ROOT" "$(dirname "$READY_MARKER")"
+  chmod 0700 "$REGISTRY_ROOT"
+  umask 077
+  exec 9>"$LOCK_FILE"
+  flock -x 9
+  rm -f "$STOP_MARKER" "$REGISTRY_ROOT"/*.reg "$READY_MARKER"
+  flock -u 9
+  exec 9>&-
+}
+
+begin_shutdown() {
+  exec 9>"$LOCK_FILE"
+  flock -x 9
+  : > "$STOP_MARKER"
+  rm -f "$READY_MARKER"
+  flock -u 9
+  exec 9>&-
+  log "shutdown admission closed"
+}
+
+signal_all() {
+  local signal="$1" file tuple pid start uid
+  for file in "$REGISTRY_ROOT"/*.reg; do
+    [ -e "$file" ] || continue
+    if tuple="$(prune_or_tuple "$file")"; then
+      read -r pid start uid <<< "$tuple"
+      if kill "-$signal" "$pid" 2>/dev/null; then
+        log "sent SIG$signal to managed Pi pid=$pid start=$start"
+      fi
+    fi
+  done
+}
+
+has_active_managed() {
+  local file tuple
+  for file in "$REGISTRY_ROOT"/*.reg; do
+    [ -e "$file" ] || continue
+    if tuple="$(prune_or_tuple "$file")"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+keepalive_pid=""
+
+shutdown_service() {
+  trap - TERM INT
+  begin_shutdown
+  signal_all TERM
+
+  local deadline
+  deadline=$(( $(date +%s) + GRACE_SECONDS ))
+  while has_active_managed; do
+    if [ "$(date +%s)" -ge "$deadline" ]; then
+      break
+    fi
+    sleep 0.1
+  done
+
+  signal_all KILL
+
+  if [ -n "$keepalive_pid" ] && kill -0 "$keepalive_pid" 2>/dev/null; then
+    kill -TERM "$keepalive_pid" 2>/dev/null || true
+    wait "$keepalive_pid" 2>/dev/null || true
+  fi
+
+  log "shutdown complete"
+  exit 0
+}
+
+health() {
+  [ -e "$READY_MARKER" ] || return 1
+  [ ! -e "$STOP_MARKER" ] || return 1
+  "$RUNTIME_MANAGER" health
+}
+
+case "${1:-}" in
+  health)
+    health
+    exit $?
+    ;;
+  "")
+    ;;
+  *)
+    die "usage: pi-unraid-service [health]"
+    ;;
+esac
+
+[ "$(id -u)" -ne 0 ] || die "normal service PID1 must run as the configured non-root user"
+is_uint "$GRACE_SECONDS" || die "PI_UNRAID_MANAGED_GRACE_SECONDS must be a non-negative integer"
+
+registry_init
+trap shutdown_service TERM INT
+
+if "$RUNTIME_MANAGER" reconcile; then
+  if "$RUNTIME_MANAGER" health; then
+    : > "$READY_MARKER"
+    log "startup reconciliation ready"
+  else
+    rm -f "$READY_MARKER"
+    log "startup reconciliation completed without a usable runtime"
+  fi
+else
+  rm -f "$READY_MARKER"
+  log "startup reconciliation unavailable; service remains up for operator recovery"
+fi
+
+sleep infinity &
+keepalive_pid=$!
+wait "$keepalive_pid"

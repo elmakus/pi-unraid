@@ -4,12 +4,20 @@ services:
       context: .
     image: pi-unraid:local
     restart: unless-stopped
+    stop_grace_period: 20s
     environment:
       PI_UID: "${PI_UID:-1000}"
       PI_GID: "${PI_GID:-1000}"
+      PI_UNRAID_MANAGED_GRACE_SECONDS: "${PI_UNRAID_MANAGED_GRACE_SECONDS:-12}"
       TZ: Europe/Zurich
     stdin_open: true
     tty: true
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/pi-unraid-service", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
     volumes:
       - type: bind
         source: /mnt/user/appdata/pi-unraid/home
