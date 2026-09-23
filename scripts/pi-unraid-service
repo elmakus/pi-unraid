@@ -2,6 +2,7 @@
 set -euo pipefail
 
 RUNTIME_MANAGER="${PI_UNRAID_RUNTIME_MANAGER:-/usr/local/bin/pi-unraid-runtime}"
+PROVIDER_HELPER="${PI_UNRAID_PROVIDER_HELPER:-/usr/local/bin/pi-unraid-provider}"
 REGISTRY_ROOT="${PI_UNRAID_MANAGED_ROOT:-/tmp/pi-unraid/managed-pi}"
 STOP_MARKER="$REGISTRY_ROOT/stopping"
 LOCK_FILE="$REGISTRY_ROOT/.lock"
@@ -127,15 +128,24 @@ health() {
   "$RUNTIME_MANAGER" health
 }
 
+provider_health() {
+  [ -x "$PROVIDER_HELPER" ] || die "provider helper is unavailable"
+  "$PROVIDER_HELPER" check
+}
+
 case "${1:-}" in
   health)
     health
     exit $?
     ;;
+  provider-health)
+    provider_health
+    exit $?
+    ;;
   "")
     ;;
   *)
-    die "usage: pi-unraid-service [health]"
+    die "usage: pi-unraid-service [health|provider-health]"
     ;;
 esac
 
@@ -144,6 +154,16 @@ is_uint "$GRACE_SECONDS" || die "PI_UNRAID_MANAGED_GRACE_SECONDS must be a non-n
 
 registry_init
 trap shutdown_service TERM INT
+
+if [ -x "$PROVIDER_HELPER" ]; then
+  if "$PROVIDER_HELPER" init; then
+    log "provider configuration ready"
+  else
+    log "provider configuration unavailable; runtime health remains independent"
+  fi
+else
+  log "provider helper unavailable; runtime health remains independent"
+fi
 
 if "$RUNTIME_MANAGER" reconcile; then
   if "$RUNTIME_MANAGER" health; then
