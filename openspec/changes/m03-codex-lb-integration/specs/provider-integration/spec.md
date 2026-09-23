@@ -4,9 +4,10 @@
 
 1. The repository-owned Compose definition MUST support a dedicated Pi Codex-LB client secret without embedding its value in Git, image layers, service environment declarations or rendered Compose output.
 2. The default production secret source MUST be a Pi-owned host path under `/mnt/user/appdata/pi-unraid`; disposable verification MUST override it to a unique non-production path.
-3. The secret MUST be mounted into the Pi container only as a dedicated read-only secret file; Pi MUST NOT mount Codex-LB's data directory.
-4. The default container-to-host route MUST use `host.docker.internal:host-gateway` and the accepted host-published Codex-LB listener unless later target evidence requires an authorized change.
-5. This integration MUST NOT add Docker socket, host-root, unrelated-appdata mounts, inbound SSH or a dependency on `chatgpt-ce-workstation`.
+3. The host secret file MUST itself have restrictive permissions and ownership that makes it readable by the configured non-root Pi service UID/GID; the production target is mode `0600`.
+4. The secret MUST be mounted into the Pi container only as a dedicated read-only secret file; Pi MUST NOT mount Codex-LB's data directory.
+5. The default container-to-host route MUST use `host.docker.internal:host-gateway` and the accepted host-published Codex-LB listener unless later target evidence requires an authorized change.
+6. This integration MUST NOT add Docker socket, host-root, unrelated-appdata mounts, inbound SSH or a dependency on `chatgpt-ce-workstation`.
 
 ## Persistent models configuration
 
