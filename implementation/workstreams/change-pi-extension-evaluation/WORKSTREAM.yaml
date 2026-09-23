@@ -11,12 +11,12 @@ parent_branch: "feat/pi-unraid-bootstrap"
 parent_dependency: "This extension/Paseo/PWv3 evaluation depends on the clean-Pi/Paseo project direction and branch-isolated project state that currently exists only on feat/pi-unraid-bootstrap."
 
 intake:
-  state: active
+  state: complete
   record: "implementation/workstreams/change-pi-extension-evaluation/INTAKE.md"
 
 routing:
   exploratory_scope: null
-  research_obligation: null
+  research_obligation: "research/PI_EXTENSION_EVALUATION_R1.md"
   plan_review: null
 
 task_board: null
