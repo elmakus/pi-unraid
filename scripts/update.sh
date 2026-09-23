@@ -74,12 +74,25 @@ checkout_upstream() {
   printf '%s\n' "$upstream"
 }
 
+current_deployment_image_id() {
+  local cid health image_id
+  compose_args
+  cid="$("${COMPOSE_ARGS[@]}" ps -q pi 2>/dev/null || true)"
+  [ -n "$cid" ] || die "current Compose service is not running"
+  health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || true)"
+  [ "$health" = healthy ] || die "current Compose service is not healthy; refusing to treat it as rollback LKG"
+  image_id="$(docker inspect -f '{{.Image}}' "$cid" 2>/dev/null)" ||
+    die "cannot resolve current deployed image identity"
+  docker image inspect "$image_id" >/dev/null 2>&1 ||
+    die "current deployed image $image_id is unavailable locally"
+  printf '%s\n' "$image_id"
+}
+
 snapshot_pre_update() {
   local tx="$1" current_id
   mkdir -p "$tx"
   git -C "$REPO_ROOT" rev-parse HEAD >"$tx/pre-source-head"
-  current_id="$(docker image inspect "$ACTIVE_TAG" --format '{{.Id}}' 2>/dev/null)" ||
-    die "active image $ACTIVE_TAG does not exist"
+  current_id="$(current_deployment_image_id)"
   printf '%s\n' "$current_id" >"$tx/pre-image-id"
   render_config "$tx/pre-update.compose.yaml"
   printf '%s\n' prepared >"$tx/status"
@@ -100,6 +113,9 @@ run_candidate_verification() {
 
 record_runtime() {
   local cid="$1" output="$2"
+  if [ "${PI_UNRAID_TEST_FORCE_RUNTIME_READBACK_FAIL:-0}" = 1 ]; then
+    return 1
+  fi
   docker exec -u pi "$cid" pi-unraid-runtime status | sed -n '/^{/,$p' >"$output"
   jq -e '.selected.version != null and (.status == "ready" or .status == "degraded")' "$output" >/dev/null
 }
@@ -178,9 +194,15 @@ continue_update() {
     docker image rm "$CANDIDATE_TAG" >/dev/null 2>&1 || true
     return 1
   fi
+  if ! record_runtime "$cid" "$tx/post-runtime.json"; then
+    log "candidate runtime readback failed; restoring retained previous deployment"
+    rm -f "$tx/post-runtime.json"
+    rollback_transaction "$tx"
+    docker image rm "$CANDIDATE_TAG" >/dev/null 2>&1 || true
+    return 1
+  fi
 
   printf '%s\n' "$candidate_id" >"$tx/post-image-id"
-  record_runtime "$cid" "$tx/post-runtime.json"
   printf '%s\n' healthy >"$tx/status"
   docker image rm "$CANDIDATE_TAG" >/dev/null 2>&1 || true
   cleanup_transactions
