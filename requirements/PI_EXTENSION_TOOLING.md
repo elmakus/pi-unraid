@@ -1,10 +1,10 @@
 # Pi extension/tooling stack
 
-Revision: `R3`
+Revision: `R4`
 Status: `draft`
 Updated: `2026-09-23`
 
-Definition subject: `pi-extension-tooling-selection@R3`
+Definition subject: `pi-extension-tooling-selection@R4`
 Workstream: `change-pi-extension-evaluation`
 Verified research:
 - `research/PI_EXTENSION_EVALUATION_R1.md`
@@ -33,12 +33,15 @@ Define the follow-on Pi capability stack for a **clean Pi Coding Agent** operate
 | PIE-REQ-013 | The stack MUST include SpecPi's Pi-wide capability-gap / harness-improvement loop. It MUST remain outside Project Workflow authority: observing/logging a gap does not authorize a harness change. | accepted |
 | PIE-REQ-014 | Future Pi-oriented PWv3 research MUST also consider refactoring/optimizing the separate `codex_workflow` runtime for Pi-native subagents and bounded context rather than assuming the current Codex-specific design remains optimal. | accepted |
 | PIE-REQ-015 | SpecPi MUST initially be installed in core-only mode (`--skip-package-install`) so its bundled package set does not silently decide unresolved choices such as web tooling, delegation, goals or other extension policy. | accepted |
+| PIE-REQ-016 | `pi-blackhole` MUST be included as the context-compaction/memory extension. Its observational memory MAY be enabled, but all Blackhole summaries/observations/reflections remain non-authoritative convenience context. | accepted |
+| PIE-REQ-017 | Independent review MUST use a fresh Pi session/process and MUST NOT inherit executor-session Blackhole memory or exported cross-session memory unless the exact review contract explicitly permits that evidence. | accepted |
 
 ## Current selected baseline
 
-Accepted candidates:
+Accepted:
 - Paseo;
 - SpecPi core: scope + Harness Improvement Loop, installed initially with `--skip-package-install`;
+- `pi-blackhole`;
 - `rpiv-ask-user-question`;
 - `pi-permission-system`;
 - `pi-lens`;
@@ -69,18 +72,16 @@ Not selected as current deployment components merely because they are interestin
 
 Context7 is not selected as a separate extension here. If it proves necessary after web/research testing, the user has another intended delivery path and it can be evaluated then.
 
-## Authority / memory invariant
+## Blackhole authority/configuration boundary
 
-Pi/Paseo/session-derived state may improve UX and continuity, but canonical Project Workflow state remains repository-backed. If Blackhole memory, Paseo session state, SpecPi harness records or another extension disagrees with canonical workstream/Task Board/requirements/decision/evidence state, the repository authority wins.
+Blackhole is selected, including the option to use observational memory.
 
-Blackhole observational memory MAY be used with Project Workflow provided:
-- it remains non-authoritative context;
-- every role recovers the exact durable pointers required by Project Workflow rather than trusting remembered workflow state;
-- independent review is performed in a genuinely fresh Pi session/process so executor-session Blackhole memory is not inherited;
-- exported/cross-session memory is not injected into an independent-review context unless the review contract explicitly permits that evidence.
+Its worker models are configurable independently (`observerModel`, `reflectorModel`, `dropperModel`, fallbacks and thinking level). Exact model/provider choices are runtime configuration and may be optimized later without changing the product/system authority in this Definition.
+
+Repository-backed Project Workflow state always wins over Blackhole memory. A remembered completion, verdict, route or decision can never advance workflow state by itself.
 
 ## Definition completeness
 
-Definition Complete: **RED / bounded live validation and the Blackhole selection still remain**.
+Definition Complete: **RED / live web-research A/B validation still remains**.
 
 See `brainstorming/PI_EXTENSION_OPEN_QUESTIONS.md`.

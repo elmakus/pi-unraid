@@ -27,6 +27,7 @@ authority:
     - "decisions/PIE_ADR_001_EXTENSION_BASELINE.md"
     - "decisions/PIE_ADR_002_TOOLING_SELECTIONS.md"
     - "decisions/PIE_ADR_003_SPECPI_CORE.md"
+    - "decisions/PIE_ADR_004_BLACKHOLE.md"
   plan: null
 
 review:
@@ -43,4 +44,4 @@ branch_cleanup:
   evidence: null
 
 pr: null
-result: "Definition remains incomplete pending web/research live A/B validation and final pi-blackhole selection/configuration."
+result: "Definition remains incomplete only pending live A/B validation of pi-web-access versus Ketch."
