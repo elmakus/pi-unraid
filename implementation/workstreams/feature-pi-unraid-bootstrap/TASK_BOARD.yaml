@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
+  head: "e5ca17b98f0f7177e7e616e19a29d613902bb460"
 
 research_obligation: null
 
@@ -223,15 +223,15 @@ cards:
     title: "Production recovery, restart and final technical handoff"
     milestone: "M03"
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: blocked
     executor: chatgpt
     depends_on: ["M03-T04"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T05.md"
     review_state: null
     review_subject: null
-    review_evidence: null
+    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-partial.md"
     result_commit: null
     result_pr: null
     evidence: null
-    tests_summary: "READY: bounded M03-T05 production-recovery scope explicitly authorized at implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-authorization.md; Docker-wide/host restart remains separately gated and unauthorized."
+    tests_summary: "PARTIAL GREEN: authorized non-disruptive M03-T05 recovery passed on production, including full update verification, controlled runtime LKG recovery, graceful stop/session resume, actual retained-image rollback with durable-mount preservation, plain update with inherited live settings, Codex-LB outage/restart recovery, bounded logging/security and workstation independence. BLOCKED only on separate Docker-wide/host-restart authorization; see implementation/workstreams/feature-pi-unraid-bootstrap/blockers/M03-T05-disruptive-restart.md."
