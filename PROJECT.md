@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Project Definition R2 GREEN; Master Plan R2 independently reviewed GREEN and approved; M03-T02 implementation is GREEN at subject `4267f707ae121d54625e537fb7e8e3820c654997` and is pending RECOMMENDED independent review.** Codex-LB runs upstream `v1.25.0-beta.9`; M01/M02 remain completed historical checkpoints; no production pi-unraid deployment has occurred.
+- High-level status: **Project Definition R3 GREEN after the user explicitly waived Docker-wide/host restart as a Phase 1 acceptance exercise; Master Plan R3 is draft with RECOMMENDED independent review pending.** M01/M02 and M03-T02/T03/T04 remain completed GREEN; authorized non-disruptive M03-T05 recovery evidence is GREEN and preserved; no Docker-wide/Unraid host restart was executed.
 
 ## Execution policy
 
@@ -27,20 +27,21 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
   - `decisions/PIB_ADR_004_WORKFLOW_ROLES.md`
   - `decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md`
   - `decisions/PIB_ADR_006_CHATGPT_STRATEGIC_PLANNER_OVERRIDE.md`
+  - `decisions/PIB_ADR_007_SKIP_DISRUPTIVE_RESTART_ACCEPTANCE.md`
 - Definition evidence:
   - `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
   - `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`
 - Source exploratory record: `brainstorming/PI_UNRAID_BRAINSTORM.md`
-- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R2`, status `approved`
-- Planner audit: `planning/audits/R2.md`, GREEN
-- Plan Review record: `planning/reviews/R2.md`, GREEN
+- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R3`, status `draft`
+- Planner audit: `planning/audits/R3.md`, GREEN
+- Plan Review record: `planning/reviews/R3.md`, pending
 
 ## Definition state
 
-- Definition subject: `pi-unraid-bootstrap@R2`
+- Definition subject: `pi-unraid-bootstrap@R3`
 - Requirements status: `approved`
 - Definition Complete: `GREEN`
-- Material unresolved user/product questions: none
+- Material unresolved user/product questions: none; the broad restart verification risk is explicitly accepted under `PIB-ADR-007`
 - Planning scope: Phase 1 minimal Pi bootstrap with Codex-LB as the required ChatGPT/Codex OAuth/account-routing layer; no direct Pi ChatGPT OAuth bootstrap path
 
 ## Workflow
