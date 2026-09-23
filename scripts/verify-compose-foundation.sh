@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PI_CODEX_LB_SECRET_SOURCE="${PI_CODEX_LB_SECRET_SOURCE:-/dev/null}"
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 image="${1:-pi-unraid:local}"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/pi-unraid-m01-t02.XXXXXX")"
@@ -61,7 +63,10 @@ test "$(docker exec -u pi "$cid" cat /home/pi/.pi/agent/persist-marker)" = "keep
 test "$(stat -c '%u:%g' "$fixture/home/.pi/agent/persist-marker")" = "$uid_a:$gid_a"
 
 mounts="$(docker inspect -f '{{range .Mounts}}{{.Destination}};{{end}}' "$cid")"
-test "$mounts" = "/projects;/worktrees;/home/pi;" || test "$mounts" = "/home/pi;/projects;/worktrees;"
+case "$mounts" in
+  *"/home/pi;"*"/projects;"*"/worktrees;"*"/run/secrets/pi-unraid-codex-lb;"*|*"/run/secrets/pi-unraid-codex-lb;"*"/home/pi;"*"/projects;"*"/worktrees;"*) ;;
+  *) printf 'unexpected Compose mount set: %s\n' "$mounts" >&2; exit 1 ;;
+esac
 test "$(docker inspect -f '{{.HostConfig.Privileged}}' "$cid")" = "false"
 test "$(docker inspect -f '{{.HostConfig.LogConfig.Type}}' "$cid")" = "json-file"
 test "$(docker inspect -f '{{index .HostConfig.LogConfig.Config "max-size"}}' "$cid")" = "10m"
