@@ -14,7 +14,7 @@
 
 Changing execution policy requires an explicit user decision.
 
-The latest user authority supersedes the former Codex/Astra Max planner assignment: the current normal ChatGPT session authored Strategic Planning R2 under `PIB-ADR-006`. This does not change the project's `chatgpt_only` execution policy. Independent Plan Review must be performed by a fresh normal ChatGPT that did not author the exact R2 plan subject, and downstream Execution Prep, Execution, implementation review and Close remain routed through ChatGPT unless the user explicitly changes project authority later.
+The latest user authority supersedes the former Codex/Astra Max planner assignment: the current normal ChatGPT session authored Strategic Planning R3 under `PIB-ADR-006` after the explicit R3 acceptance change in `PIB-ADR-007`. This does not change the project's `chatgpt_only` execution policy. Independent Plan Review must be performed by a fresh normal ChatGPT that did not author the exact R3 plan subject, and downstream Execution Prep, Execution, implementation review and Close remain routed through ChatGPT unless the user explicitly changes project authority later.
 
 ## Canonical authority pointers
 
