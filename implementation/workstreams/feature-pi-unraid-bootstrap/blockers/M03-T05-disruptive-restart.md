@@ -2,7 +2,7 @@
 
 - Card: `M03-T05 — Production recovery, restart and final technical handoff`
 - Date: 2026-09-23
-- Status: **WAITING_USER_AUTHORIZATION**
+- Status: **RESOLVED BY USER AUTHORITY CHANGE — restart not executed**
 - Origin: M03-T05 execution after all currently authorized non-disruptive recovery checks passed
 
 ## Completed before this gate
@@ -28,3 +28,7 @@ The operation will include exact pre-restart state capture and post-restart read
 - final M03 requirement/acceptance coverage.
 
 No disruptive restart is performed until this explicit authorization is received.
+
+## Resolution
+
+On 2026-09-23 the user explicitly chose to skip the disruptive restart. No Docker-wide or Unraid host restart was executed. The change is captured by `PIB-ADR-007` and Definition R3; downstream plan/execution state must be reconciled under that new authority rather than treating this gate as passed.
