@@ -17,7 +17,7 @@ intake:
 routing:
   exploratory_scope: null
   research_obligation: null
-  plan_review: "planning/reviews/R2.md"
+  plan_review: null
 
 task_board: "implementation/workstreams/feature-pi-unraid-bootstrap/TASK_BOARD.yaml"
 
