@@ -1,7 +1,7 @@
 project: "elmakus/pi-unraid"
 workstream_id: "feature-pi-unraid-bootstrap"
 plan_revision: "R1"
-current_milestone: "M02"
+current_milestone: "M03"
 
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
@@ -31,6 +31,18 @@ milestones:
     implementation_head: "340121090f4b78ef3d2a3c1377d8bf5477026835"
     handoff: "implementation/workstreams/feature-pi-unraid-bootstrap/handoffs/M02_HANDOFF.md"
     acceptance_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-acceptance.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+
+  M03:
+    decision_state: accepted
+    execution_status: blocked
+    contract: "planning/MASTER_PLAN.md#M03 — On-Unraid acceptance and recoverable user handoff"
+    checkpoint: null
+    implementation_head: null
+    handoff: null
+    acceptance_evidence: null
     review_state: null
     review_subject: null
     review_evidence: null
@@ -137,3 +149,20 @@ cards:
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-T03.md"
     tests_summary: "GREEN on Tower from detached exact subject 340121090f4b78ef3d2a3c1377d8bf5477026835: diff/shell syntax checks GREEN; full integrated M01 + M02-T01/T02 candidate gate GREEN (stable Pi 0.87.1, managed lifecycle escalation 3256 ms); active-tag drift snapshots the actual running healthy LKG; successful cutover, explicit offline rollback, pre-cutover build failure, post-health runtime-readback auto-rollback, unhealthy auto-rollback, bind data/ownership + failed-candidate marker preservation and log rotation GREEN; previous image sha256:3ad9ef172eefd26be1a7a0ba139153478d943a129735d31bdf4a1df1750f696e, candidate sha256:8cc449b04f4de729e394f20c98effe8e1931446103738ea760f58205221c531a, retained tx_count=2."
+
+  - id: "M03-T01"
+    title: "On-target bootstrap and initial production deployment"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: blocked
+    executor: chatgpt
+    depends_on: ["M02-T03"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T01.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-readiness.md"
+    tests_summary: "READ-ONLY target readiness GREEN on Tower: x86_64 / Unraid kernel 6.12.54, Docker 27.5.1, Compose 5.5.0; projects share and pi-unraid checkout are 99:100; no production pi-unraid container; canonical appdata/worktree paths are missing; host checkout is clean feat/pi-unraid-bootstrap but stale at 21cee93349dc1b0e432d0ca844234a36494a76ba and lacks Compose/update files; Appdata Backup includes /mnt/user/appdata; independent workstation baseline captured healthy. BLOCKED before execution pending explicit authorization for live checkout fast-forward, canonical-path creation, image build and first production Compose start."
