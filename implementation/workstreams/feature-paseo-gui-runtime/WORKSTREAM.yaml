@@ -15,7 +15,7 @@ intake:
   record: "implementation/workstreams/feature-paseo-gui-runtime/INTAKE.md"
 
 routing:
-  exploratory_scope: null
+  exploratory_scope: "brainstorming/PASEO_GUI_RUNTIME.md"
   research_obligation: null
   plan_review: null
 
