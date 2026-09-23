@@ -1,6 +1,6 @@
 project: "elmakus/pi-unraid"
 workstream_id: "feature-pi-unraid-bootstrap"
-plan_revision: "R1"
+plan_revision: "R2"
 current_milestone: "M03"
 
 execution_ref:
@@ -36,9 +36,9 @@ milestones:
     review_evidence: null
 
   M03:
-    decision_state: review
+    decision_state: accepted
     execution_status: blocked
-    contract: "planning/MASTER_PLAN.md#M03 — On-Unraid acceptance and recoverable user handoff"
+    contract: "planning/MASTER_PLAN.md#M03 — Codex-LB-integrated on-Unraid acceptance and recoverable handoff"
     checkpoint: null
     implementation_head: null
     handoff: null
@@ -166,3 +166,72 @@ cards:
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-readiness.md"
     tests_summary: "SUPERSEDED by explicit user product/architecture redefinition before any production write: Phase 1 must use Codex-LB as the ChatGPT/Codex OAuth access layer from first real Pi start. Prior read-only Tower readiness remains historical evidence only; no deployment was performed under this Card."
+
+
+  - id: "M03-T02"
+    title: "Codex-LB dependency readiness and Pi client boundary"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: blocked
+    executor: chatgpt
+    depends_on: ["M02-T03"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T02.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-R2-prep-readiness.md"
+    tests_summary: "BLOCKED at the explicit dependency live-write gate after refreshed read-only evidence: Tower codex-lb-clean is healthy but still deployed from fork revision 0b673d84316c33dd166e6bffbe6b66444379a895, whose upstream base is 92 commits behind current Soju06/codex-lb main 3d23d53f89dbbaa2353040a30451cf90ca48ee92. Codex-LB reconciliation must use its own authority/workflow, and dedicated Pi client-key creation also requires explicit authorization."
+
+  - id: "M03-T03"
+    title: "Pi Codex-LB integration and disposable validation"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: planned
+    executor: chatgpt
+    depends_on: ["M03-T02"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T03.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
+
+  - id: "M03-T04"
+    title: "Authorized production bootstrap and live functional acceptance"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: planned
+    executor: chatgpt
+    depends_on: ["M03-T03"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T04.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
+
+  - id: "M03-T05"
+    title: "Production recovery, restart and final technical handoff"
+    milestone: "M03"
+    decision_state: accepted
+    execution_status: planned
+    executor: chatgpt
+    depends_on: ["M03-T04"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T05.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
