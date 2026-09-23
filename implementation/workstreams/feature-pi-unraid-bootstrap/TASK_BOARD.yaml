@@ -8,7 +8,7 @@ execution_ref:
   pr: null
   head: "340121090f4b78ef3d2a3c1377d8bf5477026835"
 
-research_obligation: null
+research_obligation: "research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md"
 
 milestones:
   M01:
@@ -154,7 +154,7 @@ cards:
     title: "On-target bootstrap and initial production deployment"
     milestone: "M03"
     decision_state: accepted
-    execution_status: blocked
+    execution_status: superseded
     executor: chatgpt
     depends_on: ["M02-T03"]
     openspec_change: null
@@ -165,4 +165,4 @@ cards:
     result_commit: null
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-readiness.md"
-    tests_summary: "READ-ONLY target readiness GREEN on Tower: x86_64 / Unraid kernel 6.12.54, Docker 27.5.1, Compose 5.5.0; projects share and pi-unraid checkout are 99:100; no production pi-unraid container; canonical appdata/worktree paths are missing; host checkout is clean feat/pi-unraid-bootstrap but stale at 21cee93349dc1b0e432d0ca844234a36494a76ba and lacks Compose/update files; Appdata Backup includes /mnt/user/appdata; independent workstation baseline captured healthy. BLOCKED before execution pending explicit authorization for live checkout fast-forward, canonical-path creation, image build and first production Compose start."
+    tests_summary: "SUPERSEDED by explicit user product/architecture redefinition before any production write: Phase 1 must use Codex-LB as the ChatGPT/Codex OAuth access layer from first real Pi start. Prior read-only Tower readiness remains historical evidence only; no deployment was performed under this Card."
