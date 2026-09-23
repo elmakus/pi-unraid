@@ -29,6 +29,7 @@ authority:
     - "decisions/PIB_ADR_003_UPDATE_ROLLBACK.md"
     - "decisions/PIB_ADR_004_WORKFLOW_ROLES.md"
     - "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md"
+    - "decisions/PIB_ADR_006_CHATGPT_STRATEGIC_PLANNER_OVERRIDE.md"
   plan: "planning/MASTER_PLAN.md"
 
 review:
