@@ -230,8 +230,8 @@ cards:
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T05.md"
     review_state: null
     review_subject: null
-    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-partial.md"
+    review_evidence: null
     result_commit: null
     result_pr: null
-    evidence: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-partial.md"
     tests_summary: "PARTIAL GREEN evidence remains valid. The former disruptive-restart blocker is resolved by explicit user authority change (PIB-ADR-007); no broad restart was executed. Card remains BLOCKED only while Definition/Plan R3 is independently reviewed and downstream execution state is reconciled without rewriting completed evidence."
