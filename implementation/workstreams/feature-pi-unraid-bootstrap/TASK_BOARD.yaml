@@ -25,12 +25,12 @@ milestones:
 
   M02:
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: done
     contract: "planning/MASTER_PLAN.md#M02 — Recoverable runtime and deployment lifecycle"
-    checkpoint: null
-    implementation_head: null
-    handoff: null
-    acceptance_evidence: null
+    checkpoint: "340121090f4b78ef3d2a3c1377d8bf5477026835"
+    implementation_head: "340121090f4b78ef3d2a3c1377d8bf5477026835"
+    handoff: "implementation/workstreams/feature-pi-unraid-bootstrap/handoffs/M02_HANDOFF.md"
+    acceptance_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M02-acceptance.md"
     review_state: null
     review_subject: null
     review_evidence: null
