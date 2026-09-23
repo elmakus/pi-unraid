@@ -19,7 +19,9 @@ Current SpecPi also offers a default base that installs eight pinned supporting 
 
 Adopt **SpecPi core** as the Pi-wide capability-gap / harness-improvement layer.
 
-Initial installation MUST use SpecPi's supported `--skip-package-install` mode so that only SpecPi's own core scope/improvement-loop behavior is adopted without automatically installing its eight-package base.
+Initial installation MUST use SpecPi's supported `--skip-package-install` mode so that only SpecPi's own core resources are installed without automatically installing its bundled package base.
+
+For normal PWv2 work, SpecPi scope monitoring MUST remain disabled. Use `/scope clear` as the operational off switch. Project Workflow Task Cards and authority slices remain the sole scope authority for managed work.
 
 SpecPi is not the Project Workflow authority. It may:
 - observe and record Pi-wide harness friction/capability gaps;
@@ -34,6 +36,7 @@ It MUST NOT:
 ## Consequences
 
 - capability learning belongs to the whole Pi environment rather than PWv2/PWv3;
+- SpecPi scope monitoring is not part of the normal PWv2 execution path;
 - the project's explicit extension choices remain authoritative;
 - SpecPi's bundled packages remain useful prior art and may be selected individually later;
 - future PWv3 may consume promoted harness findings, but it does not own the collection loop.

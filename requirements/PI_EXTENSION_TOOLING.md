@@ -1,10 +1,10 @@
 # Pi extension/tooling stack
 
-Revision: `R4`
+Revision: `R5`
 Status: `draft`
 Updated: `2026-09-23`
 
-Definition subject: `pi-extension-tooling-selection@R4`
+Definition subject: `pi-extension-tooling-selection@R5`
 Workstream: `change-pi-extension-evaluation`
 Verified research:
 - `research/PI_EXTENSION_EVALUATION_R1.md`
@@ -32,7 +32,7 @@ Define the follow-on Pi capability stack for a **clean Pi Coding Agent** operate
 | PIE-REQ-012 | Any future PWv3 work derived from this research MUST be a separate authorized workflow workstream; this Pi extension workstream records prior art only. | accepted |
 | PIE-REQ-013 | The stack MUST include SpecPi's Pi-wide capability-gap / harness-improvement loop. It MUST remain outside Project Workflow authority: observing/logging a gap does not authorize a harness change. | accepted |
 | PIE-REQ-014 | Future Pi-oriented PWv3 research MUST also consider refactoring/optimizing the separate `codex_workflow` runtime for Pi-native subagents and bounded context rather than assuming the current Codex-specific design remains optimal. | accepted |
-| PIE-REQ-015 | SpecPi MUST initially be installed in core-only mode (`--skip-package-install`) so its bundled package set does not silently decide unresolved choices such as web tooling, delegation, goals or other extension policy. | accepted |
+| PIE-REQ-015 | SpecPi MUST initially be installed in core-only mode (`--skip-package-install`) so its bundled package set does not silently decide unresolved choices such as web tooling, delegation, goals or other extension policy. SpecPi scope monitoring MUST remain disabled for normal PWv2 work; use `/scope clear` if needed. | accepted |
 | PIE-REQ-016 | `pi-blackhole` MUST be included as the context-compaction/memory extension. Its observational memory MAY be enabled, but all Blackhole summaries/observations/reflections remain non-authoritative convenience context. | accepted |
 | PIE-REQ-017 | Independent review MUST use a fresh Pi session/process and MUST NOT inherit executor-session Blackhole memory or exported cross-session memory unless the exact review contract explicitly permits that evidence. | accepted |
 
@@ -40,7 +40,7 @@ Define the follow-on Pi capability stack for a **clean Pi Coding Agent** operate
 
 Accepted:
 - Paseo;
-- SpecPi core: scope + Harness Improvement Loop, installed initially with `--skip-package-install`;
+- SpecPi core Harness Improvement Loop, installed initially with `--skip-package-install`; SpecPi scope monitoring remains disabled (`/scope clear`) for normal PWv2 work;
 - `pi-blackhole`;
 - `rpiv-ask-user-question`;
 - `pi-permission-system`;
