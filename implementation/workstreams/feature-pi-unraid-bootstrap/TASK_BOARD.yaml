@@ -223,15 +223,15 @@ cards:
     title: "Production recovery, restart and final technical handoff"
     milestone: "M03"
     decision_state: accepted
-    execution_status: blocked
+    execution_status: ready
     executor: chatgpt
     depends_on: ["M03-T04"]
     openspec_change: null
     contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M03-T05.md"
     review_state: null
     review_subject: null
-    review_evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/blockers/M03-T05-authorization.md"
+    review_evidence: null
     result_commit: null
     result_pr: null
     evidence: null
-    tests_summary: "BLOCKED before execution: explicit M03-T05 production-recovery authorization is required; no M03-T05 mutation has been executed. See implementation/workstreams/feature-pi-unraid-bootstrap/blockers/M03-T05-authorization.md."
+    tests_summary: "READY: bounded M03-T05 production-recovery scope explicitly authorized at implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T05-authorization.md; Docker-wide/host restart remains separately gated and unauthorized."
