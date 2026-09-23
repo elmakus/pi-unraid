@@ -5,7 +5,6 @@ image="${1:-pi-unraid:m01-t01}"
 
 printf 'IMAGE=%s\n' "$image"
 docker image inspect "$image" --format 'IMAGE_ID={{.Id}}'
-docker image inspect "$image" --format 'BASE_DIGEST_LABEL={{index .RepoDigests 0}}' 2>/dev/null || true
 docker image inspect "$image" --format 'PI_SEED_LABEL={{index .Config.Labels "io.pi-unraid.pi-seed-version"}}'
 
 docker run --rm "$image" sh -ec '
