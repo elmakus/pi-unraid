@@ -152,10 +152,10 @@ reconcile() {
   failed_reason="$(state_value '.failed_candidate.reason')"
   now="$(date +%s)"
 
-  if ! latest_json="$(
-    timeout --signal=TERM --kill-after=2s "${LOOKUP_TIMEOUT}s"       npm view "$PACKAGE" dist-tags.latest --json 2>/dev/null
-  )"; then
-    publish_fallback registry_unavailable "" "$lkg" "$previous"       "$failed_version" "$failed_at" "$failed_reason"
+  if [ -n "$TEST_LATEST_OVERRIDE" ]; then
+    latest_json="$(jq -Rn --arg value "$TEST_LATEST_OVERRIDE" '$value')"
+  elif ! latest_json="$(timeout --signal=TERM --kill-after=2s "${LOOKUP_TIMEOUT}s" npm view "$PACKAGE" dist-tags.latest --json 2>/dev/null)"; then
+    publish_fallback registry_unavailable "" "$lkg" "$previous" "$failed_version" "$failed_at" "$failed_reason"
     return $?
   fi
 
@@ -187,9 +187,11 @@ reconcile() {
   fi
 
   stage="$(mktemp -d "$RUNTIME_ROOT/.staging-${latest}.XXXXXX")"
-  if ! npm_config_engine_strict=true timeout --signal=TERM --kill-after=5s "${INSTALL_TIMEOUT}s"       npm install --loglevel=warn --prefix "$stage" --ignore-scripts "$PACKAGE@$latest"; then
+  local install_spec
+  install_spec="${TEST_INSTALL_SPEC_OVERRIDE:-$PACKAGE@$latest}"
+  if ! npm_config_engine_strict=true timeout --signal=TERM --kill-after=5s "${INSTALL_TIMEOUT}s" npm install --loglevel=warn --prefix "$stage" --ignore-scripts "$install_spec"; then
     rm -rf "$stage"
-    publish_fallback candidate_install_failed "$latest" "$lkg" "$previous"       "$latest" "$now" install_failed
+    publish_fallback candidate_install_failed "$latest" "$lkg" "$previous" "$latest" "$now" install_failed
     return $?
   fi
 
