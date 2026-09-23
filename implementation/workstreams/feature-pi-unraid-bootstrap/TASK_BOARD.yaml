@@ -6,7 +6,7 @@ current_milestone: "M03"
 execution_ref:
   branch: "feat/pi-unraid-bootstrap"
   pr: null
-  head: "906ba4020905981be75c1b44e23d7f0ef6589535"
+  head: "a78ea7a7e749bd64c1012b47847680712fb1e3ab"
 
 research_obligation: null
 
@@ -206,7 +206,7 @@ cards:
     title: "Authorized production bootstrap and live functional acceptance"
     milestone: "M03"
     decision_state: accepted
-    execution_status: in_progress
+    execution_status: blocked
     executor: chatgpt
     depends_on: ["M03-T03"]
     openspec_change: null
@@ -216,8 +216,8 @@ cards:
     review_evidence: null
     result_commit: null
     result_pr: null
-    evidence: null
-    tests_summary: null
+    evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T04.md"
+    tests_summary: "PARTIAL GREEN at production source a78ea7a7e749bd64c1012b47847680712fb1e3ab / image sha256:ddb23ca173e47cbd77739e6177a5860190221bc9556eeff561e8b2c9c888f005: production bootstrap, gpt-6-sol thinking=low real Codex-LB call, provider/runtime health, native TUI session persistence across stop/recreate, canonical project/worktree local write, security/logging/backup and workstation-independence checks GREEN. Blocked only on missing Pi-user GitHub SSH and gh authentication; see implementation/workstreams/feature-pi-unraid-bootstrap/blockers/M03-T04-github-auth.md."
 
   - id: "M03-T05"
     title: "Production recovery, restart and final technical handoff"
