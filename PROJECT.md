@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Project Definition R2 GREEN; Master Plan R2 independently reviewed GREEN and approved; Codex-LB dependency has been cut over to upstream v1.25.0-beta.9 and is healthy, while M03-T02 is blocked only on manual materialization of the dedicated Pi client credential.** M01/M02 remain completed historical checkpoints; no production pi-unraid deployment has occurred.
+- High-level status: **Project Definition R2 GREEN; Master Plan R2 independently reviewed GREEN and approved; M03-T02 implementation is GREEN at subject `4267f707ae121d54625e537fb7e8e3820c654997` and is pending RECOMMENDED independent review.** Codex-LB runs upstream `v1.25.0-beta.9`; M01/M02 remain completed historical checkpoints; no production pi-unraid deployment has occurred.
 
 ## Execution policy
 
