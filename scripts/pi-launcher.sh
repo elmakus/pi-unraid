@@ -32,4 +32,8 @@ mv -f "$tmp" "$registry_root/$$.reg"
 flock -u 9
 exec 9>&-
 
+provider="${PI_UNRAID_PROVIDER_HELPER:-/usr/local/bin/pi-unraid-provider}"
+if [ -x "$provider" ]; then
+  exec "$provider" exec "$cli" "$@"
+fi
 exec "$cli" "$@"
