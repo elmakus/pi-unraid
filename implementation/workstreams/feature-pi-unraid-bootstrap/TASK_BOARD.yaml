@@ -1,0 +1,76 @@
+project: "elmakus/pi-unraid"
+workstream_id: "feature-pi-unraid-bootstrap"
+plan_revision: "R1"
+current_milestone: "M01"
+
+execution_ref:
+  branch: "feat/pi-unraid-bootstrap"
+  pr: null
+  head: "78659e9f2f51c7548492eaa802a5736eb7c72d5b"
+
+research_obligation: null
+
+milestones:
+  M01:
+    decision_state: accepted
+    execution_status: ready
+    contract: "planning/MASTER_PLAN.md#M01 — Reproducible non-root development environment"
+    checkpoint: null
+    implementation_head: null
+    handoff: null
+    acceptance_evidence: null
+    review_state: null
+    review_subject: null
+    review_evidence: null
+
+cards:
+  - id: "M01-T01"
+    title: "Reproducible base image and stable Pi seed"
+    milestone: "M01"
+    decision_state: accepted
+    execution_status: ready
+    executor: null
+    depends_on: []
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T01.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
+
+  - id: "M01-T02"
+    title: "Non-root Compose and persistent-home foundation"
+    milestone: "M01"
+    decision_state: accepted
+    execution_status: planned
+    executor: null
+    depends_on: ["M01-T01"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T02.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
+
+  - id: "M01-T03"
+    title: "Native TUI, Git/worktree and operator setup path"
+    milestone: "M01"
+    decision_state: accepted
+    execution_status: planned
+    executor: null
+    depends_on: ["M01-T02"]
+    openspec_change: null
+    contract: "implementation/workstreams/feature-pi-unraid-bootstrap/cards/M01-T03.md"
+    review_state: null
+    review_subject: null
+    review_evidence: null
+    result_commit: null
+    result_pr: null
+    evidence: null
+    tests_summary: null
