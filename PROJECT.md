@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Project Definition R3 GREEN after the user explicitly waived Docker-wide/host restart as a Phase 1 acceptance exercise; Master Plan R3 is draft with RECOMMENDED independent review pending.** M01/M02 and M03-T02/T03/T04 remain completed GREEN; authorized non-disruptive M03-T05 recovery evidence is GREEN and preserved; no Docker-wide/Unraid host restart was executed.
+- High-level status: **Project Definition R3 GREEN and Master Plan R3 approved after independent Plan Review GREEN; Execution Prep must reconcile the stale R2-bound M03-T05 contract under PIB-ADR-007 without replaying completed recovery evidence.** M01/M02 and M03-T02/T03/T04 remain completed GREEN; authorized non-disruptive M03-T05 recovery evidence is GREEN and preserved; no Docker-wide/Unraid host restart was executed.
 
 ## Execution policy
 
@@ -32,9 +32,9 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
   - `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
   - `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`
 - Source exploratory record: `brainstorming/PI_UNRAID_BRAINSTORM.md`
-- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R3`, status `draft`
+- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R3`, status `approved`
 - Planner audit: `planning/audits/R3.md`, GREEN
-- Plan Review record: `planning/reviews/R3.md`, pending
+- Plan Review record: `planning/reviews/R3.md`, GREEN
 
 ## Definition state
 
