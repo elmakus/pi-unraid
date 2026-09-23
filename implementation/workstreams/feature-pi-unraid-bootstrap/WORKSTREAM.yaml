@@ -35,10 +35,10 @@ authority:
 
 review:
   requirement: "RECOMMENDED"
-  state: null
-  subject: null
-  evidence: null
-  covered_by: null
+  state: "green"
+  subject: "045388b38f119757cfa00eb54374666c88bf1e1b"
+  evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/FINAL_INTEGRATION.md"
+  covered_by: "M03-T06 REQUIRED review @ ad086e06bf929681c1db4c6f3e0e57b430bf6142"
 
 branch_cleanup:
   state: null
