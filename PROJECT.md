@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Project Definition R2 GREEN; Master Plan R2 drafted and planner-audited GREEN, now pending required fresh independent Plan Review**. M01/M02 remain completed historical checkpoints; no production M03 deployment has occurred.
+- High-level status: **Project Definition R2 GREEN; Master Plan R2 independently reviewed GREEN and approved; M03 is ready for JIT Execution Prep.** M01/M02 remain completed historical checkpoints; no production M03 deployment has occurred.
 
 ## Execution policy
 
@@ -31,9 +31,9 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
   - `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
   - `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`
 - Source exploratory record: `brainstorming/PI_UNRAID_BRAINSTORM.md`
-- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R2`, status `draft`
+- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R2`, status `approved`
 - Planner audit: `planning/audits/R2.md`, GREEN
-- Active Plan Review record: `planning/reviews/R2.md`, pending
+- Plan Review record: `planning/reviews/R2.md`, GREEN
 
 ## Definition state
 
