@@ -2,35 +2,18 @@
 
 - Card: `M03-T04`
 - Date: 2026-09-23
-- Status: **BLOCKED — user authentication required**
-- Origin: live production acceptance after all other currently executable M03-T04 checks passed
+- Status: **RESOLVED**
+- Resolution: user completed GitHub authentication inside the production Pi home; live SSH and `gh` write/readback acceptance subsequently passed.
 
-## Blocking condition
+## Resolution readback
 
-The production Pi home is new and intentionally does not inherit host/root credentials.
+- `gh auth status`: GREEN for account `elmakus`, Git protocol SSH.
+- `ssh -T git@github.com`: successful authentication under strict host-key verification.
+- SSH Git write/readback: temporary branch `m03-t04-live-acceptance` pushed, exact SHA read back, then branch deleted and absence verified.
+- `gh api` write/readback: separate temporary Git ref created, exact SHA read back, then ref deleted and absence verified.
+- Persistent credential check: a later full Compose recreation preserved both `gh` and SSH authentication in the Pi home.
+- Disposable local worktree/branch used for acceptance was removed.
 
-Current readback:
-- strict GitHub SSH host verification: configured;
-- Git identity: configured persistently;
-- canonical project/worktree local commit: GREEN;
-- `ssh -T git@github.com`: authentication unavailable (no Pi-user SSH key authorized at GitHub);
-- `gh auth status`: no authenticated GitHub CLI account.
+No Tower root GitHub credential was copied into Pi.
 
-Therefore the Card cannot honestly claim the required authenticated SSH Git write and authenticated `gh` operation.
-
-## Required user action
-
-Authenticate GitHub once inside the production Pi home using GitHub CLI with SSH as the Git protocol:
-
-```sh
-docker exec -it -u pi pi-unraid-pi-1 gh auth login --hostname github.com --git-protocol ssh --web
-```
-
-Complete the browser/device authorization. When prompted about an SSH key, allow `gh` to use/upload or generate the Pi user's own key. Do not copy Tower root credentials into Pi.
-
-After login, workflow continuation should:
-1. re-read `gh auth status` and SSH authentication;
-2. use the already prepared bounded branch/worktree `m03-t04-live-acceptance` for the authorized SSH push/write test and readback;
-3. perform one bounded authenticated `gh` API write/readback and clean up disposable acceptance artifacts;
-4. reconcile M03-T04 evidence;
-5. freeze the completed exact subject for its RECOMMENDED independent review.
+Canonical completion evidence: `implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T04.md`.
