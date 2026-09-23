@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+export PI_CODEX_LB_SECRET_SOURCE="${PI_CODEX_LB_SECRET_SOURCE:-/dev/null}"
+
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 image="${1:-pi-unraid:m02-t02}"
 root="$(mktemp -d "${TMPDIR:-/tmp}/pi-unraid-m02-t02.XXXXXX")"
