@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Project Definition R2 GREEN after an in-flight architecture redefinition**. M01/M02 remain completed checkpoints; the remaining R1/M03 plan is stale and production execution is blocked pending a new Strategic Planning revision and Plan Review.
+- High-level status: **Project Definition R2 GREEN; Master Plan R2 drafted and planner-audited GREEN, now pending required fresh independent Plan Review**. M01/M02 remain completed historical checkpoints; no production M03 deployment has occurred.
 
 ## Execution policy
 
@@ -14,7 +14,7 @@
 
 Changing execution policy requires an explicit user decision.
 
-The latest user authority supersedes the former Codex/Astra Max planner assignment: the current normal ChatGPT session may author Strategic Planning for Definition R2. This does not change the project's `chatgpt_only` execution policy. Independent Plan Review must still be performed by a fresh normal ChatGPT that did not author the exact plan subject, and downstream Execution Prep, Execution, implementation review and Close remain routed through ChatGPT unless the user explicitly changes project authority later.
+The latest user authority supersedes the former Codex/Astra Max planner assignment: the current normal ChatGPT session authored Strategic Planning R2 under `PIB-ADR-006`. This does not change the project's `chatgpt_only` execution policy. Independent Plan Review must be performed by a fresh normal ChatGPT that did not author the exact R2 plan subject, and downstream Execution Prep, Execution, implementation review and Close remain routed through ChatGPT unless the user explicitly changes project authority later.
 
 ## Canonical authority pointers
 
@@ -31,7 +31,9 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
   - `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
   - `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`
 - Source exploratory record: `brainstorming/PI_UNRAID_BRAINSTORM.md`
-- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R1`; its completed M01/M02 history remains valid, but its remaining M03 strategy is superseded by Definition R2 and requires a new reviewed revision.
+- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R2`, status `draft`
+- Planner audit: `planning/audits/R2.md`, GREEN
+- Active Plan Review record: `planning/reviews/R2.md`, pending
 
 ## Definition state
 
@@ -52,4 +54,4 @@ This file is a high-level integrated-project router/index, not live execution st
 
 The historical brainstorming record originally accumulated on `main` before the current branch-first managed-change contract was applied. The active managed continuation was recovered onto `feat/pi-unraid-bootstrap`; the historical `main` copy remains provenance and is not rewritten as if it had always been branch-isolated.
 
-The approved plan covers the approved requirements and accepted decisions above. Live implementation/review state is owned only by the selected branch-isolated workstream manifest and its manifest-bound Task Board.
+The current R2 plan is not approved until the required independent Plan Review is GREEN and Planning consumes that verdict. Live implementation/review state remains owned only by the selected branch-isolated workstream manifest and its manifest-bound Task Board.
