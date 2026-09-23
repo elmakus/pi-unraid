@@ -1,6 +1,6 @@
 id: "feature-pi-unraid-bootstrap"
 kind: "feature"
-status: "ready"
+status: "active"
 
 branch: "feat/pi-unraid-bootstrap"
 base_ref: "main"
@@ -19,7 +19,7 @@ routing:
   research_obligation: null
   plan_review: null
 
-task_board: null
+task_board: "implementation/workstreams/feature-pi-unraid-bootstrap/TASK_BOARD.yaml"
 
 authority:
   requirements: "requirements/PI_UNRAID_BOOTSTRAP.md"
@@ -31,7 +31,7 @@ authority:
   plan: "planning/MASTER_PLAN.md"
 
 review:
-  requirement: null
+  requirement: "RECOMMENDED"
   state: null
   subject: null
   evidence: null
