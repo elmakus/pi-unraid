@@ -34,6 +34,7 @@ RUN apt-get update \
         sudo \
         tar \
         unzip \
+        util-linux \
         xz-utils \
         zip \
     && rm -rf /var/lib/apt/lists/* \
@@ -41,7 +42,8 @@ RUN apt-get update \
     && git lfs install --system
 
 RUN npm install -g --ignore-scripts "@earendil-works/pi-coding-agent@${PI_SEED_VERSION}" \
-    && pi --version | grep -F "${PI_SEED_VERSION}"
+    && pi --version | grep -F "${PI_SEED_VERSION}" \
+    && mv /usr/local/bin/pi /usr/local/bin/pi-seed
 
 RUN groupmod --new-name pi node \
     && usermod --login pi --home /home/pi --shell /bin/bash node \
@@ -54,6 +56,8 @@ ENV HOME=/home/pi \
     LOGNAME=pi
 
 COPY --chmod=0755 scripts/container-entrypoint.sh /usr/local/bin/pi-unraid-entrypoint
+COPY --chmod=0755 scripts/pi-unraid-runtime /usr/local/bin/pi-unraid-runtime
+COPY --chmod=0755 scripts/pi-launcher.sh /usr/local/bin/pi
 
 WORKDIR /home/pi
 
