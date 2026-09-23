@@ -2,8 +2,11 @@
 
 - Milestone: `M03 — Codex-LB-integrated on-Unraid acceptance and recoverable handoff`
 - Definition: `pi-unraid-bootstrap@R3`
-- Status: **technical handoff consolidated; M03-T06 REQUIRED independent review pending before milestone terminal close**
+- Status: **GREEN / complete**
 - Production mutation performed by M03-T06: **none**
+- Final implementation head: `ad086e06bf929681c1db4c6f3e0e57b430bf6142`
+- Integrated acceptance: `implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T06.md`
+- Independent finalization review: `implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-T06-review.md`
 - Broad Docker/host restart acceptance exercise: **not performed and not required by R3**
 
 ## Current accepted operating model
@@ -68,4 +71,4 @@ Stop writes and use the existing Unraid backup/restore authority. Runtime/image 
 
 Technical Phase 1 does not include a prescribed real-world coding benchmark. After terminal workflow close, practical Pi evaluation remains user-owned and any Web UI/extensions/subagents/MCP/browser/research additions require their own later accepted scope.
 
-This handoff is part of the M03-T06 implementation subject and becomes terminal milestone handoff authority only after the REQUIRED independent Card review and normal milestone Close lifecycle complete.
+This handoff is the terminal M03 milestone handoff. The exact M03-T06 implementation subject received REQUIRED independent review GREEN, and normal milestone Close completed without any additional production/dependency mutation.
