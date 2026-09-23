@@ -50,7 +50,7 @@ Host preserved.example
   Port 2222
 EOF
 '
-docker exec -u pi "$name" /opt/pi-unraid-src/scripts/configure-operator.sh \
+docker exec -u pi "$name" sh /opt/pi-unraid-src/scripts/configure-operator.sh \
   "Fixture User" "fixture@example.invalid"
 
 docker exec -u pi "$name" sh -ec '
