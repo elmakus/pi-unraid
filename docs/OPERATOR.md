@@ -63,3 +63,31 @@ bash scripts/verify-git-worktree-foundation.sh pi-unraid:local
 ```
 
 The verification uses only a unique `/tmp` fixture and disposable container. It creates a synthetic repository + linked worktree, verifies explicit cwd behavior, non-root writes, metadata resolution, persistent Git/SSH setup, GitHub host-key fingerprints and `gh` availability. No live OAuth or GitHub credential is required.
+
+## Host update and deployment rollback
+
+The normal host-operated maintenance entry is:
+
+```sh
+bash scripts/update.sh
+```
+
+Run it from the tracked deployment checkout on the Unraid host. The operation requires a clean branch with an upstream that can be fast-forwarded. Before changing the checkout or deployment it records the current source HEAD, active image ID and fully rendered Compose configuration under `/mnt/user/appdata/pi-unraid/deployment-state`. It then fast-forwards source, re-enters the updated script, builds a separate `pi-unraid:candidate`, runs the repository verification gate, retains the current image as `pi-unraid:previous`, and only then recreates the service. A candidate is accepted only after Compose health is GREEN.
+
+If the post-cutover service is unhealthy, the script automatically retags the retained image as `pi-unraid:local`, recreates from the pre-update rendered Compose snapshot and verifies health. Persistent `/home/pi`, `/projects` and `/worktrees` are never restored or rewritten by image rollback.
+
+An explicit deployment rollback uses the most recent retained transaction:
+
+```sh
+bash scripts/update.sh rollback
+```
+
+A specific transaction directory may be supplied as the second argument. Rollback consumes only local retained image/config artifacts, so it does not require fetching the failed candidate again. It deliberately does **not** reset Git source; the transaction records `pre-source-head` and `post-source-head` so source recovery, when actually desired, is a separate explicit Git operation.
+
+The deployment-state directory is host metadata and is not mounted into the Pi container. Keep it alongside the normal appdata backup/host recovery surface. M02 validates this workflow only with disposable projects, tags and `/tmp` binds; running it against the live `pi-unraid` deployment is an M03 authorization/readiness action.
+
+Disposable M02 update/rollback verification:
+
+```sh
+bash scripts/verify-update-rollback.sh pi-unraid:m02-t02-r2
+```
