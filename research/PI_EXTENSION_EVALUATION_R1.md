@@ -6,8 +6,8 @@
 - Origin subject: `change-pi-extension-evaluation`
 - Return target: `project_definition:pi-extension-tooling-selection-r1`
 - Research question: Evaluate the shortlisted Pi extensions/tools and MCP integration options for a clean Pi + Paseo setup; verify unresolved behavior/compatibility; identify prior art that could materially improve a future Pi-oriented Project Workflow revision and native subagent design.
-- Return reconciliation: `pending`
-- Return reconciliation result: `none`
+- Return reconciliation: `applied`
+- Return reconciliation result: `requirements/PI_EXTENSION_TOOLING.md; decisions/PIE_ADR_001_EXTENSION_BASELINE.md; brainstorming/PI_EXTENSION_OPEN_QUESTIONS.md`
 
 ## Constraints and already-accepted user choices
 
