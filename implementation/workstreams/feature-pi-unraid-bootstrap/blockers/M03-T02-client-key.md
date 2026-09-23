@@ -2,17 +2,24 @@
 
 - Card: `M03-T02`
 - Date: 2026-09-23
-- Status: `active`
+- Status: `resolved`
 - Class: explicit credential/user-action gate
 - Resume target: `M03-T02`
 
-## Blocker
+## Resolution
 
-Codex-LB `v1.25.0-beta.9` is deployed and healthy, but the execution tool refuses the operation that generates/materializes a new plaintext API credential. This safety control must not be bypassed.
+The user manually created a dedicated API key named `pi-unraid-phase1` and materialized it on Tower at the documented protected env-file path without exposing the value to ChatGPT or Git.
 
-The one unusable key row created before a path failure was deactivated; there is currently no active `pi-unraid-phase1` key and no known plaintext Pi key.
+Execution readback verified:
+- the file exists;
+- mode is `600`;
+- it contains exactly one non-empty `CODEX_LB_API_KEY=...` entry;
+- Codex-LB has exactly one active `pi-unraid-phase1` key row;
+- authenticated `GET /v1/models` returns HTTP 200 from the Tower host;
+- authenticated `GET /v1/models` also returns HTTP 200 from a disposable Docker bridge container using `host-gateway`;
+- the key value was not printed or recorded in evidence.
 
-## Smallest user action
+## Historical user action
 
 In the Codex-LB dashboard:
 
