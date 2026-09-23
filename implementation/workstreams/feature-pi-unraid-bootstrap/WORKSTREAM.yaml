@@ -28,6 +28,7 @@ authority:
     - "decisions/PIB_ADR_002_RUNTIME_LAYOUT.md"
     - "decisions/PIB_ADR_003_UPDATE_ROLLBACK.md"
     - "decisions/PIB_ADR_004_WORKFLOW_ROLES.md"
+    - "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md"
   plan: "planning/MASTER_PLAN.md"
 
 review:

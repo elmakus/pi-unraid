@@ -6,8 +6,8 @@ Origin role: `project_definition`
 Origin subject: `pi-unraid-bootstrap@R2`
 Return target: `project_definition:pi-unraid-bootstrap@R2`
 Research question: `Determine the current, source-grounded Pi → Codex-LB integration contract needed for Phase 1: provider/protocol compatibility, OAuth persistence and refresh ownership, multi-account behavior, failure/fallback semantics, and the correct Unraid deployment topology from the first real production start, including whether/how the existing Tower Codex-LB deployment can be used without violating Pi persistence/security/workstation-independence invariants.`
-Return reconciliation: `pending`
-Return reconciliation result: `none`
+Return reconciliation: `applied`
+Return reconciliation result: `requirements/PI_UNRAID_BOOTSTRAP.md@R2; decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md; PROJECT.md definition subject pi-unraid-bootstrap@R2; implementation/workstreams/feature-pi-unraid-bootstrap/WORKSTREAM.yaml authority; Task Board M03 decision_state=review`
 
 ## Trigger / authority
 

@@ -36,7 +36,7 @@ milestones:
     review_evidence: null
 
   M03:
-    decision_state: accepted
+    decision_state: review
     execution_status: blocked
     contract: "planning/MASTER_PLAN.md#M03 — On-Unraid acceptance and recoverable user handoff"
     checkpoint: null

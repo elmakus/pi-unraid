@@ -1,17 +1,19 @@
 # Pi on Unraid — Phase 1 Bootstrap Requirements
 
-Revision: `R1`
+Revision: `R2`
 Status: `approved`
-Updated: `2026-09-22`
+Updated: `2026-09-23`
 
-Definition subject: `pi-unraid-bootstrap@R1`
+Definition subject: `pi-unraid-bootstrap@R2`
 Workstream: `feature-pi-unraid-bootstrap`
 Source brainstorming: `brainstorming/PI_UNRAID_BRAINSTORM.md`
-Verified evidence: `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
+Verified evidence:
+- `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
+- `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`
 
 ## Goal / target state
 
-Establish a reproducible, always-available **minimal Pi Coding Agent bootstrap on Unraid** that can be used through Pi's native terminal/TUI path, with durable authentication/session state and normal Git/GitHub development capability.
+Establish a reproducible, always-available **minimal Pi Coding Agent bootstrap on Unraid** that can be used through Pi's native terminal/TUI path, with durable Pi session/config state, ChatGPT/Codex access through Codex-LB, and normal Git/GitHub development capability.
 
 This Phase 1 exists to prove the base Pi runtime and persistence model before any Web UI, Android client, web-search, subagent, MCP, browser-automation or other extension stack is selected.
 
@@ -22,7 +24,7 @@ This Phase 1 exists to prove the base Pi runtime and persistence model before an
 | PIB-REQ-001 | The deployment MUST run Pi in Docker on Unraid and be reproducible from repository-owned deployment source, with `compose.yaml` as the deployment source of truth. | MUST | G21, G39, G95 | accepted |
 | PIB-REQ-002 | The Pi service MUST use a persistent non-root user home mapped from `/mnt/user/appdata/pi-unraid/home` to `/home/pi`, preserving Pi's native `~/.pi/agent` state. | MUST | G13, G14, G45 | accepted |
 | PIB-REQ-003 | The service user MUST support configurable UID/GID alignment with Unraid shares and MUST have sudo available for legitimate runtime package/tool installation without making the container itself root-operated by default. | MUST | G14, G40, G116 | accepted |
-| PIB-REQ-004 | Phase 1 MUST support one ChatGPT Plus/Pro account authenticated directly through Pi's built-in ChatGPT/Codex login path, with OAuth state surviving container restart/recreation through persistent home state. | MUST | G30, G51, G86; verified research | accepted |
+| PIB-REQ-004 | From the first real Pi model interaction, Phase 1 MUST use Codex-LB as the required ChatGPT/Codex access and OAuth/account-routing layer. Direct Pi built-in ChatGPT/Codex OAuth MUST NOT be required or performed for Phase 1 acceptance; ChatGPT/Codex account login, token storage and refresh are owned by Codex-LB. | MUST | user redefinition 2026-09-23; PIB-ADR-005; Codex-LB integration research | accepted |
 | PIB-REQ-005 | Pi session history MUST persist across normal container restart/recreation, and the user MUST be able to create, exit and later resume a native Pi session through the terminal/TUI path. | MUST | G19, G61, G86; verified research | accepted |
 | PIB-REQ-006 | The container MUST expose the canonical projects root as `/projects` from host `/mnt/user/projects`, with canonical repositories normally one directory directly beneath that root. | MUST | G07, G35, G87 | accepted |
 | PIB-REQ-007 | The container MUST expose the dedicated worktree root as `/worktrees` from host `/mnt/user/pi-worktrees`; the runtime MUST support operating in existing repositories/worktrees without hard-coding worktree lifecycle policy. | MUST | G03, G08, G36, G43, G62 | accepted |
@@ -40,14 +42,19 @@ This Phase 1 exists to prove the base Pi runtime and persistence model before an
 | PIB-REQ-019 | The existing `chatgpt-ce-workstation` deployment MUST remain independent and unchanged; Phase 1 MUST NOT depend on its runtime, secrets, routing stack or availability. | MUST | initial scope; relationship-to-workstation decision | accepted |
 | PIB-REQ-020 | The deployment MUST provide one normal user-facing update operation/script that handles the expected repository/image/deployment update path, while lower-level Compose commands remain available for recovery/development. | MUST | G96 | accepted |
 | PIB-REQ-021 | Planned service/container shutdown for restart or update MUST give active Pi processes a bounded graceful-stop opportunity to persist native session state before forced termination; persisted sessions MUST remain resumable afterward. | MUST | G102 | accepted |
+| PIB-REQ-022 | Pi → Codex-LB requests MUST use a dedicated authenticated Codex-LB client credential supplied through an approved runtime/host secret path. The credential MUST survive normal Pi restart/recreation as needed for service continuity and MUST NOT be committed, baked into an image, or emitted into ordinary logs/evidence. | MUST | user redefinition 2026-09-23; PIB-ADR-005; Codex-LB integration research | accepted |
+| PIB-REQ-023 | Codex-LB MUST own ChatGPT/Codex account selection, OAuth refresh and multi-account routing for Phase 1. Pi MUST NOT import or manage pooled account OAuth tokens. Acceptance MUST NOT claim seamless migration of account-owned continuation state when Codex-LB cannot safely move that continuation; a fresh conversation may route through another eligible account. | MUST | user redefinition 2026-09-23; PIB-ADR-005; Codex-LB integration research | accepted |
+| PIB-REQ-024 | Codex-LB MUST remain an independently deployed and persistent service/dependency, separate from the Pi container and from `chatgpt-ce-workstation`. Pi MUST NOT mount Codex-LB's data directory. Before Phase 1 acceptance, the selected Codex-LB deployment MUST have verified health, compatible client behavior, persistent OAuth/account state and a current-enough reviewed deployment baseline. | MUST | user redefinition 2026-09-23; PIB-ADR-005; Codex-LB integration research | accepted |
 
 ## Constraints
 
 - Current official Pi npm installation requires **Node.js 22.19+**; current official Plain Docker guidance uses a Node 24 Debian image. Planning may choose a current Pi-supported Node image, but MUST not fall below Pi's documented runtime requirement.
 - Current Pi package is `@earendil-works/pi-coding-agent`.
 - Pi's default persistent config/auth/session root is `~/.pi/agent`; this Definition intentionally keeps the native path under persistent `/home/pi` rather than relocating it.
-- Current Pi ChatGPT subscription authentication uses the built-in ChatGPT Plus/Pro (Codex) login path and persists interactive auth in `~/.pi/agent/auth.json`.
-- Phase 1 uses one direct ChatGPT account only; no account pooling/router is introduced.
+- Pi's built-in ChatGPT/Codex OAuth remains an upstream capability, but Phase 1 deliberately does **not** use it as the bootstrap authentication path.
+- ChatGPT/Codex OAuth account state for Phase 1 is owned by the independently persistent Codex-LB deployment; Pi sees one authenticated provider endpoint and does not receive pooled account refresh/access tokens.
+- Pi connects to Codex-LB through a supported OpenAI Responses-compatible endpoint. The accepted research identifies Pi `openai-responses` → Codex-LB `/v1` as the minimal compatible seam; the native Pi `openai-codex-responses` path is not used with an opaque Codex-LB client key.
+- Codex-LB multi-account routing is in scope only as the access-layer behavior needed by Pi. Reimplementing or extending Codex-LB's routing product is not part of this project.
 - Normal project identity is Git/GitHub-first. Local-only non-Git directories are not first-class normal projects for the intended operating model.
 - Active implementation is not intended to occur directly on `main`; branch/worktree lifecycle policy belongs to higher-level workflow rather than the Pi base runtime.
 
@@ -65,7 +72,8 @@ The following are **not part of Phase 1 acceptance** and MUST NOT be pulled into
 - browser automation/computer use;
 - context-compaction extension selection;
 - notification backend;
-- multi-account routing, Codex-LB or OpenCodex;
+- OpenCodex or a new/replacement account-router implementation;
+- implementation or redesign of the Codex-LB dashboard/account-management product beyond configuration/integration required for Pi;
 - Muse integration;
 - `chatgpt-web/*` provider adapter;
 - embedding Project Workflow V2 into Pi;
@@ -94,13 +102,15 @@ Those items remain later follow-on Research/Definition scopes after the user has
   - `/mnt/user/projects` → `/projects`
   - `/mnt/user/pi-worktrees` → `/worktrees`
 - GitHub access through SSH + GitHub CLI.
-- One ChatGPT Plus/Pro account through Pi's built-in subscription authentication.
+- Existing independently deployed Codex-LB service on Unraid, with its own persistent OAuth/account data and an authenticated Pi client path.
+- Dedicated Pi → Codex-LB client credential supplied outside Git/image source.
 - Current stable Pi package/runtime behavior as evidenced in `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`.
+- Current Pi → Codex-LB compatibility/OAuth/routing facts as evidenced in `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`.
 
 ## Data integrity / idempotency / security constraints
 
 - Persistent-home initialization MUST be idempotent and MUST not overwrite an existing working Pi home on restart/update.
-- Update/fallback logic MUST preserve current auth/session/config state.
+- Update/fallback logic MUST preserve Pi session/config/client-integration state. ChatGPT/Codex OAuth account state remains independently persistent in Codex-LB and MUST NOT be restored backward or copied into Pi by Pi runtime/image rollback.
 - GitHub SSH host verification MUST remain enabled.
 - Container startup/rebuild MUST avoid creating root-owned repository/worktree files during normal Pi operation.
 - Runtime/package update failure MUST fail safely into a usable prior Pi runtime when that fallback is available.
@@ -114,8 +124,8 @@ Phase 1 Definition is satisfied when planning/execution can prove all of the fol
 1. The repository-owned deployment builds and starts on Unraid.
 2. The Pi container/service returns after host/Docker restart according to the automatic restart policy.
 3. `pi` runs from the terminal/TUI path using a current stable Pi release on a supported Node runtime.
-4. One ChatGPT Plus/Pro account can complete Pi login on the headless Unraid deployment.
-5. Authentication survives a normal container restart and image/container recreation that preserves the configured home.
+4. Codex-LB has usable authorized ChatGPT/Codex account capacity and Pi completes a real model interaction through the authenticated Codex-LB path without performing direct Pi ChatGPT/Codex OAuth.
+5. Pi → Codex-LB access survives a normal Pi container restart and image/container recreation using the approved persistent/runtime client configuration, while Codex-LB OAuth/account state remains independently persistent and does not require import into Pi.
 6. A Pi session can be created, exited and resumed from persistent session state after restart/recreation.
 7. Pi can read/write a deliberately selected repository beneath `/projects` with acceptable host ownership/permissions under the configured non-root UID/GID.
 8. Pi can operate in an explicitly selected existing worktree beneath `/worktrees`.
@@ -130,6 +140,8 @@ Phase 1 Definition is satisfied when planning/execution can prove all of the fol
 17. Existing ChatGPT CE workstation operation is unaffected.
 18. A planned service restart/update provides a bounded graceful-stop path, and a previously persisted Pi session remains resumable afterward.
 19. No prescribed real coding benchmark is required for workflow acceptance; after these technical checks, the user performs their own real-world Pi evaluation and decides whether later scopes proceed.
+20. With the configured Codex-LB account pool, normal Pi requests are routed by Codex-LB according to its accepted routing configuration; evidence explicitly records that account-owned continuation state is not guaranteed to migrate transparently across accounts.
+21. Pi and Codex-LB remain separately persistent/deployed: Pi restart/recreation does not mount or mutate Codex-LB data, Codex-LB health/compatibility/persistence are verified, and the existing ChatGPT CE workstation remains outside this dependency chain.
 
 ## Definition completeness
 
@@ -138,8 +150,9 @@ Definition Complete: **GREEN**
 - target state is explicit;
 - material MUST requirements are enumerated;
 - Phase 1 non-goals prevent later extension scope creep;
-- verified current Pi runtime/auth/session facts are incorporated;
-- strategic choices needed before planning are captured in accepted decision records;
+- verified current Pi runtime/session facts and current Pi → Codex-LB compatibility/OAuth/routing facts are incorporated;
+- strategic choices needed before planning, including Codex-LB as the mandatory Phase 1 access layer, are captured in accepted decision records;
+- completed M01/M02 implementation/evidence remain valid historical checkpoints; R2 changes the remaining M03 authority rather than rewriting them;
 - no unresolved user/product choice remains that can materially alter the Phase 1 planning architecture;
 - implementation-specific mechanics such as the exact updater/fallback script design remain properly delegated to Strategic Planning rather than being hidden product decisions.
 

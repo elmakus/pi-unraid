@@ -6,7 +6,7 @@
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: establish a reproducible Pi Coding Agent deployment on Unraid, beginning with a minimal base bootstrap before later Web UI/extension research.
-- High-level status: **Master Plan R1 approved** after required independent Plan Review GREEN; Phase 1 implementation is authorized and active through the selected branch-isolated workstream.
+- High-level status: **Project Definition R2 GREEN after an in-flight architecture redefinition**. M01/M02 remain completed checkpoints; the remaining R1/M03 plan is stale and production execution is blocked pending a new Strategic Planning revision and Plan Review.
 
 ## Execution policy
 
@@ -25,17 +25,20 @@ The user has directed that the **Strategic Planning role** for this Phase 1 scop
   - `decisions/PIB_ADR_002_RUNTIME_LAYOUT.md`
   - `decisions/PIB_ADR_003_UPDATE_ROLLBACK.md`
   - `decisions/PIB_ADR_004_WORKFLOW_ROLES.md`
-- Definition evidence: `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
+  - `decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md`
+- Definition evidence:
+  - `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
+  - `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`
 - Source exploratory record: `brainstorming/PI_UNRAID_BRAINSTORM.md`
-- Approved Master Plan: `planning/MASTER_PLAN.md`, revision `R1`, status `approved`.
+- Current Master Plan artifact: `planning/MASTER_PLAN.md`, revision `R1`; its completed M01/M02 history remains valid, but its remaining M03 strategy is superseded by Definition R2 and requires a new reviewed revision.
 
 ## Definition state
 
-- Definition subject: `pi-unraid-bootstrap@R1`
+- Definition subject: `pi-unraid-bootstrap@R2`
 - Requirements status: `approved`
 - Definition Complete: `GREEN`
 - Material unresolved user/product questions: none
-- Planning scope: Phase 1 minimal Pi bootstrap only
+- Planning scope: Phase 1 minimal Pi bootstrap with Codex-LB as the required ChatGPT/Codex OAuth/account-routing layer; no direct Pi ChatGPT OAuth bootstrap path
 
 ## Workflow
 
