@@ -14,7 +14,7 @@
 
 Changing execution policy requires an explicit user decision.
 
-The user has directed that the **Strategic Planning role** for this Phase 1 scope be authored by Codex/Astra Max. This does not change the project's `chatgpt_only` Task Card execution policy. Independent Plan Review and downstream Execution Prep, Execution, implementation review and Close remain routed through ChatGPT unless the user explicitly changes the project policy later.
+The latest user authority supersedes the former Codex/Astra Max planner assignment: the current normal ChatGPT session may author Strategic Planning for Definition R2. This does not change the project's `chatgpt_only` execution policy. Independent Plan Review must still be performed by a fresh normal ChatGPT that did not author the exact plan subject, and downstream Execution Prep, Execution, implementation review and Close remain routed through ChatGPT unless the user explicitly changes project authority later.
 
 ## Canonical authority pointers
 
@@ -26,6 +26,7 @@ The user has directed that the **Strategic Planning role** for this Phase 1 scop
   - `decisions/PIB_ADR_003_UPDATE_ROLLBACK.md`
   - `decisions/PIB_ADR_004_WORKFLOW_ROLES.md`
   - `decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md`
+  - `decisions/PIB_ADR_006_CHATGPT_STRATEGIC_PLANNER_OVERRIDE.md`
 - Definition evidence:
   - `research/PI_UNRAID_BOOTSTRAP_FACTS_R1.md`
   - `research/PI_UNRAID_CODEX_LB_INTEGRATION_R1.md`
