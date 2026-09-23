@@ -172,7 +172,7 @@ cards:
     title: "Codex-LB dependency readiness and Pi client boundary"
     milestone: "M03"
     decision_state: accepted
-    execution_status: blocked
+    execution_status: ready
     executor: chatgpt
     depends_on: ["M02-T03"]
     openspec_change: null
@@ -183,7 +183,7 @@ cards:
     result_commit: null
     result_pr: null
     evidence: "implementation/workstreams/feature-pi-unraid-bootstrap/evidence/M03-R2-prep-readiness.md"
-    tests_summary: "BLOCKED at the explicit dependency live-write gate after refreshed read-only evidence: Tower codex-lb-clean is healthy but still deployed from fork revision 0b673d84316c33dd166e6bffbe6b66444379a895, whose upstream base is 92 commits behind current Soju06/codex-lb main 3d23d53f89dbbaa2353040a30451cf90ca48ee92. Codex-LB reconciliation must use its own authority/workflow, and dedicated Pi client-key creation also requires explicit authorization."
+    tests_summary: "READY after user authorization on 2026-09-23: use upstream release v1.25.0-beta.9 directly, stop maintaining/deploying the elmakus/codex-lb fork for this dependency, preserve the current running container as rollback during cutover, and create a dedicated Pi client credential as required."
 
   - id: "M03-T03"
     title: "Pi Codex-LB integration and disposable validation"
