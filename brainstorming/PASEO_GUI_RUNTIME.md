@@ -426,6 +426,17 @@ Live readback on 2026-09-24 from `elmakus/chatgpt-codex-project-workflow` branch
 | After cutover, run a bounded post-deploy smoke; if it fails and rollback is safe/unambiguous, automatically restore the previous known-good image. | Waiting for manual rollback prolongs a known-bad production state. | Stable. |
 | Update validation must be tiered and time-proportional: routine updates use cached/fast checks plus bounded runtime smoke, while exhaustive E2E/regression is reserved for first deployment, material control-plane/security/Relay changes, failures, or explicit full validation. | Running every possible test on every routine update would make maintenance unnecessarily slow. | Stable clarification prompted by user concern about update duration. |
 
+
+#### T. Update batching and global latest-stable policy
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Treat every user-approved environment update as a coordinated maintenance batch that brings the whole approved global Paseo/Pi execution environment forward together, rather than updating only the one component that triggered maintenance. | Minimal-component updates reduce change surface, but the user explicitly prefers immediately current global tooling over staggered version drift. | Stable after explicit user correction. |
+| The update batch targets the latest stable release/channel for Paseo, Pi, approved global Pi extensions/skills, baseline global CLIs and development/runtime tooling such as `gh`, Node.js, Python tooling, Playwright/Chromium and comparable image-level dependencies, subject to compatibility/smoke gates. | Pinning or independently lagging auxiliary tooling improves narrow reproducibility but conflicts with the user's maintenance preference. | Stable. |
+| A successful global update should reconcile all approved global capabilities to their accepted latest-stable line in the same maintenance operation when practical. | Updating only the originally requested package is narrower but intentionally leaves the environment partly stale. | Stable. |
+| Project-local dependencies governed by repository manifests/lockfiles are excluded from blanket global latest updates; they remain controlled by the project's own dependency authority. | Blindly upgrading project dependencies would violate reproducible project state and could change product code unexpectedly. | Stable boundary. |
+| Compatibility or smoke failure of one global component may block promotion of the coordinated batch; do not silently leave production in an arbitrary half-updated state unless an explicitly designed partial-update recovery path proves safe. | Partial success can reduce work but makes the running environment harder to reason about. | Stable direction; exact transaction/rollback mechanics remain implementation detail. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
@@ -456,6 +467,8 @@ The following remain open and should drive subsequent grilling rather than being
 - Verify the best build/publish/deploy route available on this Unraid host without granting unnecessary Docker-host authority to the runtime container.
 
 ## Reopened / superseded exploratory ideas
+
+- **Minimal-component update as the default maintenance strategy: superseded.** Every approved environment update should normally bring all approved global environment components to their latest stable lines together; project-local locked dependencies remain outside this blanket update.
 
 - **Two permanently active containers (Paseo + standalone Pi): superseded.** The user has no normal standalone-Pi use case; final target is one Paseo+Pi production container.
 - **Migrate standalone Pi HOME/state: superseded.** The bootstrap environment was not used for real work.
