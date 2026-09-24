@@ -2,14 +2,16 @@
 
 Date: `2026-09-24`
 Scope ID: `paseo-gui-runtime`
-Revision: `R1`
-Status: `tentative`
+Revision: `R2`
+Status: `ready_for_definition`
 
 ## Problem / goal
 
 Make Paseo the normal GUI/control surface for Pi on Unraid. The user intends to work with Pi through Paseo on Android/PC rather than through a terminal. The production layout should be clean, native to upstream expectations, recoverable from repository state, easy to update/rollback, and ready for later orchestration-runtime integration without making Paseo or runtime-private state project authority.
 
 This record is exploratory state only. It preserves accepted user choices from the current grilling session so recovery never depends on chat history.
+
+R2 reason: the fresh cross-project authority audit produced the bounded CP-01…CP-04 ownership corrections (environment capability inventory vs OR Tool Registry, OR-owned worker/worktree realization, unresolved cross-runtime owner for the generic direct-Main Git guard, and environment-only Pi policy guards). The completion audit is GREEN after those corrections; Definition promotion remains pending.
 
 ## Current understanding
 
