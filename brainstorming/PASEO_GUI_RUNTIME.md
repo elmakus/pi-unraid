@@ -192,6 +192,27 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 - Superseded/rejected choices remain preserved separately below; they are not silently overwritten.
 - Future Brainstorming rounds must persist accepted/rejected/reopened choices before asking the next batch so this kind of retrospective reconstruction is not required again.
 
+
+#### K. Repository entry, worktree and session safety
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Opening Paseo should use the native Paseo home screen; do not add a custom project launcher solely to choose repositories. | A custom launcher could centralize project metadata but would duplicate native UI and add maintenance without a current need. | Stable. |
+| A Paseo project/workspace should remain an ordinary repository/workspace concept; Project Workflow becomes responsible for legal continuation only after Main enters the chosen project. | Embedding PW project selection directly into Paseo would couple UI and governance unnecessarily. | Stable. |
+| On entering a selected project, Main should perform a read-only PW/workstream readback, but must not create a new workstream until an actual task requires one. | Pre-creating workstreams reduces one later step but pollutes durable state with speculative work. | Stable. |
+| Pure read-only repository inspection may occur on `main` without creating a branch/worktree. | Forcing branches for inspection would add friction with no mutation-risk benefit. | Stable. |
+| For ad-hoc non-PW mutation starting from `main`, Main should automatically create an isolated task branch/worktree before the first write. | Requiring the user to remember branch hygiene manually is error-prone. | Stable; aligns with issue #3 direction. |
+| Ad-hoc task branch/worktree names should be generated automatically from the task subject as concise slugs. | Asking the user for names every time adds no meaningful control. | Stable. |
+| Main may automatically clean up an ad-hoc worktree after successful merge/close once no live obligation remains. | Retaining every worktree indefinitely aids forensics but creates clutter and stale execution surfaces. | Stable. |
+| Protect repository `main` against accidental mutation with a mechanical guard where practical, not prompt-only discipline. | Prompt-only safety is simpler but weaker and easier to bypass accidentally. | Stable. |
+| Keep one stable `main` checkout per repository for read-only inspection and use separate worktrees for mutation. | Reusing one mutable checkout reduces disk usage but blurs execution boundaries. | Stable. |
+| Read-only workers may share the stable read-only `main` checkout when safe. | Isolating every read-only worker gives maximum separation but adds unnecessary worktree churn. | Stable. |
+| Every mutating worker should receive its own worktree even when it is the only active mutating worker. | Conditional isolation based on concurrency saves setup work but makes the rule context-dependent and easier to violate. | Stable. |
+| Main itself may mutate an authorized workstream worktree directly; delegation to a worker is optional, not mandatory. | Forcing every mutation through a worker would add an unnecessary orchestration layer for simple tasks. | Stable. |
+| A Paseo session should remain associated with its concrete workspace/worktree so resume returns to the same execution location when that location is still valid. | Rebinding sessions dynamically is more flexible but risks resuming in the wrong repository context. | Stable. |
+| If a historical session's worktree no longer exists, do not recreate that stale worktree automatically. Main must read current Git/PW state and continue from the current legal location. | Automatic recreation preserves conversational continuity but can revive obsolete execution state. | Stable. |
+| Opening a stale/archived session must not automatically re-enable mutation from its old execution context; Main should treat it as historical until current durable state is revalidated. | Treating every reopened session as live is convenient but unsafe after branches/worktrees move or close. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
