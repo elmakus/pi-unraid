@@ -281,6 +281,32 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 | Keep a host-level doctor distinct from Paseo doctor: host doctor covers Unraid access/storage/Docker/network/core dependencies; Paseo doctor covers the Pi/Paseo control plane. | One monolithic doctor is simpler to name but harder to use and reason about. | Stable. |
 | Unraid-access research must test failure behavior, not only feature coverage: primary unavailable → fallback → recovery → return to primary. | A feature matrix alone does not prove operational resilience. | Stable research obligation. |
 
+
+#### O. Project onboarding, dependencies, caches and temporary services
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Paseo startup should not perform heavy discovery across every repository/project; discover lazily after the user enters a project. | Eager discovery makes the home screen richer but wastes startup time/context and touches projects the user may not use. | Stable. |
+| The project list should primarily derive from actual repositories/workspaces under the canonical workspace filesystem rather than require a separate mandatory registry. | A registry can add metadata but becomes a second state source that can drift from the filesystem. | Stable. |
+| Main may automatically clone a user-selected/requested repository into the canonical repos area when it is not present locally. | Requiring manual cloning adds unnecessary setup friction. | Stable. |
+| A clone does not need separate approval when the repository is explicitly selected by the user or unambiguously required by the accepted task. | Per-clone approval adds little control after repo selection. | Stable. |
+| After cloning/entering a repository, Main should automatically detect relevant `PROJECT.md`/PW state and recover the applicable route. | Requiring the user to identify workflow files manually defeats durable recovery. | Stable. |
+| Repositories without Project Workflow may still be worked on ad hoc, subject to the global branch/worktree mutation policy. | Requiring PW for every repository would unnecessarily block ordinary coding work. | Stable. |
+| Main may install project-local dependencies required by the repository/lockfiles within an authorized task. | Asking for every dependency install adds friction and project dependencies are not new global capabilities. | Stable. |
+| Project-local dependencies do not require the same capability approval as new durable global tools. | Treating all dependencies as global capability changes would over-govern normal project setup. | Stable. |
+| Prefer reproducible/locked dependency installation when the project provides a lockfile or equivalent. | Floating installs are simpler but weaken reproducibility and diagnosis. | Stable. |
+| Main may create/cache project-local virtualenvs, node_modules and build caches as needed. | Recreating them every run is cleaner but wastes substantial time. | Stable. |
+| Rebuildable project caches should not be included in the protected Paseo HOME backup. | Backing them up simplifies warm recovery but inflates backup volume with reproducible data. | Stable. |
+| Large npm/pip/Playwright-style caches may live outside the protected HOME backup boundary. | Keeping everything in HOME is simpler conceptually but bloats snapshots. | Stable. |
+| Temporary downloads/browser artifacts should have automatic cleanup with bounded retention. | Indefinite retention aids debugging but creates unbounded storage growth. | Stable. |
+| When PW requires an artifact as durable evidence, Main may promote/copy it from temporary storage into the canonical evidence location. | Leaving evidence only in temp storage would make it non-durable. | Stable. |
+| Ordinary screenshots/debug artifacts that are not accepted evidence should expire automatically. | Retaining every debug artifact indefinitely wastes storage. | Stable. |
+| Main may fetch project-local binaries/CLI tools without additional approval when they are declared or clearly required project dependencies. | Treating declared local tools as global capability additions would over-govern repository setup. | Stable. |
+| When work requires a new durable global service/system dependency, Main should surface the capability gap and seek approval rather than silently globalize it. | Silent global install reduces prompts but changes the shared environment without user authority. | Stable. |
+| Main may launch temporary project-scoped helper services such as test databases/Redis/containers when needed by an authorized task. | Forcing every helper service into durable infrastructure slows ordinary testing. | Stable. |
+| Temporary project helper containers/services should be automatically removed after the work when they are not part of the accepted final architecture. | Leaving them running creates drift and resource leakage. | Stable. |
+| Any new durable service/container intended to remain on Unraid should be represented reproducibly in project/infrastructure configuration rather than left as an undocumented manual container. | GUI-only/manual durable services are fast to create but become hidden infrastructure state. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
