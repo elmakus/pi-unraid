@@ -15,9 +15,6 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/INTAKE.toml"
 class = "brainstorm"
 path = "implementation/workstreams/feature-paseo-gui-runtime/BRAINSTORM.toml"
 
-[research]
-class = "research"
-path = "implementation/workstreams/feature-paseo-gui-runtime/RESEARCH.toml"
 
 [definition]
 class = "definition"
