@@ -1,30 +1,30 @@
 workstream_id = "feature-paseo-gui-runtime"
-state = "active"
+state = "consumed"
 origin_role = "definition"
 origin_subject = "definition:R1|paseo-gui-runtime@2|current-runtime-integration-facts"
 return_target = "definition"
-return_reconciliation = "pending"
-return_result = ""
-finding = ""
-limitations = ""
-conflicts = ""
+return_reconciliation = "applied"
+return_result = "elmakus/pi-unraid@43ddd4d5509f9a206b1d3ab667c290461bc6ea83:research/PASEO_GUI_RUNTIME_DEFINITION_FACTS_R1.md@f30d8e527c71c8cfa20e25f3e35922491e2d66af"
+finding = "Current upstream/runtime evidence supports the promoted architecture with bounded refinements: official Paseo GHCR child-image base, GraphQL-primary/SSH-fallback Unraid administration, server-side Chromium/Playwright independent of desktop Browser Tools, host-compatible volume ownership, and exact-candidate compatibility smoke for SpecPi/pi-mcp-adapter."
+limitations = "No live production Paseo/Pi target exists yet; real provider launch, Relay persistence, volume ownership, browser execution, MCP behavior and host-control failover remain implementation acceptance/readback obligations."
+conflicts = "No material conflict with accepted product authority; three implementation assumptions were narrowed without reopening user scope."
 
 [[sources]]
 class = "official_upstream"
-status = "pending"
+status = "checked"
 weight = "highest for current product/install/API/runtime facts"
 
 [[sources]]
 class = "project_runtime"
-status = "pending"
+status = "checked"
 weight = "highest for actual repository and available deployment evidence"
 
 [[sources]]
 class = "tracker_discussion"
-status = "pending"
+status = "checked"
 weight = "supporting evidence for upstream limitations/failure modes"
 
 [[sources]]
 class = "practitioner_community"
-status = "pending"
+status = "checked"
 weight = "supporting evidence for practical deployment failure modes and workarounds"
