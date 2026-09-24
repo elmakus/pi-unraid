@@ -213,6 +213,27 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 | If a historical session's worktree no longer exists, do not recreate that stale worktree automatically. Main must read current Git/PW state and continue from the current legal location. | Automatic recreation preserves conversational continuity but can revive obsolete execution state. | Stable. |
 | Opening a stale/archived session must not automatically re-enable mutation from its old execution context; Main should treat it as historical until current durable state is revalidated. | Treating every reopened session as live is convenient but unsafe after branches/worktrees move or close. | Stable. |
 
+
+#### L. Update control, host access and disaster recovery
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Build the Paseo+Pi image through the self-hosted GitHub runner on Unraid rather than making manual local builds the normal path. | Manual local builds are simple but weaker as a reproducible repo-driven deployment flow. | Stable. |
+| Every successful build should have both a normal `latest` reference and an immutable build identity/tag/digest for evidence and rollback. | `latest` alone is convenient but cannot identify the exact deployed artifact reliably. | Stable. |
+| Main must not initiate a Paseo/Pi upgrade merely because a newer version exists; it may detect/propose the upgrade, but applying it requires explicit user approval. | Fully autonomous upgrades reduce maintenance but can change the control plane unexpectedly. | Stable. |
+| Do not run a dedicated periodic version-polling loop for Paseo/Pi/extensions by default; check during maintenance/update work, relevant doctor flows or explicit user requests. | Continuous polling catches updates earlier but adds background machinery without a current need. | Stable. |
+| Interpret normal `latest` as latest stable release; prerelease/beta/nightly/canary requires an explicit user decision. | Following prerelease channels gives faster access to fixes/features but increases instability. | Stable. |
+| Do not cut over/restart the Paseo+Pi runtime while mutating agents are mid-write; first reach a safe checkpoint/drain state. | Immediate update minimizes version lag but can interrupt mutations and leave uncertain side effects. | Stable. |
+| Main will ultimately have full administrative access to the Unraid host. The permanent architecture must not assume that Main is intentionally limited to a narrow Paseo-only deployment helper. | Least-privilege host-only helper reduces blast radius, but the user explicitly wants full Unraid administration available to Main for broader system work. | Stable after explicit user correction. |
+| The exact full-access transport is intentionally undecided and must be researched later: candidates include an Unraid-specific MCP/integration, Unraid/API-token access, Docker-host control and SSH. A preferred primary path plus SSH as a broad fallback is an explicit candidate, not yet a frozen design. | Choosing a transport prematurely could lock the environment to a less capable or less ergonomic integration. | Open implementation/research decision. |
+| Container startup should not silently perform broad capability/config mutation; startup detects critical problems, while reconciliation remains an explicit controlled operation. | Self-healing startup can reduce downtime but makes boot behavior less deterministic and can hide drift. | Stable. |
+| If an already-approved capability is missing but declarative inventory says it should exist, Main may restore it automatically during an explicit reconcile/doctor flow and report the repair. | Requiring fresh approval for restoration would repeat an already-made capability decision. | Stable. |
+| If one extension is deterministically proven to prevent Pi startup, the environment may quarantine/disable that offender to recover core runtime, preserving evidence and reporting the action; do not mass-disable unrelated extensions. | Refusing all automatic isolation can leave the whole control plane unavailable because of one extension. | Stable. |
+| Keep a manual administrative break-glass shell path from Unraid even though normal user interaction is through Paseo. | GUI-only recovery simplifies the operating model but removes a valuable last-resort diagnostic path. | Stable. |
+| The manual administrative break-glass shell may run as root; normal Main/Pi execution inside Paseo remains `99:100` without `sudo`. | Rootless recovery is safer but may be unable to repair broken ownership/runtime/system state. | Stable. |
+| Provide two doctor depths: a quick core/runtime/workspace/Git/config check and a full browser/Relay/Codex-LB/MCP/extensions/GitHub-auth/permissions/E2E check. | One universal full doctor is simpler conceptually but too expensive/noisy for frequent use. | Stable. |
+| Maintain a documented disaster-bootstrap path that can recover from total Paseo HOME loss using the image, secrets, capability inventory and Git/PW state. Paseo UI/session history may be lost without losing canonical project work. | Treating HOME as irreplaceable would make a local-state loss a project-recovery failure. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
@@ -223,6 +244,7 @@ The following remain open and should drive subsequent grilling rather than being
 | Exact image tag strategy in addition to user-facing `latest` (e.g. immutable build tag/digest retention). | Build/publish path. | open |
 | Exact policy for who/what initiates Paseo/Pi `latest` updates and whether version checks are on-demand or scheduled. | Update/rollback mechanics. | open |
 | Exact meaning of `latest` regarding stable releases versus prerelease/beta/nightly channels. | Upstream release practices for Paseo and Pi. | open |
+| Exact full-administrative Unraid access transport and precedence for Main (e.g. Unraid MCP/integration, API token, Docker-host control, SSH primary/fallback). | Capability/security/ergonomics comparison and failure-mode testing. | open |
 | Exact secrets materialization method for each CLI/provider that insists on a HOME file versus env/secret mount. | Verified upstream auth/config behavior. | open |
 | Exact browser-control extension/MCP layer above Chromium+Playwright, if any. | Later browser-control research/selection; current choice covers runtime only. | open |
 | Exact capability inventory schema/reconciliation command shape. | Definition/implementation design; user-facing policy is already settled. | open |
@@ -248,6 +270,7 @@ The following remain open and should drive subsequent grilling rather than being
 - **Main may auto-switch model/provider: rejected.** Provider/model change requires user decision.
 - **Automatic session-close summary: rejected.**
 - **PASEO_PASSWORD in Relay-only design: rejected.**
+- **Permanent narrow Paseo-only host deployment helper as Main's sole host-control path: superseded.** Main is intended to receive full Unraid administration; the exact preferred and fallback transport remains open for later research.
 
 ## Brainstorming interaction preference
 
