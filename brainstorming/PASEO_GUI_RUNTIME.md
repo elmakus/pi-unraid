@@ -334,6 +334,32 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 | The global AGENTS.md should also have a reproducible source under version control rather than existing only as hand-edited HOME state. | HOME-only global instructions are fragile after recovery/rebuild. | Stable. |
 | Doctor should validate the instruction plane itself: expected global AGENTS.md, skills/references/extensions and their inventory/version alignment. | Runtime/tool checks alone can miss loss or drift of the policies that tell Main how to act. | Stable. |
 
+
+#### Q. Capability inventory, doctor/reconcile and instruction-plane updates
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Keep one declarative global capability inventory for Main covering skills, extensions, CLI tools, MCPs, browser/runtime capabilities and similar durable environment features. | Fragmented inventories are easier locally but make recovery/drift analysis inconsistent. | Stable. |
+| Capability inventory entries should include a concise purpose/rationale, not only package identity. | Package-only records are smaller but do not explain why a capability is retained. | Stable. |
+| Inventory should distinguish version-controlled source from native runtime/install location. | Treating runtime HOME as the source obscures reproducibility and provenance. | Stable. |
+| Record the exact observed installed version/commit/digest even when the desired policy is a moving channel such as latest stable. | Channel-only state cannot identify the exact known-good artifact for diagnosis/rollback. | Stable. |
+| Model capability state as desired versus observed; observed state is derived from live doctor/readback rather than hand-maintained as authority. | A single field is simpler but conflates intent with reality. | Stable. |
+| A declared approved capability missing from runtime is drift. | Ignoring missing capabilities allows silent degradation. | Stable. |
+| An undeclared unexpected global capability present in runtime is also drift, but is reported for adopt/remove decision rather than automatically deleted. | Auto-pruning is deterministic but can destroy useful/manual state without authority. | Stable. |
+| Main may restore a missing already-approved capability during explicit reconciliation without asking for the same approval again. | Reapproval would repeat settled authority rather than change scope. | Stable. |
+| During an explicit update-oriented reconciliation, Main may update an already-approved capability to its accepted latest-stable line without re-approving the capability itself. | Reapproval for every routine version movement is operationally noisy. | Stable. |
+| Keep `doctor` diagnostic/read-only and `reconcile` mutating/repairing. | Combining diagnosis and repair into one command is convenient but makes effects less predictable. | Stable. |
+| `doctor quick` must be read-only. | Auto-fixing during a quick health check would hide drift and change state unexpectedly. | Stable. |
+| `doctor full` is also read-only even when it performs active E2E probes. | A full doctor that repairs state makes diagnosis non-repeatable and harder to audit. | Stable. |
+| Separate `reconcile` (restore current desired state) from `update` (intentionally move desired/current version lines forward). | One generic repair/update command is simpler but conflates recovery with version change. | Stable. |
+| Global AGENTS.md, skills and extensions should use the same controlled update/smoke/rollback discipline as other durable capabilities. | Treating instruction-plane updates as plain file copies understates their impact on Main behavior. | Stable. |
+| Snapshot/retain the prior instruction-plane set before changing global AGENTS.md, skills or extensions. | Without a rollback anchor a bad instruction update can disable the control plane. | Stable. |
+| After changing a global skill/extension/instruction set, smoke it in a fresh Pi session rather than relying only on the currently loaded context. | Current-session tests can falsely pass because old instructions are already cached/loaded. | Stable. |
+| Instruction-plane smoke must verify real discovery/progressive disclosure, including selecting the appropriate skill/reference without loading the whole policy corpus. | File-existence checks do not prove the model can actually route to the right authority. | Stable. |
+| Critical policy guards require automated positive and negative tests (for example allowed ordinary action versus approval-required broad action). | Untested guards can silently over-block or under-protect. | Stable. |
+| Changing the authorization matrix is a material policy/authority change, not a routine skill-content update. | Treating it as ordinary content could expand or contract Main autonomy without explicit authority handling. | Stable. |
+| Provide a lightweight capability-status surface showing desired/observed/drift/version without requiring Main to load the full capability documentation. | Full-document inspection is wasteful for routine status checks. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
