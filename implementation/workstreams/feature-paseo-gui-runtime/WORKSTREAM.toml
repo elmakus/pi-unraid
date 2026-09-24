@@ -24,3 +24,7 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/BRAINSTORM.toml"
 [definition]
 class = "definition"
 path = "implementation/workstreams/feature-paseo-gui-runtime/DEFINITION.toml"
+
+[planning]
+class = "planning"
+path = "implementation/workstreams/feature-paseo-gui-runtime/PLANNING.toml"
