@@ -528,6 +528,32 @@ Live inspection of `elmakus/chatgpt-ce-workstation@main` confirms the earlier wo
 | Crash/restart recovery must reconstruct legal continuation from canonical Git/PW state before trusting convenience-only Paseo session state. | Session-first recovery is faster but can revive stale execution context. | Stable. |
 | Complete loss of runtime/session state must still allow Main to recover the exact legal project continuation without reconstructing chat history manually. | Making session history essential would turn convenience state into hidden project authority. | Stable acceptance invariant. |
 
+
+#### X. Deterministic update resolution and final deployment acceptance
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Update orchestration should first resolve the latest accepted stable versions, then freeze the exact candidate set before build. | Resolving latest during build makes candidate identity time-dependent and harder to reproduce. | Stable. |
+| The build itself must not independently discover "latest"; it consumes only the frozen exact resolution. | In-build discovery is convenient but can change the candidate between retries. | Stable. |
+| Maintain one exact upstream-resolution manifest covering material global components such as Paseo, Pi, Node, gh, Playwright/Chromium and approved global extensions/capabilities. | Fragmented resolution files complicate provenance and rollback. | Stable. |
+| Record digests/SHA/integrity in the resolution manifest where upstreams provide them, not only human-readable versions. | Version strings alone may not uniquely identify mutable artifacts. | Stable. |
+| Embed or otherwise make the exact candidate resolution manifest recoverable from the built image. | External-only provenance can be lost or detached from the artifact. | Stable. |
+| Failure to resolve any mandatory global component stops the update before build rather than guessing/falling back silently. | Guessing preserves availability but weakens provenance and latest-policy integrity. | Stable. |
+| A retry of the same failed candidate build uses the same frozen resolution; it must not silently re-resolve latest mid-retry. | Re-resolving during retry changes the candidate being diagnosed. | Stable. |
+| A separately initiated later update attempt may resolve latest again. | Freezing forever would defeat the user's latest-everything policy. | Stable. |
+| If every managed component is already at the accepted latest state, the maintenance run should finish as a no-op without unnecessary image rebuild. | Rebuilding unchanged state wastes time and cache capacity. | Stable. |
+| Latest tracking includes a changed stable base-image digest even when the visible tag/version string is unchanged. | Ignoring digest movement can leave the base materially stale. | Stable. |
+| A changed base-image digest is treated as a materially broader update and receives wider smoke coverage. | Base changes can affect many transitive runtime assumptions even with the same tag. | Stable. |
+| Capability inventory should classify delivery mode (for example image-baked, HOME-managed, host-managed, external service) so update/reconcile can route each capability correctly. | Without delivery classification update logic must rediscover installation semantics each time. | Stable. |
+| If only HOME-managed capabilities changed and image-level components are already current, image rebuild may be skipped; snapshot/update/fresh-session smoke is sufficient. | Forcing an image rebuild for every skill/reference update destroys the benefit of native HOME-managed capabilities. | Stable. |
+| If one coordinated maintenance batch changes both image and HOME-managed global capability state, a failed capability smoke should restore the prior coherent software/instruction set rather than leave an arbitrary half-updated environment. | Partial rollback makes the known-good state ambiguous. | Stable. |
+| Ordinary version rollback preserves persistent user state such as Paseo sessions, pairing, browser profile and logins unless a proven state migration/corruption specifically requires data rollback. | Rolling back all user state by default can discard newer valid state. | Stable. |
+| After final Paseo GREEN acceptance, retire and remove the standalone bootstrap `pi-unraid` container as an active runtime. | Keeping both environments creates drift and ambiguity. | Stable. |
+| After Paseo GREEN plus verified rollback/recovery, the unused bootstrap appdata may be deleted because it contains no real user work. | Retaining bootstrap debris indefinitely adds storage and recovery ambiguity. | Stable. |
+| Initial final Paseo deployment receives materially broader acceptance than routine updates, including cold/warm build evidence, recovery, real phone Relay path, Pi RPC, browser, GitHub and capability/doctor checks. | Applying full first-deploy acceptance to every routine update would make maintenance unnecessarily slow. | Stable. |
+| Definition should require an efficient warm-cache fast path for normal updates but should not invent an arbitrary time SLA before empirical measurements exist. | A premature hard SLA can optimize for a guessed number rather than measured system behavior. | Stable. |
+| After this grilling, the next normal Brainstorming obligation is a bounded completion audit rather than another broad question batch. | Continuing broad option generation now has low expected value and risks scope inflation. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
