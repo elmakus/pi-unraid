@@ -5,6 +5,8 @@ Status: `approved`
 Updated: `2026-09-24`
 Definition subject: `paseo-gui-runtime@2`
 Source Brainstorming: `brainstorming/PASEO_GUI_RUNTIME.md`
+Exact promoted source: `elmakus/pi-unraid@f1626faf5e2709975383115453f118a82db7d7a8:brainstorming/PASEO_GUI_RUNTIME.md@3fe19a43f5187b6f071130c3dc47e2f9de8d3c11`
+Definition Research: `research/PASEO_GUI_RUNTIME_DEFINITION_FACTS_R1.md`
 
 ## Goal
 
