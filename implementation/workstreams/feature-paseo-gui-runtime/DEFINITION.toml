@@ -1,9 +1,9 @@
 workstream_id = "feature-paseo-gui-runtime"
 source_scope_subject = "paseo-gui-runtime@2"
 revision = "R1"
-state = "active"
-completeness_audit = "pending"
-premium_a = "not_due"
+state = "green"
+completeness_audit = "green"
+premium_a = "due"
 decisions = [
   { class = "authority", path = "decisions/ADR_PGR_001_RUNTIME_SUBSTRATE.md" },
   { class = "authority", path = "decisions/ADR_PGR_002_AUTHORITY_BOUNDARIES.md" },
