@@ -437,6 +437,32 @@ Live readback on 2026-09-24 from `elmakus/chatgpt-codex-project-workflow` branch
 | Project-local dependencies governed by repository manifests/lockfiles are excluded from blanket global latest updates; they remain controlled by the project's own dependency authority. | Blindly upgrading project dependencies would violate reproducible project state and could change product code unexpectedly. | Stable boundary. |
 | Compatibility or smoke failure of one global component may block promotion of the coordinated batch; do not silently leave production in an arbitrary half-updated state unless an explicitly designed partial-update recovery path proves safe. | Partial success can reduce work but makes the running environment harder to reason about. | Stable direction; exact transaction/rollback mechanics remain implementation detail. |
 
+
+#### U. Global latest-stable component policy
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Treat global-environment updates as an atomic promotion unit from the production user's perspective: either the coordinated latest-stable set passes required compatibility/smoke and is promoted, or production remains on the prior known-good set. | Partial promotion may salvage some updates but makes the global environment harder to reason about. | Stable. |
+| If one latest global component (for example Node) breaks compatibility with Pi/Paseo, block promotion of the coordinated batch rather than silently keeping that component old while updating the rest. | Silent partial lag reduces interruption but hides compatibility debt. | Stable. |
+| Main may propose a temporary compatibility exception (for example Node N-1) when latest cannot be promoted safely; adopting such an exception requires explicit user approval because it departs from the latest-everything policy. | Automatically pinning around breakage is convenient but changes accepted version policy without user authority. | Stable. |
+| Compatibility exceptions must be recorded with rationale and a later recheck obligation. | Unrecorded pins tend to become permanent accidental drift. | Stable. |
+| Each later global maintenance update should automatically re-evaluate whether recorded compatibility exceptions can be removed. | Manual exception tracking is easy to forget. | Stable. |
+| Prefer the latest stable/LTS Node line compatible with the environment rather than requiring Current merely because it is numerically newest. | Current may be newer but can have a shorter support/stability horizon. | Stable. |
+| For Python, prefer the latest stable version compatible with the selected base image/tooling rather than forcing a system-Python jump beyond upstream support. | Independently forcing the newest interpreter can destabilize the base image. | Stable. |
+| Keep `gh` on the latest stable upstream-supported release source rather than accepting a stale distro package solely for convenience. | Distro packaging is simpler but may lag materially. | Stable. |
+| Update Playwright and its managed Chromium/browser payload as a compatible pair. | Updating either side independently can create protocol/runtime mismatch. | Stable. |
+| Leave browser/system libraries under the base image/package-manager compatibility domain rather than independently chasing latest for each low-level library. | Independently upgrading every library increases complexity with little benefit. | Stable. |
+| Docker CLI and Compose plugin are approved global baseline tools and should move to their latest stable compatible releases during maintenance. | Leaving them stale creates avoidable host/runtime tooling drift. | Stable. |
+| Ordinary low-level Unix utilities (Git/curl/jq/ripgrep and similar) may remain at the current supported distro versions unless a concrete feature/bug requires newer upstream packaging. | Building independent update channels for every utility creates disproportionate maintenance overhead. | Stable. |
+| Explicitly approved global npm/pip tools in capability inventory should move to latest stable during the coordinated update. | Keeping them pinned independently conflicts with the user's latest-global preference. | Stable. |
+| Transitive package dependencies are updated through their owning top-level package/tool rather than managed independently. | Independent transitive pinning creates dependency-graph complexity. | Stable. |
+| SpecPi, once onboarded as an approved global capability, should update to latest stable during coordinated maintenance. | Manual SpecPi drift creates an avoidable exception. | Stable. |
+| `pi-mcp-adapter`, once onboarded, should update to latest stable during coordinated maintenance subject to compatibility smoke. | Adapter/runtime mismatch is possible, so smoke remains required. | Stable. |
+| A future PWv2.1 Pi extension, after it is completed and formally onboarded, should follow the same latest-stable global maintenance policy. | Special-casing it indefinitely would create version drift. | Stable future integration intent. |
+| Before applying a coordinated update, Main should present a compact version delta summary rather than request component-by-component confirmation. | Per-component approval is noisy and adds no value once the whole maintenance batch is accepted. | Stable. |
+| One user approval for the maintenance update authorizes the complete compatible latest-stable batch; do not repeatedly ask for each component. | Reconfirming each component defeats the coordinated update model. | Stable. |
+| Successful update reporting should normally show actual changed components and any active exceptions; complete unchanged inventory remains available on demand. | Listing every unchanged component after every update is noisy. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
