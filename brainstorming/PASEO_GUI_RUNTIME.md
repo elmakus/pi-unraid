@@ -555,9 +555,99 @@ Live inspection of `elmakus/chatgpt-ce-workstation@main` confirms the earlier wo
 | After this grilling, the next normal Brainstorming obligation is a bounded completion audit rather than another broad question batch. | Continuing broad option generation now has low expected value and risks scope inflation. | Stable. |
 
 
+
+## Cross-project authority corrections — 2026-09-24
+
+These corrections incorporate the fresh cross-project architecture/authority audit across Paseo/pi-unraid, PWv2.1 and Orchestration Runtime. They supersede any earlier exploratory wording in this file that conflicts with them.
+
+### CP-01 — Environment Capability Inventory vs OR Tool Registry
+
+The Paseo/pi-unraid capability inventory is explicitly an **Environment Capability Inventory**, not a second runtime authorization/classification registry.
+
+It owns only environment-plane facts and policy such as:
+- whether a global capability is intended to exist in this deployment;
+- installation/source/delivery mode;
+- exact observed version/commit/digest;
+- desired latest-stable policy;
+- provenance;
+- native runtime location;
+- environment health/drift;
+- install/update/rollback lifecycle;
+- whether introducing/removing a durable global environment capability itself requires user approval.
+
+It does **not** own:
+- role ceilings;
+- Worker/Reviewer assignment eligibility;
+- runtime action/effect classification;
+- role-default tool bundles;
+- task-scoped grants;
+- runtime capability pinning for an assignment;
+- OR-side approval state for how a tool may be used.
+
+Those runtime-use semantics belong to Orchestration Runtime's accepted Tool Registry. The integration should use stable capability/tool identifiers so OR can consume observed environment availability/version without duplicating installation/update authority, while pi-unraid does not duplicate OR's role/action classification.
+
+### CP-02 — Worker/worktree topology belongs to OR realization
+
+Earlier exploratory wording that required every mutating Worker to receive its own worktree even when it is the only mutator is superseded.
+
+Paseo/pi-unraid owns the environment substrate:
+- canonical workspace/repository roots;
+- safe worktree-capable filesystem layout;
+- permissions;
+- persistence;
+- visibility/readback;
+- recovery-safe storage.
+
+Project Workflow owns managed mutation legality, canonical workstream/branch/write-scope semantics and any workflow-level constraints on concurrency.
+
+Orchestration Runtime owns concrete Worker/session/worktree realization subject to those PW constraints. It may use a canonical authorized workspace for a single legal mutator when its accepted authority allows that topology, and must isolate concurrent mutators as required by its own accepted contracts.
+
+pi-unraid must not independently freeze OR's Worker topology.
+
+### CP-03 — Generic direct-Main ad-hoc Git mutation guard has no final canonical owner yet
+
+The desired cross-runtime invariant remains:
+
+- read-only inspection of `main` is allowed;
+- direct ad-hoc repository mutation must not begin by writing on `main`;
+- a legal branch/worktree must exist before the first mutation.
+
+However, **pi-unraid is not declared the canonical semantic owner of that general rule merely because Paseo/Pi is one execution environment**.
+
+Current ownership is deliberately unresolved across runtimes/harnesses. Until a canonical cross-runtime owner is established:
+- PW remains authoritative for managed PW work;
+- OR retains and enforces its own accepted ad-hoc no-write-on-main contract for OR-operated work;
+- Paseo/pi-unraid may enforce the invariant for direct Main/Pi execution as an environment safety measure, but must not claim that local copy as universal cross-runtime authority;
+- GitHub issue/bookkeeping is not authority.
+
+Before this invariant is promoted as a universal policy, ownership must be resolved without coupling the semantic rule unnecessarily to one deployment/runtime repository.
+
+### CP-04 — Pi policy guards may enforce only environment-owned safety
+
+Any Pi-side mechanical policy guard owned by pi-unraid is limited to environment/host safety that this project legitimately owns, for example:
+- formatting storage;
+- deleting broad shares/appdata;
+- broad host networking changes;
+- whole Docker-engine restart;
+- whole-host reboot;
+- Unraid OS upgrade;
+- comparable destructive host operations.
+
+pi-unraid must **not** independently encode Project Workflow semantic gates such as:
+- Definition promotion;
+- Premium A/B/C;
+- Card/review freshness;
+- PW user-stop semantics;
+- workflow route/continuation rules.
+
+If a future PWv2.1 Pi extension mechanically enforces such workflow rules, those semantics remain PW-owned and the Pi extension implements/consumes the versioned PW contract rather than maintaining a separate pi-unraid rule copy.
+
+Likewise, OR-owned runtime scheduling, worker roles and tool-use policy are not reimplemented as pi-unraid policy guards.
+
+
 ## Completion audit — 2026-09-24
 
-Result: **GREEN for user/product/strategy grilling.**
+Result: **GREEN for user/product/strategy grilling after CP-01…CP-04 cross-project authority corrections.**
 
 The final challenge pass found no remaining material user/product choice that justifies another broad question batch. The following apparent tensions are explicitly reconciled:
 
