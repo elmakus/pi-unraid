@@ -373,6 +373,32 @@ Live readback on 2026-09-24 from `elmakus/chatgpt-codex-project-workflow` branch
 - Therefore the Pi-extension packaging/bootstrap/install design is a later integration concern and should not be injected into current M02/M03 execution unless PWv2.1 authority is deliberately reopened. Preferred current direction: finish the accepted PWv2.1 core plan, then design a separate packaging/integration workstream against the stable final contract.
 
 
+
+#### R. Secrets, authentication, browser identity and Relay acceptance
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Capability inventory must never contain raw secrets/tokens; it may record only secret requirements, identifiers and expected locations. | Embedding secrets in inventory simplifies discovery but would make Git/config unsafe. | Stable. |
+| When a tool can consume a credential directly from a mounted/native secret file, prefer that over copying the secret into place during startup. | Startup-copy is simple but creates extra mutable secret material and lifecycle complexity. | Stable. |
+| If an upstream tool requires writable persistent native config in HOME containing credentials, allow it and treat that HOME/config/backup as secret-bearing. | Forcing every credential into an external mount may break native tooling semantics. | Stable. |
+| Doctor must not print raw token/key/password values; it may report presence, permissions, fingerprints/metadata and authentication-probe results. | Printing raw values aids debugging but leaks credentials into logs/context. | Stable. |
+| Logs/evidence should redact known secrets where practical. | Raw logs preserve exact output but create unnecessary credential exposure. | Stable. |
+| Capability/status surfaces may report authentication state such as GitHub/SSH auth OK without exposing credentials. | Hiding all auth status makes diagnosis harder. | Stable. |
+| Prefer OAuth/device-flow/token-based auth over storing ordinary passwords when the service supports it. | Password auth may be simpler initially but is generally less suitable for persistent automated use. | Stable. |
+| First-time authentication of a new account/service requires deliberate user participation. | Fully autonomous credential enrollment risks binding the wrong account or authority. | Stable. |
+| Automatic refresh of an already-approved OAuth/session token may occur without repeated user approval. | Reapproval on every refresh would make long-lived automation impractical. | Stable. |
+| If authentication expires/revokes during work, stop the dependent action and request re-authentication rather than hunting for alternative credentials autonomously. | Secret-hunting could accidentally cross account or authority boundaries. | Stable. |
+| Start browser automation with one persistent automation profile. | Multiple profiles from day one add complexity without a proven need. | Stable. |
+| Create additional browser profiles only when multiple concurrent identities/accounts or isolation requirements justify them. | Precreating profiles anticipates hypothetical needs and adds management overhead. | Stable. |
+| Treat browser profiles containing cookies/session tokens as secret-bearing state. | Treating them as ordinary cache would under-protect credentials. | Stable. |
+| Browser downloads should default to temporary workspace storage rather than persistent browser-profile/HOME storage. | Persisting all downloads aids later inspection but bloats protected state. | Stable. |
+| Screenshots/PDFs/downloads become durable evidence only when the workflow/task actually requires them; otherwise they remain temporary artifacts. | Persisting every browser artifact wastes storage and blurs evidence boundaries. | Stable. |
+| Main may reuse an existing authenticated browser session for an already-approved service without asking before each visit. | Per-visit approval would make browser automation impractical. | Stable. |
+| Paseo Relay device pairing should be individually identifiable/revocable when upstream supports it. | One undifferentiated pairing state is simpler but weakens device-specific revocation. | Stable. |
+| Loss of one paired device should be recoverable by revoking that device without resetting all Relay/Home state when upstream supports it. | Resetting everything is simpler but needlessly disrupts unaffected devices. | Stable. |
+| Do not design or configure a permanent/temporary alternate local/tunnel Relay-access path in this scope now. If Relay-break-glass access becomes necessary later, treat it as a separate explicit design/configuration decision. | Preconfiguring a second path increases attack surface and scope before a demonstrated need. | Deferred by explicit user correction. |
+| Paseo deploy/update acceptance should include both internal Relay/Paseo health validation and an actual user-phone end-to-end test for the real UX path. | Internal health alone cannot prove the user-facing access path. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
