@@ -1,0 +1,16 @@
+kind = "feature"
+workstream_id = "feature-paseo-gui-runtime"
+branch = "feat/paseo-gui-runtime"
+created_from = "ca196378bc38d87f5267b870de2c5545905279d4"
+integration_target = "main"
+authority = [
+  { class = "authority", path = "workflow/PWV2_ADOPTION.md" },
+]
+
+[intake]
+class = "intake"
+path = "implementation/workstreams/feature-paseo-gui-runtime/INTAKE.toml"
+
+[brainstorm]
+class = "brainstorm"
+path = "implementation/workstreams/feature-paseo-gui-runtime/BRAINSTORM.toml"
