@@ -5,6 +5,11 @@ created_from = "ca196378bc38d87f5267b870de2c5545905279d4"
 integration_target = "main"
 authority = [
   { class = "authority", path = "workflow/PWV2_ADOPTION.md" },
+  { class = "authority", path = "requirements/PASEO_GUI_RUNTIME.md" },
+  { class = "authority", path = "decisions/ADR_PGR_001_RUNTIME_SUBSTRATE.md" },
+  { class = "authority", path = "decisions/ADR_PGR_002_AUTHORITY_BOUNDARIES.md" },
+  { class = "authority", path = "decisions/ADR_PGR_003_UNRAID_ADMIN_SAFETY.md" },
+  { class = "authority", path = "decisions/ADR_PGR_004_UPDATE_BUILD_ROLLBACK.md" },
 ]
 
 [intake]
