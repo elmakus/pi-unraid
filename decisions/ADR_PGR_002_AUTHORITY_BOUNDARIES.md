@@ -2,7 +2,7 @@
 
 - Decision ID: `ADR-PGR-002`
 - Date: `2026-09-24`
-- Status: `definition-active`
+- Status: `accepted`
 - Definition subject: `paseo-gui-runtime@2`
 
 ## Decision
