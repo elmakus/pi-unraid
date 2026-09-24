@@ -502,6 +502,32 @@ Live inspection of `elmakus/chatgpt-ce-workstation@main` confirms the earlier wo
 | If a component routinely invalidates/rebuilds large unrelated portions of the image, treat that as a build-design defect to investigate rather than normal behavior. | Accepting broad rebuilds hides avoidable pipeline inefficiency. | Stable. |
 | Deployment acceptance should include measured evidence from both a cold build and a subsequent representative small-change/warm update proving real cache reuse. | Merely inspecting Dockerfile structure does not prove the cache works operationally. | Stable. |
 
+
+#### W. Observability, notifications and recovery UX
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Runtime logs for Paseo/Pi must use bounded retention/rotation rather than grow indefinitely. | Unlimited retention aids forensics but creates unbounded storage use. | Stable. |
+| Worker logs/transcripts also use bounded retention. | Permanent transcript retention increases storage/context exposure without becoming canonical authority. | Stable. |
+| Durable Project Workflow evidence is not governed by runtime log retention; it remains under Git/PW retention semantics. | Treating evidence as ordinary logs risks deleting canonical proof. | Stable. |
+| Failed/blocked sessions may retain diagnostic logs longer than ordinary successful sessions. | Uniform retention is simpler but discards higher-value failure data too quickly. | Stable. |
+| Full logs are available on demand but are not loaded into Main's context by default. | Eager log loading maximizes visibility but creates context bloat. | Stable. |
+| Worker completion normally returns a bounded structured semantic result rather than a transcript dump. | Full transcripts preserve all detail but are noisy and expensive to consume. | Stable. |
+| Main should inspect full worker logs automatically only when the result is RED, blocked, ambiguous or otherwise requires diagnosis. | Always opening logs wastes context on healthy work. | Stable. |
+| User-facing notifications should be limited to action-required states, errors and meaningful task/workstream completion. | Notifying every routine transition creates alert fatigue. | Stable. |
+| Routine worker progress may remain visible in Paseo UI without generating individual push notifications. | Push for every worker event is noisy and low-value. | Stable. |
+| A real PW User Stop should clearly surface the exact user action/decision/input required. | Generic "blocked" states force the user to rediscover the gate. | Stable. |
+| Near-simultaneous worker completions should be aggregated by Main into one meaningful status update where practical. | Per-worker notifications expose detail but create unnecessary noise. | Stable. |
+| Automatically recovered transient errors that do not change the task outcome should normally remain in logs/results without alarming the user, unless they reveal recurring drift/reliability problems. | Surfacing every recovered transient error creates noise. | Stable. |
+| Repeated transient failures should eventually escalate as an environment/reliability problem rather than being retried indefinitely. | Endless silent retries hide systemic problems. | Stable. |
+| Repeated friction/reliability patterns should feed the SpecPi improvement/wishlist loop when material, not after a single isolated incident. | Recording every one-off event creates low-signal improvement noise. | Stable. |
+| Doctor should expose a machine-readable result plus a concise human summary using GREEN/WARN/RED and concrete failing checks. | Human-only output is harder to automate; machine-only output is harder to operate. | Stable. |
+| WARN does not block unrelated normal work; it is advisory/degraded state unless the warned capability is required by the current task. | Treating every warning as fatal makes the environment brittle. | Stable. |
+| Failure of one optional capability normally degrades to WARN rather than making the entire Paseo control plane RED when core runtime still works. | Global RED for optional failures overstates impact. | Stable. |
+| Core control-plane failures such as inability to launch Pi, unreadable HOME or unavailable canonical workspace are RED. | Downgrading core failure to warning risks unsafe/undefined execution. | Stable. |
+| Crash/restart recovery must reconstruct legal continuation from canonical Git/PW state before trusting convenience-only Paseo session state. | Session-first recovery is faster but can revive stale execution context. | Stable. |
+| Complete loss of runtime/session state must still allow Main to recover the exact legal project continuation without reconstructing chat history manually. | Making session history essential would turn convenience state into hidden project authority. | Stable acceptance invariant. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
