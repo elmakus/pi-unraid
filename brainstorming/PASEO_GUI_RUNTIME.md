@@ -3,7 +3,7 @@
 Date: `2026-09-24`
 Scope ID: `paseo-gui-runtime`
 Revision: `R2`
-Status: `ready_for_definition`
+Status: `promoted`
 
 ## Problem / goal
 
@@ -724,8 +724,8 @@ Research findings may refine implementation details. If they expose a genuinely 
 - Material unresolved user/product questions: **none identified**.
 - Remaining work before implementation: bounded factual Research plus Definition/Planning formalization; PWv2.1 Pi-extension packaging remains deliberately deferred until PWv2.1 itself is stable.
 - Next broad-question batch: **none recommended**.
-- Definition promotion authorization: `pending`.
-- Definition promotion subject: `none`.
+- Definition promotion authorization: `authorized`.
+- Definition promotion subject: `paseo-gui-runtime@2`.
 - Current-workstream format note: this exploratory workstream still uses the older YAML-era locator/state shape and has not yet been normalized to the current `project_workflow_v2@main` TOML lifecycle records; formal router lifecycle promotion must use the current workflow/recovery contract rather than inferring state from this Markdown alone.
 
-> Nothing in this file becomes accepted requirement/decision authority by itself. Project Definition owns promotion into canonical `requirements/` and `decisions/`. Exact promotion of the current scope still requires explicit user authorization after the workflow state is normalized/recovered under the current Project Workflow V2 contract.
+> This file remains provenance/exploratory history rather than downstream authority. Exact scope `paseo-gui-runtime@2` was explicitly promoted by the user; canonical Definition authority is now carried by the workstream's `DEFINITION.toml`, requirements and accepted decisions.
