@@ -234,6 +234,27 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 | Provide two doctor depths: a quick core/runtime/workspace/Git/config check and a full browser/Relay/Codex-LB/MCP/extensions/GitHub-auth/permissions/E2E check. | One universal full doctor is simpler conceptually but too expensive/noisy for frequent use. | Stable. |
 | Maintain a documented disaster-bootstrap path that can recover from total Paseo HOME loss using the image, secrets, capability inventory and Git/PW state. Paseo UI/session history may be lost without losing canonical project work. | Treating HOME as irreplaceable would make a local-state loss a project-recovery failure. | Stable. |
 
+
+#### M. Full Unraid administration semantics
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Main may use its full Unraid administrative capability autonomously while carrying out an already-authorized task; do not require confirmation before each ordinary host command. | Per-command confirmation maximizes direct control but would make infrastructure work impractical. | Stable. |
+| Full Unraid access is a global Main/environment capability, not something scoped only to the `pi-unraid` repository. | Repo-local access is narrower but misrepresents Unraid as merely one project's runtime. | Stable. |
+| Prefer a structured Unraid-specific/API/MCP control surface over raw SSH when it provides materially equivalent full coverage. | SSH is universal, but structured operations are easier to validate, observe and reason about. | Stable. |
+| Keep SSH as a universal fallback even if another transport becomes the primary path. | A single control path is simpler but creates a larger recovery dependency. | Stable. |
+| Main may fall back from the primary Unraid transport to SSH without asking again when the task authority is unchanged and the fallback is only a transport change. | Requiring a new user decision for transport fallback would add friction without changing task scope. | Stable. |
+| Prefer the highest-level adequate control surface for each operation (dedicated/API/MCP operation first, shell/SSH when needed). | Always using SSH is uniform but loses typed/structured semantics where available. | Stable. |
+| SSH should use non-interactive key-based authentication suitable for autonomous agent use. | Password prompts preserve manual involvement but break unattended execution. | Stable. |
+| Host-access credentials must persist across Paseo rebuilds while remaining outside the repository. | Re-provisioning after every rebuild is safer in one dimension but operationally brittle. | Stable. |
+| Full Unraid administration includes all Docker containers, not only the Paseo stack. | Limiting Docker control to Paseo would contradict the intended host-wide admin capability. | Stable. |
+| Full Unraid administration may include host files/appdata/shares/network/configuration when a concrete authorized task requires them. | Restricting to Docker would make "full access" incomplete. | Stable. |
+| Highly destructive or broad irreversible host operations still require explicit user approval, including examples such as deleting a whole share/appdata tree, formatting disks or materially changing storage pools. | Blanket authority would reduce prompts but create unacceptable irreversible-risk exposure. | Stable. |
+| Restarting an individual container/service within an already-authorized maintenance task does not require a separate confirmation. | Reconfirming each restart would add low-value friction. | Stable. |
+| Restarting the whole Unraid host requires explicit user approval because it disrupts all workloads. | Autonomous host reboot could simplify maintenance but has broad system impact. | Stable. |
+| Before host-level mutation, Main should perform a bounded readback of the current target state instead of acting on stale assumptions. | Skipping readback is faster but increases risk of applying actions to changed infrastructure. | Stable. |
+| Later dedicated research must compare at least Unraid-specific MCP/integration, available token/API control, Docker-host access and SSH, then select a preferred primary + fallback based on coverage, reliability, agent ergonomics and recovery behavior. | Choosing from intuition now could lock in a weaker long-term control plane. | Stable research obligation. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
