@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-gui-runtime"
 scope_id = "paseo-gui-runtime"
 revision = 2
-state = "ready_for_definition"
+state = "promoted"
 challenge_audit = "green"
 explicit_user_stop = false
-promotion_state = "pending"
-promotion_subject = ""
+promotion_state = "authorized"
+promotion_subject = "paseo-gui-runtime@2"
