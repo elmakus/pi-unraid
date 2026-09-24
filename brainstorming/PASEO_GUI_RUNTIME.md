@@ -476,6 +476,32 @@ Live inspection of `elmakus/chatgpt-ce-workstation@main` confirms the earlier wo
 - Paseo+Pi should reuse this proven persistent-builder/cache pattern and additionally design cache-friendly layer ordering/component boundaries so frequently changing tools do not force unnecessary rebuild of heavy unrelated layers. Multi-stage/componentized layering and BuildKit-native rebasing mechanisms should be evaluated during implementation rather than assuming the Workstation Dockerfile is already optimal for Paseo.
 
 
+
+#### V. BuildKit cache architecture and rebuild minimization
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Paseo+Pi should use its own dedicated persistent Buildx builder, following the proven Workstation pattern. | Reusing an ephemeral/default builder is simpler but loses predictable warm-cache behavior. | Stable. |
+| The builder/cache must survive ordinary Paseo updates/restarts because it belongs to build infrastructure, not the Paseo runtime container. | Runtime-coupled cache is easier to colocate but defeats recovery and warm builds after runtime replacement. | Stable. |
+| Keep the Paseo+Pi BuildKit cache namespace separate from Workstation cache. | Sharing one cache may improve cross-project reuse but creates coupled retention/contention and unclear ownership. | Stable. |
+| Bound the builder cache instead of allowing unbounded growth. | Unlimited cache maximizes reuse but can consume excessive host storage. | Stable. |
+| Start with a practical cache budget in the approximate 24–32 GB range and tune from measured build behavior rather than freezing an exact permanent size now. | Over-optimizing the number before measurements is speculative. | Stable direction; exact size implementation-tunable. |
+| Run cache retention/pruning after successful update/build work rather than before the build that needs the warm cache. | Pre-build cleanup can throw away exactly the reusable layers/downloads needed for the update. | Stable. |
+| Cache cleanup should prune to configured bounds rather than blindly erase the whole BuildKit cache. | Full purge is simple but destroys warm-build performance. | Stable. |
+| Evaluate/use registry-backed BuildKit cache when the selected registry path supports it, so local-builder loss need not force a completely cold recovery build. | Local-only cache is simpler but provides no warm-cache recovery after builder loss. | Stable direction subject to registry implementation evidence. |
+| Local BuildKit cache is the primary fast path; registry cache is secondary/recovery portability. | Making remote cache primary adds network dependency/latency to normal local builds. | Stable. |
+| Design the Dockerfile/build graph explicitly to minimize unnecessary cache invalidation. | Treating layer ordering as incidental can make trivial version changes rebuild large unrelated portions. | Stable. |
+| Place heavy, relatively stable prerequisites before frequently changing capability content when dependency semantics allow it. | Arbitrary ordering may invalidate large downstream layers unnecessarily. | Stable. |
+| Use separate build stages for Node, Pi, browser/tooling and other material components when measurements/graph semantics show that doing so materially improves reuse. | Splitting every tiny component into a stage would overcomplicate the Dockerfile. | Stable proportional-design rule. |
+| During implementation, evaluate BuildKit-native rebase/link techniques such as `COPY --link` where they measurably reduce rebuild/rebase work without compromising correctness. | Adopting advanced BuildKit features by default can add complexity without proven benefit. | Stable research/implementation obligation. |
+| Use persistent BuildKit cache mounts for npm/download/package-manager caches where safe so unchanged package payloads are reusable even when the final image layer must rebuild. | Layer cache alone may still redownload large artifacts after an upstream layer invalidates. | Stable. |
+| Apply the same cache-mount principle to pip/uv or equivalent Python package caches where used. | Re-downloading Python artifacts wastes time and bandwidth. | Stable. |
+| Apply safe BuildKit caching to apt download/index work where compatible with reproducibility and package-manager semantics. | Blind apt caching can create stale-index problems, so correctness constraints remain primary. | Stable with correctness constraint. |
+| Reuse Playwright/browser download caches across builds where upstream tooling safely supports it. | Browser payloads are large and expensive to redownload repeatedly. | Stable. |
+| Update/build orchestration should record timing by material build phase so bottlenecks and cache misses are observable. | Without timings, build optimization becomes guesswork. | Stable. |
+| If a component routinely invalidates/rebuilds large unrelated portions of the image, treat that as a build-design defect to investigate rather than normal behavior. | Accepting broad rebuilds hides avoidable pipeline inefficiency. | Stable. |
+| Deployment acceptance should include measured evidence from both a cold build and a subsequent representative small-change/warm update proving real cache reuse. | Merely inspecting Dockerfile structure does not prove the cache works operationally. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
