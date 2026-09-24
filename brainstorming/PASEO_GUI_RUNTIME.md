@@ -249,6 +249,11 @@ The following remain open and should drive subsequent grilling rather than being
 - **Automatic session-close summary: rejected.**
 - **PASEO_PASSWORD in Relay-only design: rejected.**
 
+## Brainstorming interaction preference
+
+- After each user acceptance/correction round, persist the resulting exploratory choices to this durable record first, then immediately continue with the next coherent question batch unless a real workflow stop/research gate intervenes.
+- Do not wait for the user to ask for the next batch again during normal adaptive grilling.
+
 ## Outcome of current session
 
 - Tentative conclusions: a substantial portion of deployment/UX/security/capability/session policy is now settled exploratorily and recoverable from this record.
