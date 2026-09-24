@@ -399,6 +399,33 @@ Live readback on 2026-09-24 from `elmakus/chatgpt-codex-project-workflow` branch
 | Do not design or configure a permanent/temporary alternate local/tunnel Relay-access path in this scope now. If Relay-break-glass access becomes necessary later, treat it as a separate explicit design/configuration decision. | Preconfiguring a second path increases attack surface and scope before a demonstrated need. | Deferred by explicit user correction. |
 | Paseo deploy/update acceptance should include both internal Relay/Paseo health validation and an actual user-phone end-to-end test for the real UX path. | Internal health alone cannot prove the user-facing access path. | Stable. |
 
+
+#### S. Image registry, build provenance and staged deployment
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Publish promoted Paseo+Pi images to a registry as well as deploying them locally on Unraid. | Local-only images are simpler but make recovery/rollback less portable. | Stable. |
+| Prefer GHCR as the default registry candidate unless later implementation research finds a materially better local option. | A local registry can avoid external dependency but adds another service to maintain. | Stable direction; exact registry may be revisited on evidence. |
+| Keep the image repository private. | Public images are easier to distribute but expose tooling/capability structure without current benefit. | Stable. |
+| Build only from an exact Git commit SHA, never an unidentified working tree. | Working-tree builds are convenient but weaken provenance/reproducibility. | Stable. |
+| Add OCI provenance labels such as source repository, exact commit SHA and build metadata to produced images. | Omitting labels saves trivial metadata but harms diagnosis. | Stable. |
+| The `latest` tag is assigned only after a candidate passes the required smoke/promotion gate; a merely successful build does not automatically become `latest`. | Tagging every build latest is simpler but can expose unvalidated candidates. | Stable. |
+| Failed/debug candidates may keep immutable identities for diagnosis but must never receive the promoted `latest` alias. | Deleting all failed candidates immediately loses useful failure evidence. | Stable. |
+| Production deployment resolves and records an immutable tag/digest even when the user-facing selection policy is `latest stable`. | Deploying by floating tag obscures the exact running artifact. | Stable. |
+| Record the exact running image digest/identity in operational state/evidence. | Container-name-only state is insufficient for reliable rollback diagnosis. | Stable. |
+| Keep at least one prior known-good promoted image locally even when registry copies exist. | Registry-only rollback saves disk but is slower and depends on external availability. | Stable. |
+| Garbage-collect older promoted images automatically after retaining a bounded recent known-good set; exact count is an implementation choice. | Unlimited retention wastes storage; exact retention count need not be frozen now. | Stable. |
+| Failed/debug images may use shorter retention than promoted images. | Equal retention is simpler but wastes storage on non-production candidates. | Stable. |
+| The self-hosted build runner may have the Docker-host access needed for build/push/test operations. | Refusing host Docker access would complicate local build/test orchestration. | Stable. |
+| Keep build-runner capability operationally separate from the Paseo runtime so a broken Paseo instance does not remove the ability to rebuild/recover it. | Co-locating everything is simpler but creates circular recovery dependency. | Stable. |
+| Use Docker/BuildKit layer caching for builds. | Cacheless builds are maximally clean but unnecessarily slow routine updates. | Stable. |
+| Build caches are disposable and excluded from protected backup. | Backing them up reduces cold-build time but bloats recovery state with reproducible data. | Stable. |
+| Run fast static/unit/build validation before admitting an image to runtime smoke. | Skipping early checks wastes runtime-smoke time on obvious failures. | Stable. |
+| Run the candidate image in a separate temporary container for pre-deploy runtime smoke before touching production. | Testing only after cutover increases production disruption risk. | Stable. |
+| Production cutover occurs only after candidate pre-deploy smoke is GREEN. | Immediate cutover is faster but weakens rollback confidence. | Stable. |
+| After cutover, run a bounded post-deploy smoke; if it fails and rollback is safe/unambiguous, automatically restore the previous known-good image. | Waiting for manual rollback prolongs a known-bad production state. | Stable. |
+| Update validation must be tiered and time-proportional: routine updates use cached/fast checks plus bounded runtime smoke, while exhaustive E2E/regression is reserved for first deployment, material control-plane/security/Relay changes, failures, or explicit full validation. | Running every possible test on every routine update would make maintenance unnecessarily slow. | Stable clarification prompted by user concern about update duration. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
