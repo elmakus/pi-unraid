@@ -255,6 +255,32 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 | Before host-level mutation, Main should perform a bounded readback of the current target state instead of acting on stale assumptions. | Skipping readback is faster but increases risk of applying actions to changed infrastructure. | Stable. |
 | Later dedicated research must compare at least Unraid-specific MCP/integration, available token/API control, Docker-host access and SSH, then select a preferred primary + fallback based on coverage, reliability, agent ergonomics and recovery behavior. | Choosing from intuition now could lock in a weaker long-term control plane. | Stable research obligation. |
 
+
+#### N. Host-wide administration safety and maintenance semantics
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Full Unraid administration is available to Main as a global environment capability, not only after entering a specific project. | Delaying host access until project selection is narrower but artificial for infrastructure diagnosis. | Stable. |
+| Main may use Unraid diagnostics while working on another project when evidence points to host/runtime causes. | Forcing repo-local reasoning can hide infrastructure causes and create bad workarounds. | Stable. |
+| Different Unraid access transports should use separate credentials so rotation/failure of one transport does not remove all access. | Sharing one credential set is simpler but couples failure/revocation across paths. | Stable. |
+| Prefer a dedicated administrative identity with controlled root escalation for SSH when practical, rather than making raw root login the default normal SSH path. | Direct root SSH is simpler but gives every SSH action maximum privilege. | Stable. |
+| Main may rotate its host-access credentials within authorized maintenance, but must preserve at least one working access path throughout. | Rotating all access at once is simpler but risks self-lockout. | Stable. |
+| Before rotating/removing an access credential, Main must verify a working fallback path. | Assuming fallback works can strand the control plane. | Stable. |
+| Main may install additional Unraid-side packages/plugins needed for an authorized task, while genuinely new durable global capabilities still follow the capability-approval rule. | Treating every package as trivial can silently expand permanent host capability. | Stable. |
+| Reversible network configuration changes directly required by an authorized task may be autonomous, but broad-impact routing/firewall/default-gateway/DNS changes require a user gate. | Treating all network edits alike either over-prompts or under-protects broad connectivity changes. | Stable. |
+| Changing a single application's/container's port as part of accepted implementation does not need a separate user confirmation. | Per-port confirmation adds friction without changing task authority. | Stable. |
+| Main may stop/restart multiple dependent containers during authorized maintenance after checking dependencies and restoring them afterward. | Reconfirming each dependent stop makes coordinated maintenance impractical. | Stable. |
+| Restarting the Docker engine as a whole requires explicit user approval because it affects nearly the entire container estate. | Treating it like a single-container restart understates blast radius. | Stable. |
+| Upgrading the Unraid OS itself requires explicit user approval separate from ordinary maintenance. | Autonomous platform upgrade could change the whole host control plane unexpectedly. | Stable. |
+| Main may update ordinary Unraid plugins autonomously within authorized maintenance when no known broad-impact/reboot requirement applies. | Requiring explicit approval for every routine plugin patch adds little value. | Stable. |
+| Before broad host-level changes, Main should capture a practical configuration/state snapshot or equivalent rollback anchor. | Skipping a rollback anchor saves time but weakens recovery from broad changes. | Stable. |
+| When an authorized change fails its smoke/acceptance check, Main may automatically restore the prior known-good configuration if rollback is unambiguous and safe. | Waiting for another approval can unnecessarily prolong a known-bad state. | Stable. |
+| Such rollback may restart affected services/containers without another confirmation; a full host reboot still remains a separate user gate. | Requiring confirmation for each rollback restart can block recovery. | Stable. |
+| Maintain a lightweight derived operational inventory of important Unraid containers, shares, appdata paths, networks, storage and dependencies. | No inventory forces repeated broad discovery, while treating it as canonical risks drift. | Stable. |
+| The operational inventory should be regenerated/reconciled from live host readback rather than treated as a hand-maintained source of truth. | Static inventories are easy to inspect but go stale. | Stable. |
+| Keep a host-level doctor distinct from Paseo doctor: host doctor covers Unraid access/storage/Docker/network/core dependencies; Paseo doctor covers the Pi/Paseo control plane. | One monolithic doctor is simpler to name but harder to use and reason about. | Stable. |
+| Unraid-access research must test failure behavior, not only feature coverage: primary unavailable → fallback → recovery → return to primary. | A feature matrix alone does not prove operational resilience. | Stable research obligation. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
