@@ -1,0 +1,30 @@
+workstream_id = "feature-paseo-gui-runtime"
+state = "active"
+origin_role = "definition"
+origin_subject = "definition:R1|paseo-gui-runtime@2|current-runtime-integration-facts"
+return_target = "definition"
+return_reconciliation = "pending"
+return_result = ""
+finding = ""
+limitations = ""
+conflicts = ""
+
+[[sources]]
+class = "official_upstream"
+status = "pending"
+weight = "highest for current product/install/API/runtime facts"
+
+[[sources]]
+class = "project_runtime"
+status = "pending"
+weight = "highest for actual repository and available deployment evidence"
+
+[[sources]]
+class = "tracker_discussion"
+status = "pending"
+weight = "supporting evidence for upstream limitations/failure modes"
+
+[[sources]]
+class = "practitioner_community"
+status = "pending"
+weight = "supporting evidence for practical deployment failure modes and workarounds"
