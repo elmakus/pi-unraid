@@ -307,6 +307,33 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 | Temporary project helper containers/services should be automatically removed after the work when they are not part of the accepted final architecture. | Leaving them running creates drift and resource leakage. | Stable. |
 | Any new durable service/container intended to remain on Unraid should be represented reproducibly in project/infrastructure configuration rather than left as an undocumented manual container. | GUI-only/manual durable services are fast to create but become hidden infrastructure state. | Stable. |
 
+
+#### P. Instruction-plane progressive disclosure and PWv2.1 integration
+
+| Choice | Counterfactual challenge | Stability note |
+|---|---|---|
+| Keep the global Pi `~/.pi/agent/AGENTS.md` deliberately short: stable global invariants plus routing/discovery pointers, not a full operational encyclopedia. | Duplicating all policy into AGENTS.md makes every session pay the full context cost and creates drift. | Stable. |
+| Detailed Unraid administration knowledge should live in a global `unraid-admin` skill rather than in the global AGENTS.md. | Keeping it all in AGENTS.md guarantees visibility but bloats every context. | Stable. |
+| `unraid-admin/SKILL.md` should act as a compact procedure/router and progressively load detailed `references/` only for the branch of work actually needed. | Loading every reference up front is simpler but defeats progressive disclosure. | Stable. |
+| The global instruction plane should contain a small hard invariant that Unraid host mutation must consult/load the Unraid administration policy/skill before acting. | Relying only on model discovery of a skill risks skipping policy entirely. | Stable. |
+| The Unraid skill should decide which references are needed rather than loading all references on every invocation. | Eager loading improves completeness but wastes context and increases anchoring/noise. | Stable. |
+| Keep one canonical authorization-matrix reference for autonomous versus approval-required host operations rather than duplicating that matrix across files. | Duplicate tables are easier to read locally but drift over time. | Stable. |
+| Keep access-transport selection/fallback guidance in a separate reference from authorization policy so transport can evolve without rewriting authority semantics. | Combining them is simpler initially but unnecessarily couples two different concerns. | Stable. |
+| Keep recovery/fallback procedures in a separate reference that is loaded only during recovery/relevant failures. | Always loading recovery detail wastes normal-turn context. | Stable. |
+| Keep host-doctor procedures within the same Unraid administration skill initially; split only if the skill becomes materially too large. | A separate doctor skill is cleaner categorically but adds routing overhead before size justifies it. | Stable. |
+| Bundle reusable host-administration scripts such as doctor/inventory/readback helpers with the skill/package where appropriate. | Re-expressing every operation as prompt text is less reproducible and harder to test. | Stable. |
+| Project-level AGENTS.md files should contain project-local instructions only and must not duplicate global Unraid policy. | Copying global policy into every repository increases drift and context cost. | Stable. |
+| Project-level AGENTS.md should not copy the Project Workflow implementation/router text. | Embedding the workflow in every repository would duplicate canonical policy. | Stable. |
+| The environment must reliably recognize repositories governed by Project Workflow and enter the PW authority path when their durable project state indicates it; the exact runtime bootstrap mechanism is deferred because PWv2.1 is intended to be packaged as a Pi extension once its final shape is stable. | Freezing an AGENTS.md-based bootstrap now could conflict with the eventual PWv2.1 extension contract. | Stable intent; integration mechanism deliberately deferred. |
+| PWv2.1 is intended to become a Pi extension rather than being implemented as part of the `unraid-admin` skill. Exact installation, discovery, bootstrap, fallback and AGENTS.md relationship must be designed after PWv2.1's final contract stabilizes. | Prematurely choosing installation details could force the unfinished workflow design into an awkward runtime package. | Stable direction; implementation deferred. |
+| The Unraid skill and PWv2.1 remain separate ownership domains: Unraid administration is host capability/policy, while PWv2.1 owns project workflow/governance. | Combining them would entangle host administration with project lifecycle semantics. | Stable. |
+| Where technically reliable, a Pi extension/policy guard should mechanically enforce a small set of critical destructive/broad approval gates rather than relying only on prompt memory. | Soft instructions alone are easier to implement but weaker for high-impact operations. | Stable. |
+| Mechanical enforcement should cover only a bounded set of critical gates, not attempt to encode the entire Unraid administration policy as a second workflow engine. | Encoding everything mechanically creates complexity and duplicates semantic policy. | Stable. |
+| Preference rules such as structured MCP/API before SSH should remain soft policy in the skill/reference layer rather than hard blockers. | Hard enforcement could prevent valid fallback/recovery paths. | Stable. |
+| Global skills/references should have reproducible version-controlled sources in the repository and be installed/synchronized into Pi's native global runtime locations. | Editing HOME-only copies is quick but not reconstructable or auditable. | Stable. |
+| The global AGENTS.md should also have a reproducible source under version control rather than existing only as hand-edited HOME state. | HOME-only global instructions are fragile after recovery/rebuild. | Stable. |
+| Doctor should validate the instruction plane itself: expected global AGENTS.md, skills/references/extensions and their inventory/version alignment. | Runtime/tool checks alone can miss loss or drift of the policies that tell Main how to act. | Stable. |
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
@@ -320,6 +347,7 @@ The following remain open and should drive subsequent grilling rather than being
 | Exact full-administrative Unraid access transport and precedence for Main (e.g. Unraid MCP/integration, API token, Docker-host control, SSH primary/fallback). | Capability/security/ergonomics comparison and failure-mode testing. | open |
 | Exact secrets materialization method for each CLI/provider that insists on a HOME file versus env/secret mount. | Verified upstream auth/config behavior. | open |
 | Exact browser-control extension/MCP layer above Chromium+Playwright, if any. | Later browser-control research/selection; current choice covers runtime only. | open |
+| Exact PWv2.1 Pi-extension packaging, installation, discovery/bootstrap, helper-less fallback and relationship to global/project AGENTS.md after PWv2.1 final contract stabilizes. | Final PWv2.1 Definition/implementation contract. | open |
 | Exact capability inventory schema/reconciliation command shape. | Definition/implementation design; user-facing policy is already settled. | open |
 | Exact doctor command/check matrix and which checks are quick vs full. | Concrete container/tool layout. | open |
 | Exact Relay deployment/pairing behavior and persistence details against the then-current Paseo release. | Fresh upstream verification before Definition/implementation. | open |
@@ -329,6 +357,7 @@ The following remain open and should drive subsequent grilling rather than being
 
 - Re-verify current Paseo Docker/provider/Relay/security/session behavior and current image conventions at the time Definition begins.
 - Re-verify current Pi installation/package/global extension paths and latest release/install semantics.
+- After PWv2.1 reaches a stable final contract, research/design its Pi-extension packaging and the minimal bootstrap relationship among the extension, global/project AGENTS.md and helper-less recovery.
 - Re-verify SpecPi core install flags, scope-disable behavior and improvement-loop persistence before first deployment.
 - Re-verify `pi-mcp-adapter` current compatibility and configuration needs.
 - Verify Chromium/Playwright/Xvfb package/runtime requirements against the selected Paseo base image.
