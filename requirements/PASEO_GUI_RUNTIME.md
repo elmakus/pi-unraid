@@ -1,7 +1,7 @@
 # Paseo/Pi Runtime on Unraid — Requirements
 
 Revision: `R1`
-Status: `definition-active`
+Status: `approved`
 Updated: `2026-09-24`
 Definition subject: `paseo-gui-runtime@2`
 Source Brainstorming: `brainstorming/PASEO_GUI_RUNTIME.md`
@@ -17,9 +17,9 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 | PGR-REQ-001 | Paseo MUST be the normal user-facing entrypoint for Pi on Android/PC; terminal Pi is not the normal operating path. | MUST |
 | PGR-REQ-002 | Project selection MUST remain user-driven; Main MUST NOT infer/bind a project solely from conversational context. | MUST |
 | PGR-REQ-003 | After a project is selected, Main MUST recover current canonical PW/Git state before mutating work. | MUST |
-| PGR-REQ-004 | The production shape SHOULD be one active Paseo container containing the Pi CLI/runtime needed by Paseo; a separate standalone Pi runtime MUST NOT remain an independent production authority. | MUST |
+| PGR-REQ-004 | The production shape MUST use one active Paseo container containing the Pi CLI/runtime needed by Paseo; a separate standalone Pi runtime MUST NOT remain an independent production authority. | MUST |
 | PGR-REQ-005 | Paseo MAY spawn Pi RPC processes on demand; no permanent Pi RPC process is required. | SHOULD |
-| PGR-REQ-006 | The production container MUST run with Unraid-compatible ownership (initial target UID:GID 99:100) and SHOULD autostart with Unraid. | MUST |
+| PGR-REQ-006 | The deployment MUST produce Unraid-compatible ownership on host-mounted files (initial host target 99:100) and SHOULD autostart with Unraid. It MUST NOT hard-code Paseo's internal daemon UID/GID contrary to the official image contract; the exact mapping/user strategy is a Planning choice validated by live read/write smoke. | MUST |
 | PGR-REQ-007 | The production container MUST NOT impose arbitrary CPU/RAM caps initially; shared memory MUST be sufficient for browser workloads (initial target 1 GiB). | MUST |
 | PGR-REQ-008 | Native Paseo UI/session/history capabilities SHOULD be reused rather than replaced by a second custom dashboard absent a proven gap. | SHOULD |
 | PGR-REQ-009 | Session/agent labels SHOULD be short and operationally meaningful; completed sessions MAY leave the active view while remaining history. | SHOULD |
@@ -30,7 +30,7 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 | ID | Requirement | Priority |
 |---|---|---|
 | PGR-REQ-011 | Native upstream HOME/config paths MUST be preserved where practical; persistent HOME is `/home/paseo` and Pi uses native `~/.pi/...` paths. | MUST |
-| PGR-REQ-012 | The whole persistent Paseo HOME MUST be backed up as sensitive state; Git workspaces/worktrees MUST live outside appdata/HOME under a canonical workspace root. | MUST |
+| PGR-REQ-012 | The whole persistent Paseo HOME MUST be backed up as sensitive state; Git workspaces/worktrees MUST live outside appdata/HOME under a canonical workspace root, and Paseo's configurable worktree root MUST be pointed there rather than leaving canonical worktrees under protected HOME. | MUST |
 | PGR-REQ-013 | The environment MUST expose only the intended workspace/repository roots rather than broad arbitrary Unraid storage by default. | MUST |
 | PGR-REQ-014 | Paseo Relay MUST be the initial remote-access path; raw Paseo ports MUST NOT be exposed directly to the Internet in the initial design. | MUST |
 | PGR-REQ-015 | Relay/pairing state MUST survive routine rebuild/restart, and device revocation SHOULD be individually manageable where upstream supports it. | SHOULD |
@@ -45,7 +45,7 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 | ID | Requirement | Priority |
 |---|---|---|
 | PGR-REQ-021 | The image MUST provide a practical general development baseline including shell/Git/network/build/Python/Node capabilities sufficient for normal repository work. | MUST |
-| PGR-REQ-022 | Chromium + Playwright runtime support MUST be available, including screenshot/PDF generation and both headless and headed/Xvfb operation without requiring a full desktop/noVNC stack. | MUST |
+| PGR-REQ-022 | Server-side Chromium + Playwright runtime support MUST be available inside the Unraid execution environment, including screenshot/PDF generation and both headless and headed/Xvfb operation without requiring a full desktop/noVNC stack. Paseo's current desktop-hosted Browser Tools MAY be complementary but MUST NOT be the sole browser mechanism. | MUST |
 | PGR-REQ-023 | Browser automation MUST use a dedicated persistent automation profile rather than a personal desktop-browser profile. | MUST |
 | PGR-REQ-024 | Browser downloads SHOULD default to temporary/task workspace storage; only workflow/task-required artifacts become durable evidence. | SHOULD |
 | PGR-REQ-025 | `gh`, Docker CLI and Docker Compose MUST be available as global baseline tools; mounting the host Docker socket into the Paseo runtime is NOT required by default. | MUST |
@@ -83,7 +83,7 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 
 | ID | Requirement | Priority |
 |---|---|---|
-| PGR-REQ-045 | Main is intended to have full administrative capability over the Unraid host through a researched primary/fallback transport architecture; exact transport remains Definition Research/Planning work. | MUST |
+| PGR-REQ-045 | Main MUST receive full administrative capability over the Unraid host with the native Unraid GraphQL API as the preferred structured primary control path and non-interactive SSH as fallback for API gaps, API outage and OS/plugin/filesystem/recovery work; after fallback, normal operation SHOULD return to the structured API when healthy. | MUST |
 | PGR-REQ-046 | Normal Main/Pi process identity SHOULD remain non-root/no-sudo inside the application runtime; host administration SHOULD use explicit host-control transports/credentials. | SHOULD |
 | PGR-REQ-047 | Ordinary bounded host/container/service operations within accepted task authority MAY proceed without per-command user confirmation. | MUST |
 | PGR-REQ-048 | Whole-host reboot, whole Docker-engine restart, Unraid OS upgrade, disk formatting, deletion of broad shares/appdata and comparable high-impact operations MUST require explicit user approval. | MUST |
@@ -98,13 +98,13 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 
 | ID | Requirement | Priority |
 |---|---|---|
-| PGR-REQ-055 | Every user-approved environment maintenance update SHOULD bring all approved global environment components to their latest accepted stable lines together, excluding project-local dependencies governed by repository lockfiles/manifests. | MUST |
+| PGR-REQ-055 | Every user-approved environment maintenance update MUST attempt to bring all approved global environment components to their latest accepted stable lines together, excluding project-local dependencies governed by repository lockfiles/manifests; an approved compatibility exception is the only allowed deliberate lag. | MUST |
 | PGR-REQ-056 | "Latest" MUST mean the accepted stable line for each component (for example Node latest LTS where that is the accepted line), not arbitrary prerelease/nightly channels. | MUST |
 | PGR-REQ-057 | Update orchestration MUST resolve latest first, freeze an exact immutable candidate resolution, and only then build/test; builds MUST NOT independently re-resolve latest. | MUST |
 | PGR-REQ-058 | Candidate resolution SHOULD include exact versions and digest/SHA/integrity where upstream provides them, and the exact resolution MUST be recoverable from the built artifact/evidence. | MUST |
 | PGR-REQ-059 | If any mandatory component cannot be resolved or the coordinated latest set is incompatible, promotion MUST fail closed rather than silently produce an arbitrary partial environment. | MUST |
 | PGR-REQ-060 | A temporary compatibility exception from latest MAY be proposed but requires explicit user approval, durable rationale and automatic re-evaluation on later maintenance. | MUST |
-| PGR-REQ-061 | Build/publish SHOULD use the self-hosted Unraid runner and a private registry, with GHCR the preferred candidate subject to Research/Planning verification. | SHOULD |
+| PGR-REQ-061 | Build/publish SHOULD use the self-hosted Unraid runner and private GHCR for the project child image and remote BuildKit cache. The child image MUST derive from the exact resolved official stable `ghcr.io/getpaseo/paseo:<version-or-digest>` base. | SHOULD |
 | PGR-REQ-062 | Every promoted image MUST have immutable identity/provenance; floating `latest` is only an alias for a successfully promoted candidate. | MUST |
 | PGR-REQ-063 | Production cutover MUST use a staged build → fast checks → temporary runtime smoke → promote/cutover → post-deploy smoke flow. | MUST |
 | PGR-REQ-064 | A failed pre-deploy smoke MUST leave production untouched; a failed post-deploy smoke SHOULD automatically roll back to the prior coherent known-good set when safe/unambiguous. | MUST |
@@ -136,6 +136,8 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 |---|---|---|
 | PGR-REQ-081 | Orchestration Runtime MUST NOT be deployed as part of the initial Paseo+Pi bring-up; it integrates only after the base environment is GREEN. | MUST |
 | PGR-REQ-082 | The future PWv2.1 Pi-extension packaging/bootstrap is a separate later integration scope after PWv2.1's final contract stabilizes. | MUST |
-| PGR-REQ-083 | The exact full-Unraid host-control transport, secret materialization, current Paseo/Pi/Relay mechanics, SpecPi/pi-mcp-adapter compatibility, browser runtime details and registry/cache mechanics MUST be verified by bounded Research rather than guessed. | MUST |
+| PGR-REQ-083 | Secret materialization plus exact-candidate Paseo/Pi/Relay, SpecPi, pi-mcp-adapter, browser-runtime, filesystem-ownership and registry/cache behavior MUST be verified by implementation readback/smoke rather than guessed; Definition Research has selected GraphQL-primary/SSH-fallback host control and the official Paseo GHCR base. | MUST |
 | PGR-REQ-084 | Research/Planning MAY choose concrete schemas, command names, package lists, cache sizes, doctor check lists and transport implementations only if they preserve these authority and product constraints. | MUST |
 | PGR-REQ-085 | The legacy standalone Pi bootstrap runtime/appdata SHOULD be retired only after Paseo reaches GREEN and rollback/recovery are verified. | MUST |
+| PGR-REQ-086 | SpecPi core MUST be installed as an approved global capability with SpecPi scope monitoring inactive because PW owns project scope; its improvement/wishlist capability MAY remain enabled. The exact resolved SpecPi/Pi pair MUST pass compatibility smoke before promotion. | MUST |
+| PGR-REQ-087 | `pi-mcp-adapter` SHOULD be installed as the initial Pi MCP adapter when the exact resolved Pi/Paseo/adapter combination passes compatibility smoke; its config/readback and failure state MUST be covered by full doctor/acceptance. | MUST |
