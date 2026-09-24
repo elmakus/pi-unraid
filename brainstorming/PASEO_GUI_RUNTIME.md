@@ -463,6 +463,19 @@ Live readback on 2026-09-24 from `elmakus/chatgpt-codex-project-workflow` branch
 | One user approval for the maintenance update authorizes the complete compatible latest-stable batch; do not repeatedly ask for each component. | Reconfirming each component defeats the coordinated update model. | Stable. |
 | Successful update reporting should normally show actual changed components and any active exceptions; complete unchanged inventory remains available on demand. | Listing every unchanged component after every update is noisy. | Stable. |
 
+
+### Verified prior art — Workstation BuildKit cache
+
+Live inspection of `elmakus/chatgpt-ce-workstation@main` confirms the earlier workstation optimization addressed the same build-performance class relevant to Paseo+Pi:
+
+- commit `bc169fe8f6238b13f419dca16110fc1534fe2804` introduced a dedicated persistent Buildx builder for Workstation builds;
+- `scripts/buildkit-cache.sh` uses the `docker-container` driver, reuses the named builder across builds, and retains a bounded BuildKit cache (current defaults: 24 GB max-used-space, 8 GB reserved);
+- `scripts/build.sh` builds through that dedicated builder rather than an ephemeral/default builder;
+- `scripts/update.sh` prunes the dedicated cache only within configured retention instead of discarding it after each update;
+- this avoids redownloading/recomputing unchanged build work across updates, while normal Docker layer dependency rules still mean that changing an early layer can invalidate later layers;
+- Paseo+Pi should reuse this proven persistent-builder/cache pattern and additionally design cache-friendly layer ordering/component boundaries so frequently changing tools do not force unnecessary rebuild of heavy unrelated layers. Multi-stage/componentized layering and BuildKit-native rebasing mechanisms should be evaluated during implementation rather than assuming the Workstation Dockerfile is already optimal for Paseo.
+
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
