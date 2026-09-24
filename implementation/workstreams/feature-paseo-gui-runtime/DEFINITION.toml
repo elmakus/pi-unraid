@@ -1,0 +1,16 @@
+workstream_id = "feature-paseo-gui-runtime"
+source_scope_subject = "paseo-gui-runtime@2"
+revision = "R1"
+state = "active"
+completeness_audit = "pending"
+premium_a = "not_due"
+decisions = [
+  { class = "authority", path = "decisions/ADR_PGR_001_RUNTIME_SUBSTRATE.md" },
+  { class = "authority", path = "decisions/ADR_PGR_002_AUTHORITY_BOUNDARIES.md" },
+  { class = "authority", path = "decisions/ADR_PGR_003_UNRAID_ADMIN_SAFETY.md" },
+  { class = "authority", path = "decisions/ADR_PGR_004_UPDATE_BUILD_ROLLBACK.md" },
+]
+
+[requirements]
+class = "authority"
+path = "requirements/PASEO_GUI_RUNTIME.md"
