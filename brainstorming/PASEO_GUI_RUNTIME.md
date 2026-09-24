@@ -360,6 +360,19 @@ These choices were recovered by a line-by-line audit of the current Brainstormin
 | Changing the authorization matrix is a material policy/authority change, not a routine skill-content update. | Treating it as ordinary content could expand or contract Main autonomy without explicit authority handling. | Stable. |
 | Provide a lightweight capability-status surface showing desired/observed/drift/version without requiring Main to load the full capability documentation. | Full-document inspection is wasteful for routine status checks. | Stable. |
 
+
+### Verified PWv2.1 implementation dependency
+
+Live readback on 2026-09-24 from `elmakus/chatgpt-codex-project-workflow` branch `work/pwv21-policy-kernel-brainstorming` established:
+
+- `M02-T01` is `done`; its latest Card review `M02-T01-R06` is GREEN.
+- M02 is not yet milestone-complete: `reviews/M02-MILESTONE-R01.toml` is still `pending`.
+- `after-M02-T01` remains `waiting`; M03 has not yet been materialized.
+- Approved Plan P2 defines M03 as **Portability, helper-less recovery, and parity** (PWV21-REQ-011…017), not packaging/runtime installation.
+- Current approved PWv2.1 Definition/Plan does **not** define packaging PWv2.1 as a Pi extension. Occurrences of “extension” in P2 refer to extending the V2 baseline or fixture extension points, not Pi-extension deployment.
+- Therefore the Pi-extension packaging/bootstrap/install design is a later integration concern and should not be injected into current M02/M03 execution unless PWv2.1 authority is deliberately reopened. Preferred current direction: finish the accepted PWv2.1 core plan, then design a separate packaging/integration workstream against the stable final contract.
+
+
 ## Material dependencies / unresolved decisions
 
 The following remain open and should drive subsequent grilling rather than being guessed during implementation.
