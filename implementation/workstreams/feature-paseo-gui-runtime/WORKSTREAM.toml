@@ -14,3 +14,11 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/INTAKE.toml"
 [brainstorm]
 class = "brainstorm"
 path = "implementation/workstreams/feature-paseo-gui-runtime/BRAINSTORM.toml"
+
+[research]
+class = "research"
+path = "implementation/workstreams/feature-paseo-gui-runtime/RESEARCH.toml"
+
+[definition]
+class = "definition"
+path = "implementation/workstreams/feature-paseo-gui-runtime/DEFINITION.toml"
