@@ -554,34 +554,58 @@ Live inspection of `elmakus/chatgpt-ce-workstation@main` confirms the earlier wo
 | Definition should require an efficient warm-cache fast path for normal updates but should not invent an arbitrary time SLA before empirical measurements exist. | A premature hard SLA can optimize for a guessed number rather than measured system behavior. | Stable. |
 | After this grilling, the next normal Brainstorming obligation is a bounded completion audit rather than another broad question batch. | Continuing broad option generation now has low expected value and risks scope inflation. | Stable. |
 
+
+## Completion audit — 2026-09-24
+
+Result: **GREEN for user/product/strategy grilling.**
+
+The final challenge pass found no remaining material user/product choice that justifies another broad question batch. The following apparent tensions are explicitly reconciled:
+
+- **Full Unraid administration vs narrow container mounts:** the Paseo runtime does not need arbitrary host mounts merely because Main has host-wide administration. Full host administration is delivered through the selected host-control capability/transport; workspace mounts remain intentionally bounded.
+- **No Docker socket by default vs full Docker administration:** direct `/var/run/docker.sock` exposure to the Paseo runtime is not required by the accepted full-host-access intent. Docker administration may be provided through the later-selected host-control transport; the self-hosted build runner may separately have the Docker access required for build/test work.
+- **Latest everything vs reproducibility:** each approved maintenance run resolves the accepted latest-stable lines first, freezes exact versions/digests/integrities into one candidate resolution, then builds/tests that immutable candidate.
+- **Latest everything vs Node LTS / distro-managed low-level packages:** "latest" means the latest release on the accepted stable line for that component. Node uses the accepted latest LTS line; low-level distro utilities remain distro-current unless a concrete requirement needs a newer upstream version.
+- **Global latest updates vs project reproducibility:** blanket latest applies only to approved global environment capabilities. Project-local dependencies remain governed by each repository's manifests/lockfiles.
+- **Fast routine updates vs broad first-deploy verification:** routine maintenance uses warm-cache, proportional checks; first deployment and material control-plane/security/base-image changes receive broader acceptance.
+- **PWv2.1 extension direction vs current PWv2.1 implementation:** finish the already-approved PWv2.1 core plan first. Pi-extension packaging/bootstrap is a later integration workstream against the stable PWv2.1 contract, not a late injection into current M02/M03.
+- **Persistent HOME vs software rollback:** routine rollback restores the coherent software/instruction set while preserving user/session/browser/pairing state unless a proven state migration/corruption requires data rollback.
+- **Relay-only normal access vs recovery:** no alternate Relay/local/tunnel path is designed in this scope now; a future break-glass path requires a separate explicit design decision if a real need appears.
+
+No further broad grilling is recommended. Remaining unknowns are agent-findable research or implementation-detail choices and must not be converted back into user questions unless research exposes a real product/authority tradeoff.
+
 ## Material dependencies / unresolved decisions
 
-The following remain open and should drive subsequent grilling rather than being guessed during implementation.
+There are **no remaining material user/product decisions** from the current grilling. The remaining items are factual research or downstream implementation choices:
 
-| Decision | Prerequisites | Status |
+| Item | Class | Status |
 |---|---|---|
-| Exact image build/publish path: local Unraid build vs self-hosted runner/registry flow. | Current Unraid runner/deployment capabilities and desired rollback ergonomics. | open |
-| Exact image tag strategy in addition to user-facing `latest` (e.g. immutable build tag/digest retention). | Build/publish path. | open |
-| Exact policy for who/what initiates Paseo/Pi `latest` updates and whether version checks are on-demand or scheduled. | Update/rollback mechanics. | open |
-| Exact meaning of `latest` regarding stable releases versus prerelease/beta/nightly channels. | Upstream release practices for Paseo and Pi. | open |
-| Exact full-administrative Unraid access transport and precedence for Main (e.g. Unraid MCP/integration, API token, Docker-host control, SSH primary/fallback). | Capability/security/ergonomics comparison and failure-mode testing. | open |
-| Exact secrets materialization method for each CLI/provider that insists on a HOME file versus env/secret mount. | Verified upstream auth/config behavior. | open |
-| Exact browser-control extension/MCP layer above Chromium+Playwright, if any. | Later browser-control research/selection; current choice covers runtime only. | open |
-| Exact PWv2.1 Pi-extension packaging, installation, discovery/bootstrap, helper-less fallback and relationship to global/project AGENTS.md after PWv2.1 final contract stabilizes. | Final PWv2.1 Definition/implementation contract. | open |
-| Exact capability inventory schema/reconciliation command shape. | Definition/implementation design; user-facing policy is already settled. | open |
-| Exact doctor command/check matrix and which checks are quick vs full. | Concrete container/tool layout. | open |
-| Exact Relay deployment/pairing behavior and persistence details against the then-current Paseo release. | Fresh upstream verification before Definition/implementation. | open |
-| Exact retirement/delete procedure for the unused bootstrap container/appdata after Paseo GREEN. | Final deployment acceptance and rollback window. | open |
+| Select the preferred full-administrative Unraid control transport and fallback ordering among structured Unraid/API/MCP, Docker-host control and SSH, including failure-mode tests. | factual research + later architecture selection inside accepted full-access intent | research pending |
+| Verify exact secret materialization for each CLI/provider that requires HOME file vs env/secret mount. | factual/tool integration detail | research pending |
+| Verify whether an additional browser-control Pi extension/MCP is materially useful above Chromium+Playwright. | factual capability research; install only if justified | research pending |
+| Design PWv2.1 Pi-extension packaging/bootstrap/discovery/fallback after the PWv2.1 final contract is stable. | deferred cross-project integration | deferred |
+| Define exact capability-inventory schema and reconcile/status command shapes. | implementation detail inside accepted semantics | downstream design |
+| Define the exact quick/full doctor check matrix. | implementation detail inside accepted semantics | downstream design |
+| Re-verify current Paseo Relay/pairing/session/image behavior before implementation. | upstream factual research | research pending |
+| Finalize the exact bootstrap-container/appdata retirement procedure after Paseo GREEN and rollback/recovery verification. | implementation/close detail | downstream design |
+
+Already settled and no longer open: self-hosted Unraid runner as normal build path, registry publication with GHCR as preferred candidate, immutable candidate identity plus promoted `latest`, user-approved maintenance initiation, latest-stable semantics, coordinated global latest updates, rollback retention and staged build/smoke/promote.
+
 
 ## Research needed before Definition/implementation
 
-- Re-verify current Paseo Docker/provider/Relay/security/session behavior and current image conventions at the time Definition begins.
-- Re-verify current Pi installation/package/global extension paths and latest release/install semantics.
-- After PWv2.1 reaches a stable final contract, research/design its Pi-extension packaging and the minimal bootstrap relationship among the extension, global/project AGENTS.md and helper-less recovery.
-- Re-verify SpecPi core install flags, scope-disable behavior and improvement-loop persistence before first deployment.
-- Re-verify `pi-mcp-adapter` current compatibility and configuration needs.
-- Verify Chromium/Playwright/Xvfb package/runtime requirements against the selected Paseo base image.
-- Verify the best build/publish/deploy route available on this Unraid host without granting unnecessary Docker-host authority to the runtime container.
+The remaining factual work should be handled by Research rather than further user grilling:
+
+- Re-verify current Paseo Docker/provider/Relay/security/session behavior and current image conventions.
+- Re-verify current Pi installation/package/global extension paths and latest-stable install/update semantics.
+- Compare full Unraid administration transports (Unraid-specific structured integration/API/MCP where available, Docker-host control, SSH) for coverage, reliability, agent ergonomics, credential isolation, failure/fallback/recovery and return-to-primary behavior.
+- Re-verify SpecPi core install flags, scope-disable behavior and improvement-loop persistence.
+- Re-verify `pi-mcp-adapter` compatibility/configuration.
+- Verify Chromium/Playwright/Xvfb requirements against the selected Paseo base image and whether any higher-level browser-control extension/MCP is actually justified.
+- Verify GHCR/BuildKit registry-cache support and the exact self-hosted-runner build/push/deploy mechanics on this Unraid host.
+- After PWv2.1 reaches its stable final contract, separately research/design its Pi-extension packaging and the minimal bootstrap relationship among the extension, global/project AGENTS.md and helper-less recovery.
+
+Research findings may refine implementation details. If they expose a genuinely new product/authorization tradeoff, return only that bounded question to Brainstorming.
+
 
 ## Reopened / superseded exploratory ideas
 
@@ -603,12 +627,13 @@ The following remain open and should drive subsequent grilling rather than being
 
 ## Outcome of current session
 
-- Tentative conclusions: a substantial portion of deployment/UX/security/capability/session policy is now settled exploratorily and recoverable from this record.
-- Explicit user/product choices to promote through Project Definition: all stable entries above after their remaining required challenge/completion audit.
-- Research still needed: current upstream verification and the open implementation-facing decisions listed above.
-- Open questions: continue adaptive grilling from the unresolved decision frontier.
-- Next phase/action: `continue brainstorming`
-- Definition promotion authorization: `pending`
-- Definition promotion subject: `none`
+- Tentative conclusions: the Paseo+Pi runtime, access, capability, update, build-cache, recovery, observability and governance-integration intent is now extensively explored and internally reconciled.
+- Final challenge/completion audit: **GREEN for user/product/strategy grilling**.
+- Material unresolved user/product questions: **none identified**.
+- Remaining work before implementation: bounded factual Research plus Definition/Planning formalization; PWv2.1 Pi-extension packaging remains deliberately deferred until PWv2.1 itself is stable.
+- Next broad-question batch: **none recommended**.
+- Definition promotion authorization: `pending`.
+- Definition promotion subject: `none`.
+- Current-workstream format note: this exploratory workstream still uses the older YAML-era locator/state shape and has not yet been normalized to the current `project_workflow_v2@main` TOML lifecycle records; formal router lifecycle promotion must use the current workflow/recovery contract rather than inferring state from this Markdown alone.
 
-> Nothing in this file becomes accepted requirement/decision authority by itself. Project Definition owns promotion into canonical `requirements/` and `decisions/`. Only an explicit user instruction may authorize promotion of the exact current `paseo-gui-runtime@R1` scope into Project Definition.
+> Nothing in this file becomes accepted requirement/decision authority by itself. Project Definition owns promotion into canonical `requirements/` and `decisions/`. Exact promotion of the current scope still requires explicit user authorization after the workflow state is normalized/recovered under the current Project Workflow V2 contract.
