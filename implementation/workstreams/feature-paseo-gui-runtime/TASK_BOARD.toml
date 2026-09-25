@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 56
+revision = 57
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -247,3 +247,17 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T01-R01
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T01-R02.toml"
+
+[[jit_triggers]]
+id = "after-M04-T01-materialize-M04-T02"
+after_card = "M04-T01"
+state = "consumed"
+condition = "The exact GREEN M04-T01 inventory result is required before doctor/reconcile can bind the concrete desired-state schema, drift semantics and secret-safe observation surface."
+
+[[cards]]
+id = "M04-T02"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M04-T02.md"
