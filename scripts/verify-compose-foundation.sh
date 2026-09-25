@@ -24,15 +24,21 @@ dc() {
 
 cleanup() {
   dc down -v >/dev/null 2>&1 || true
+  docker run --rm --user 0:0 --entrypoint chown \
+    -v "$fixture:/fixture" \
+    "$image" -R "$(id -u):$(id -g)" /fixture >/dev/null 2>&1 || true
   rm -rf "$fixture"
 }
 trap cleanup EXIT
 
 mkdir -p "$fixture/home" "$fixture/projects" "$fixture/worktrees"
 
-docker run --rm --user 0:0 --entrypoint chown   -v "$fixture:/fixture"   "$image" "$uid:$gid" /fixture/home /fixture/projects /fixture/worktrees
+docker run --rm --user 0:0 --entrypoint chown \
+  -v "$fixture:/fixture" \
+  "$image" "$uid:$gid" /fixture/home /fixture/projects /fixture/worktrees
 
-docker run --rm --user "$uid:$gid"   -v "$fixture/home:/home/paseo"   -v "$fixture/worktrees:/worktrees"   "$image" paseo daemon config set worktrees.root /worktrees --home /home/paseo >/dev/null
+bash "$repo_root/scripts/configure-paseo-runtime.sh" \
+  "$image" "$fixture/home" "$fixture/worktrees" "$uid" "$gid"
 
 cat > "$fixture/compose.fixture.yaml" <<EOF
 services:
@@ -88,7 +94,11 @@ docker exec "$cid" sh -ec '
   printf worktree > /worktrees/m02-worktree-marker
 '
 
-for marker in   "$fixture/home/m02-home-marker"   "$fixture/projects/m02-project-marker"   "$fixture/worktrees/m02-worktree-marker"   "$fixture/home/.paseo/config.json"; do
+for marker in \
+  "$fixture/home/m02-home-marker" \
+  "$fixture/projects/m02-project-marker" \
+  "$fixture/worktrees/m02-worktree-marker" \
+  "$fixture/home/.paseo/config.json"; do
   test "$(stat -c '%u:%g' "$marker")" = "$uid:$gid"
 done
 

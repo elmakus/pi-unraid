@@ -7,6 +7,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 COMPOSE = (ROOT / "compose.yaml").read_text()
 SMOKE = (ROOT / "scripts" / "verify-compose-foundation.sh").read_text()
+CONFIGURE = (ROOT / "scripts" / "configure-paseo-runtime.sh").read_text()
 
 
 class PaseoRuntimeContractTests(unittest.TestCase):
@@ -54,13 +55,14 @@ class PaseoRuntimeContractTests(unittest.TestCase):
         self.assertNotRegex(COMPOSE, r"(?m)^\s+(entrypoint|command|healthcheck):\s*")
         self.assertNotRegex(COMPOSE, r"(?m)^\s+secrets:\s*$")
 
-    def test_worktree_root_is_seeded_through_native_paseo_config(self) -> None:
+    def test_worktree_root_has_reproducible_native_config_path(self) -> None:
         self.assertIn(
-            "paseo daemon config set worktrees.root /worktrees --home /home/paseo",
-            SMOKE,
+            "paseo daemon config set worktrees.root /worktrees --home /home/paseo/.paseo",
+            CONFIGURE,
         )
+        self.assertIn("scripts/configure-paseo-runtime.sh", SMOKE)
         self.assertNotIn("PASEO_WORKTREES_ROOT", COMPOSE)
-        self.assertIn('cfg["worktrees"]["root"] == "/worktrees"', SMOKE)
+        self.assertIn('cfg["worktrees"]["root"] == "/worktrees"', CONFIGURE)
 
 
 if __name__ == "__main__":

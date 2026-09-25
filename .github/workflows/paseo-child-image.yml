@@ -8,6 +8,7 @@ on:
       - Dockerfile
       - compose.yaml
       - config/paseo-candidate.json
+      - scripts/configure-paseo-runtime.sh
       - scripts/smoke_paseo_image.py
       - scripts/verify-compose-foundation.sh
       - tests/test_paseo_candidate_resolver.py
