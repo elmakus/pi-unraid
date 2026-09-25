@@ -16,13 +16,17 @@ on:
       - scripts/smoke_paseo_image.py
       - scripts/verify-compose-foundation.sh
       - scripts/verify-pi-instruction-plane.sh
+      - scripts/configure_unraid_graphql_credential.py
+      - scripts/unraid_graphql_host_control.py
       - tests/test_paseo_candidate_resolver.py
       - tests/test_paseo_child_image_contract.py
       - tests/test_paseo_runtime_contract.py
       - tests/test_paseo_relay_auth_contract.py
       - tests/test_pi_instruction_plane_contract.py
+      - tests/test_unraid_graphql_host_control_contract.py
       - docs/PASEO_RELAY_AUTH.md
       - docs/PI_INSTRUCTION_PLANE.md
+      - docs/UNRAID_GRAPHQL_HOST_CONTROL.md
       - .github/workflows/paseo-child-image.yml
   workflow_dispatch:
 
@@ -51,6 +55,7 @@ jobs:
           python3 -m unittest tests/test_paseo_runtime_contract.py -v
           python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
           python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
+          python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
       - name: Build frozen Paseo child-image foundation
         env:
           DOCKER_BUILDKIT: "1"
