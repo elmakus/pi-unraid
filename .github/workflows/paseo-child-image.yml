@@ -24,6 +24,7 @@ on:
       - scripts/unraid_host_control_router.py
       - scripts/unraid_host_control_doctor.py
       - scripts/environment_capability_inventory.py
+      - scripts/environment_capability_control.py
       - tests/test_paseo_candidate_resolver.py
       - tests/test_paseo_child_image_contract.py
       - tests/test_paseo_runtime_contract.py
@@ -33,6 +34,7 @@ on:
       - tests/test_unraid_host_control_guard_contract.py
       - tests/test_unraid_host_control_doctor_contract.py
       - tests/test_environment_capability_inventory_contract.py
+      - tests/test_environment_capability_control_contract.py
       - docs/PASEO_RELAY_AUTH.md
       - docs/PI_INSTRUCTION_PLANE.md
       - docs/UNRAID_GRAPHQL_HOST_CONTROL.md
@@ -74,6 +76,7 @@ jobs:
           python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
           python3 -m unittest tests/test_unraid_host_control_doctor_contract.py -v
           python3 -m unittest tests/test_environment_capability_inventory_contract.py -v
+          python3 -m unittest tests/test_environment_capability_control_contract.py -v
       - name: Build frozen Paseo child-image foundation
         env:
           DOCKER_BUILDKIT: "1"
