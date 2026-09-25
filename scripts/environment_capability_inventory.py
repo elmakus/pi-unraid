@@ -282,7 +282,7 @@ def sanitize_observation(
 
 
 def classify(desired: dict, observation: dict | None) -> tuple[str, str]:
-    if observation is None:
+    if not isinstance(observation, dict):
         return "WARN", "unobserved"
     if observation.get("present") is False:
         return "RED", "missing"
