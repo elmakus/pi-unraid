@@ -31,3 +31,7 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/PLANNING.toml"
 [plan_review]
 class = "plan_review"
 path = "implementation/workstreams/feature-paseo-gui-runtime/PLAN_REVIEW.toml"
+
+[task_board]
+class = "task_board"
+path = "implementation/workstreams/feature-paseo-gui-runtime/TASK_BOARD.toml"
