@@ -6,7 +6,7 @@ if [ "$#" -ge 1 ]; then image="$1"; else image="pi-unraid:paseo-foundation"; fi
 tmpbase="/tmp"
 if printenv TMPDIR >/dev/null 2>&1; then tmpbase="$TMPDIR"; fi
 fixture="$(mktemp -d "$tmpbase/pi-unraid-m02-t02.XXXXXX")"
-project="piunraid-m02-t02-$"
+project="piunraid-m02-t02-$$"
 uid="$(printenv PASEO_TEST_UID || true)"
 gid="$(printenv PASEO_TEST_GID || true)"
 [ -n "$uid" ] || uid=99
