@@ -67,6 +67,53 @@ class HostControlDoctorContractTests(unittest.TestCase):
         self.assertEqual(result["state"], "RED")
         self.assertEqual(result["error"], "graphql")
 
+    def test_graphql_transport_auth_and_protocol_failures_are_structured(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            key_file = Path(td) / "api-key"
+            secret = "f" * 64
+            key_file.write_text(secret)
+            key_file.chmod(0o600)
+
+            cases = (
+                (
+                    doctor.graphql_control.HostControlError(
+                        "transport",
+                        "GraphQL endpoint is unreachable",
+                    ),
+                    "transport",
+                    None,
+                ),
+                (
+                    doctor.graphql_control.HostControlError(
+                        "http",
+                        "GraphQL endpoint returned an HTTP error",
+                        status=401,
+                    ),
+                    "auth",
+                    401,
+                ),
+                (
+                    doctor.graphql_control.HostControlError(
+                        "protocol",
+                        "GraphQL endpoint returned invalid JSON",
+                    ),
+                    "protocol",
+                    None,
+                ),
+            )
+
+            for failure, expected_error, expected_status in cases:
+                with self.subTest(expected_error=expected_error), \
+                     mock.patch.object(doctor.graphql_control, "graphql", side_effect=failure):
+                    result = doctor.graphql_check("http://tower/graphql", str(key_file))
+                self.assertEqual(result["state"], "RED")
+                self.assertEqual(result["error"], expected_error)
+                self.assertNotIn(secret, json.dumps(result))
+                if expected_status is None:
+                    self.assertNotIn("http_status", result)
+                else:
+                    self.assertEqual(result["http_status"], expected_status)
+
     def test_ssh_quick_and_full_checks_remain_read_only_and_secret_safe(self) -> None:
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
