@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 60
+revision = 61
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -256,7 +256,7 @@ condition = "The exact GREEN M04-T01 inventory result is required before doctor/
 
 [[cards]]
 id = "M04-T02"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
