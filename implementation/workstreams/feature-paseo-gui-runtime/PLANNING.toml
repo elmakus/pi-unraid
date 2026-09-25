@@ -12,7 +12,7 @@ premium_a = "satisfied"
 premium_a_subject = "definition:R1|planning-cycle:1"
 premium_b = "satisfied"
 premium_b_subject = "elmakus/pi-unraid@6b241f98bfc0374b0ea7f86e1deb9b7ad2a1c475:planning/PASEO_GUI_RUNTIME_P1.md@369bd99e8ec0f0e1e615f0b088778398b9b7ddb7"
-premium_c = "due"
+premium_c = "satisfied"
 premium_c_subject = "elmakus/pi-unraid@6b241f98bfc0374b0ea7f86e1deb9b7ad2a1c475:planning/PASEO_GUI_RUNTIME_P1.md@369bd99e8ec0f0e1e615f0b088778398b9b7ddb7"
 
 [subject]
