@@ -94,13 +94,17 @@ docker exec "$cid" sh -ec '
   printf worktree > /worktrees/m02-worktree-marker
 '
 
-for marker in \
-  "$fixture/home/m02-home-marker" \
-  "$fixture/projects/m02-project-marker" \
-  "$fixture/worktrees/m02-worktree-marker" \
-  "$fixture/home/.paseo/config.json"; do
-  test "$(stat -c '%u:%g' "$marker")" = "$uid:$gid"
-done
+assert_fixture_owner() {
+  local rel="$1"
+  test "$(docker run --rm --user 0:0 --entrypoint stat \
+    -v "$fixture:/fixture:ro" \
+    "$image" -c '%u:%g' "/fixture/$rel")" = "$uid:$gid"
+}
+
+assert_fixture_owner home/m02-home-marker
+assert_fixture_owner projects/m02-project-marker
+assert_fixture_owner worktrees/m02-worktree-marker
+assert_fixture_owner home/.paseo/config.json
 
 mounts="$(docker inspect -f '{{range .Mounts}}{{.Destination}};{{end}}' "$cid")"
 for target in /home/paseo /projects /worktrees; do
@@ -125,8 +129,8 @@ cid="$(dc ps -q paseo)"
 test "$(docker exec "$cid" cat /home/paseo/m02-home-marker)" = "home"
 test "$(docker exec "$cid" cat /projects/m02-project-marker)" = "project"
 test "$(docker exec "$cid" cat /worktrees/m02-worktree-marker)" = "worktree"
-test "$(stat -c '%u:%g' "$fixture/home/m02-home-marker")" = "$uid:$gid"
-test "$(stat -c '%u:%g' "$fixture/projects/m02-project-marker")" = "$uid:$gid"
-test "$(stat -c '%u:%g' "$fixture/worktrees/m02-worktree-marker")" = "$uid:$gid"
+assert_fixture_owner home/m02-home-marker
+assert_fixture_owner projects/m02-project-marker
+assert_fixture_owner worktrees/m02-worktree-marker
 
 printf '{"card":"M02-T01","home_persisted":true,"projects_persisted":true,"worktrees_persisted":true,"worktrees_root":"/worktrees","runtime_uid":%s,"runtime_gid":%s,"shm_bytes":1073741824,"resource_caps":"none","result":"GREEN"}\n' "$uid" "$gid"
