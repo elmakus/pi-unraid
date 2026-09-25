@@ -6,7 +6,7 @@ import json
 import sys
 from copy import deepcopy
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 import environment_capability_inventory as inventory
 
@@ -160,8 +160,10 @@ def build_reconcile_plan(
             raise CapabilityControlError("requested capability ids must be unique")
         unknown = sorted(set(requested_ids) - set(by_id))
         if unknown:
+            fingerprints = [inventory._observation_fingerprint(item) for item in unknown]
             raise CapabilityControlError(
-                "reconcile cannot target unapproved capability ids: " + ", ".join(unknown)
+                "reconcile cannot target unapproved capability ids: "
+                + ", ".join(fingerprints)
             )
         selected_ids = sorted(requested_ids)
 
@@ -203,6 +205,7 @@ def build_reconcile_plan(
         "authority": "environment_availability_only",
         "reconcile": "restore_current_desired_state",
         "candidate_id": payload["candidate_id"],
+        "selected_capability_ids": selected_ids,
         "plan_state": plan_state,
         "actions": actions,
         "blocked": blocked,
@@ -241,8 +244,15 @@ def verify_reconcile_readback(before: dict, after: dict, plan: dict) -> dict:
         raise CapabilityControlError("reconcile plan is not bound to the current candidate")
     if plan.get("desired_state_mutation") is not False:
         raise CapabilityControlError("reconcile plan may not mutate desired state")
+    selected_ids = plan.get("selected_capability_ids")
+    if not isinstance(selected_ids, list):
+        raise CapabilityControlError("reconcile plan lacks bounded capability selection")
+    canonical_plan = build_reconcile_plan(before, requested_ids=selected_ids)
+    if plan != canonical_plan:
+        raise CapabilityControlError("reconcile plan diverged from current desired-state authority")
 
     _ensure_desired_state_unchanged(before, after)
+    before_by_id = _capability_map(before)
     after_by_id = _capability_map(after)
 
     action_results = []
@@ -254,12 +264,19 @@ def verify_reconcile_readback(before: dict, after: dict, plan: dict) -> dict:
         capability = after_by_id[capability_id]
         restored = capability["health"] == "GREEN" and capability["drift"] == "none"
         unresolved = unresolved or not restored
+        before_capability = before_by_id[capability_id]
         action_results.append(
             {
                 "capability_id": capability_id,
                 "status": "restored" if restored else "unresolved",
-                "health": capability["health"],
-                "drift": capability["drift"],
+                "pre": {
+                    "health": before_capability["health"],
+                    "drift": before_capability["drift"],
+                },
+                "post": {
+                    "health": capability["health"],
+                    "drift": capability["drift"],
+                },
             }
         )
 
@@ -298,6 +315,28 @@ def verify_reconcile_readback(before: dict, after: dict, plan: dict) -> dict:
         "unexpected_disappeared": disappeared,
         "desired_state_mutation": False,
         "summary": summary,
+    }
+
+
+def apply_reconcile(
+    before: dict,
+    *,
+    execute: Callable[[dict], None],
+    observe: Callable[[], dict],
+    requested_ids: list[str] | None = None,
+) -> dict:
+    plan = build_reconcile_plan(before, requested_ids=requested_ids)
+    if plan["blocked"]:
+        raise CapabilityControlError(
+            "reconcile apply requires resolved observations for all selected capabilities"
+        )
+    for action in plan["actions"]:
+        execute(deepcopy(action))
+    after = observe()
+    result = verify_reconcile_readback(before, after, plan)
+    return {
+        **result,
+        "applied_actions": len(plan["actions"]),
     }
 
 

@@ -109,8 +109,11 @@ class EnvironmentCapabilityControlContractTests(unittest.TestCase):
 
     def test_reconcile_refuses_unknown_or_duplicate_requested_capabilities(self) -> None:
         payload = self._derive(self._perfect_observations())
-        with self.assertRaises(control.CapabilityControlError):
-            control.build_reconcile_plan(payload, requested_ids=["not-approved"])
+        secret = "RAW-CREDENTIAL-IN-CAPABILITY-ID"
+        with self.assertRaises(control.CapabilityControlError) as caught:
+            control.build_reconcile_plan(payload, requested_ids=[f"not-approved-{secret}"])
+        self.assertNotIn(secret, str(caught.exception))
+        self.assertIn("sha256:", str(caught.exception))
         with self.assertRaises(control.CapabilityControlError):
             control.build_reconcile_plan(payload, requested_ids=["pi", "pi"])
 
@@ -127,8 +130,8 @@ class EnvironmentCapabilityControlContractTests(unittest.TestCase):
         self.assertEqual(result["actions"], [{
             "capability_id": "pi",
             "status": "restored",
-            "health": "GREEN",
-            "drift": "none",
+            "pre": {"health": "RED", "drift": "missing"},
+            "post": {"health": "GREEN", "drift": "none"},
         }])
         self.assertFalse(result["desired_state_mutation"])
         self.assertIn("restored=1", result["summary"])
@@ -136,6 +139,42 @@ class EnvironmentCapabilityControlContractTests(unittest.TestCase):
         unresolved = control.verify_reconcile_readback(before, before, plan)
         self.assertEqual(unresolved["state"], "RED")
         self.assertEqual(unresolved["actions"][0]["status"], "unresolved")
+        self.assertEqual(
+            unresolved["actions"][0]["post"],
+            {"health": "RED", "drift": "missing"},
+        )
+
+    def test_reconcile_apply_uses_only_canonical_actions_and_requires_readback(self) -> None:
+        before_observations = self._perfect_observations()
+        before_observations["pi"] = {"present": False}
+        before = self._derive(before_observations)
+        after = self._derive(self._perfect_observations())
+        executed = []
+        observations = []
+
+        result = control.apply_reconcile(
+            before,
+            execute=lambda action: executed.append(action),
+            observe=lambda: observations.append("readback") or after,
+        )
+
+        self.assertEqual(result["state"], "GREEN")
+        self.assertEqual(result["applied_actions"], 1)
+        self.assertEqual([item["capability_id"] for item in executed], ["pi"])
+        self.assertEqual(executed[0]["operation"], "restore_desired_state")
+        self.assertEqual(observations, ["readback"])
+
+    def test_reconcile_readback_rejects_tampered_plan(self) -> None:
+        before_observations = self._perfect_observations()
+        before_observations["pi"] = {"present": False}
+        before = self._derive(before_observations)
+        plan = control.build_reconcile_plan(before)
+        tampered = copy.deepcopy(plan)
+        tampered["actions"][0]["desired_version"] = "not-the-frozen-version"
+        after = self._derive(self._perfect_observations())
+
+        with self.assertRaises(control.CapabilityControlError):
+            control.verify_reconcile_readback(before, after, tampered)
 
     def test_reconcile_readback_rejects_desired_state_or_candidate_change(self) -> None:
         before_observations = self._perfect_observations()
@@ -175,6 +214,7 @@ class EnvironmentCapabilityControlContractTests(unittest.TestCase):
             self.assertNotIn(token, raw)
         self.assertNotIn('add_parser("update")', raw)
         self.assertNotIn('"operation": "delete', raw)
+        self.assertNotIn("shell=True", raw)
         for token in (
             "role_ceiling",
             "assignment_eligibility",
