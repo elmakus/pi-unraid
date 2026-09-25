@@ -1,0 +1,128 @@
+{
+  "components": {
+    "paseo": {
+      "version": "0.9.2",
+      "source": {
+        "repository": "getpaseo/paseo",
+        "tag": "v0.9.2",
+        "commit": "c67b7158b441bb09026b38d86ae335cc4b49190a"
+      },
+      "artifact": {
+        "image": "ghcr.io/getpaseo/paseo:0.9.2",
+        "digest": "sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136",
+        "reference": "ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136",
+        "linux_amd64_manifest": "sha256:79bf8774b0d71ab3afed3d0f4dc556b160de9d2e15841786eb92b446540dc791",
+        "config_digest": "sha256:cec7883d5dc43e739ef0adf024de70efaad1ca9552d248dbb0ccf0f6f7034335",
+        "node_version": "22.23.3"
+      }
+    },
+    "node": {
+      "version": "22.23.3",
+      "minimum_for_pi": ">=22.19.0",
+      "delivery": "provided-by-exact-paseo-image",
+      "immutable_parent": "ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136"
+    },
+    "pi": {
+      "version": "0.87.1",
+      "npm": {
+        "package": "@earendil-works/pi-coding-agent",
+        "integrity": "sha512-fixture-pi",
+        "shasum": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "source": {
+        "repository": "earendil-works/pi",
+        "tag": "v0.87.1",
+        "commit": "f07218c4d4bbc12bef056a7058c3dd49dfe41abe"
+      }
+    },
+    "playwright": {
+      "version": "1.63.0",
+      "npm": {
+        "package": "playwright",
+        "integrity": "sha512-fixture-playwright",
+        "shasum": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+      },
+      "source": {
+        "repository": "microsoft/playwright",
+        "tag": "v1.63.0",
+        "commit": "1b025d7e20a026371cd5f98ba0cdce48892737c8"
+      },
+      "chromium": {
+        "revision": "1243",
+        "browser_version": "153.0.8010.12"
+      }
+    },
+    "specpi": {
+      "version": "0.34.0",
+      "npm": {
+        "package": "specpi",
+        "integrity": "sha512-fixture-specpi",
+        "shasum": "cccccccccccccccccccccccccccccccccccccccc"
+      },
+      "source": {
+        "repository": "tannermidd/SpecPi",
+        "tag": "v0.34.0",
+        "commit": "4edc0c0045a5fa03a1f63e41347894db5b3b0563"
+      },
+      "live_compatibility_smoke_required": true
+    },
+    "pi_mcp_adapter": {
+      "version": "2.37.0",
+      "npm": {
+        "package": "pi-mcp-adapter",
+        "integrity": "sha512-fixture-adapter",
+        "shasum": "dddddddddddddddddddddddddddddddddddddddd"
+      },
+      "source": {
+        "repository": "nicobailon/pi-mcp-adapter",
+        "tag": "v2.37.0",
+        "commit": "28049dee20cd0ee809cf5a78442cf35dfa36659c"
+      },
+      "declared_pi_ai_peer": "^0.84.1 || ^0.85.0 || ^0.86.0 || ^0.87.0",
+      "live_compatibility_smoke_required": true
+    },
+    "github_cli": {
+      "version": "2.101.0",
+      "source": {
+        "repository": "cli/cli",
+        "tag": "v2.101.0",
+        "commit": "0cf1092493af067646fc5f3db9421c6a6ec9c938"
+      },
+      "artifact": {
+        "name": "gh_2.101.0_linux_amd64.tar.gz",
+        "digest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "size": 123
+      }
+    },
+    "docker_cli": {
+      "version": "29.8.1",
+      "source": {
+        "repository": "docker/cli",
+        "tag": "v29.8.1",
+        "commit": "4a63305d74332de5ceba7fcbccbc3cbb7412f5ba"
+      },
+      "stable_line_source": {
+        "repository": "moby/moby",
+        "tag": "docker-v29.8.1"
+      },
+      "artifact_identity": {
+        "status": "source-commit-exact",
+        "digest": null,
+        "reason": "docker/cli publishes release tags without GitHub release assets"
+      }
+    },
+    "docker_compose": {
+      "version": "5.5.1",
+      "source": {
+        "repository": "docker/compose",
+        "tag": "v5.5.1",
+        "commit": "5f94fb0aa42a2cd1248c6e6c7fafb87546b9c8de"
+      },
+      "artifact": {
+        "name": "docker-compose-linux-x86_64",
+        "digest": "sha256:2222222222222222222222222222222222222222222222222222222222222222",
+        "size": 456
+      }
+    }
+  }
+}
