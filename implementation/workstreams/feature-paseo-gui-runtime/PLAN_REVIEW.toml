@@ -1,16 +1,16 @@
 workstream_id = "feature-paseo-gui-runtime"
-plan_revision = "P1"
-planning_cycle = 1
+plan_revision = "P2"
+planning_cycle = 2
 attempt = "R01"
-verdict = "green"
-evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/PLAN_REVIEW_P1_R01.md"
+verdict = "pending"
+evidence_path = ""
 
 [subject]
 class = "git_blob"
 repository = "elmakus/pi-unraid"
-commit = "6b241f98bfc0374b0ea7f86e1deb9b7ad2a1c475"
-path = "planning/PASEO_GUI_RUNTIME_P1.md"
-blob = "369bd99e8ec0f0e1e615f0b088778398b9b7ddb7"
+commit = "c774f02de78dfba78d2888b54a11059c7f897304"
+path = "planning/PASEO_GUI_RUNTIME_P2.md"
+blob = "5a16489e0f0618264f93ec0f260d89914a615ec1"
 
 [acceptance]
 class = "authority"
@@ -18,4 +18,4 @@ path = "requirements/PASEO_GUI_RUNTIME.md"
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "Fresh Premium-B review context did not materially produce or repair the exact frozen P1 plan subject."
+basis = "Pending R01 is reserved for a fresh Premium-B review context that did not materially produce or repair the exact frozen P2 subject."
