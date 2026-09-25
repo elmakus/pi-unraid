@@ -41,3 +41,12 @@ Generic command stdout/stderr are not copied into machine-readable output; only 
 ## Authority boundary
 
 The guard mechanically enforces pi-unraid host-safety policy only. It does not create Project Workflow user approval, replace PW review/stop semantics, or become OR runtime policy. M03-T03 owns read-only host-control doctor behavior. M06-T04 remains responsible for real credential-backed GraphQL and forced SSH fallback acceptance before production cutover.
+
+
+## Read-only host-control doctor
+
+`scripts/unraid_host_control_doctor.py` diagnoses the host-control plane without performing mutation. It checks the GraphQL primary readback and secret-safe API-key fingerprint metadata, validates the repository safety-policy shape, and validates SSH fallback configuration. `--depth full` additionally performs only the fixed read-only SSH probe; it never calls the gated SSH executor or the forced smoke-marker mutation.
+
+The doctor emits machine-readable JSON plus a concise `GREEN/WARN/RED` summary. GraphQL or safety-policy failure is RED because those are core control-plane failures. Missing or unreachable SSH fallback is WARN while GraphQL remains healthy, preserving the accepted distinction between primary control failure and degraded fallback readiness.
+
+This doctor belongs only to pi-unraid host-control health. It does not execute Project Workflow Recovery, Orchestration Runtime diagnosis, reconcile, update, or any host mutation. Credential-backed mutation/fallback acceptance remains owned by M06-T04.
