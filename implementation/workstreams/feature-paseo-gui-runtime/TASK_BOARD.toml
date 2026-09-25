@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 1
+revision = 2
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -11,6 +11,12 @@ status = "in_progress"
 [cards.contract]
 class = "task_card"
 path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M01-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M01-T01.md"
+commit = "dd3047320faf92f0dfe9d0ac0a0f5ff590e11250"
+blob = "4ccca450fa664344ef3ded7de33de7df7c79d8f9"
 
 [[jit_triggers]]
 id = "after-M01-T01-materialize-M01-T02"
