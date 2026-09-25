@@ -11,7 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-from unraid_host_safety_guard import GuardError, command_scope, evaluate, load_policy
+from unraid_host_safety_guard import GuardError, evaluate, load_policy, operation_rule, operation_scope
 
 HOST_PATTERN = re.compile(r"^[A-Za-z0-9.-]+$")
 USER_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
@@ -189,6 +189,9 @@ def _load_command_file(path_value: str) -> dict:
         payload = json.loads(path.read_text())
     except (OSError, json.JSONDecodeError) as exc:
         raise SshFallbackError("configuration", "SSH command file is invalid") from exc
+    operation = payload.get("operation")
+    if not isinstance(operation, str) or not operation:
+        raise SshFallbackError("configuration", "SSH command file must contain an operation class")
     argv = payload.get("argv")
     if not isinstance(argv, list) or not argv or any(not isinstance(x, str) or not x for x in argv):
         raise SshFallbackError("configuration", "SSH command file must contain non-empty argv strings")
@@ -209,17 +212,19 @@ def gated_exec(
 ) -> dict:
     ensure_reason(reason, policy)
     payload = _load_command_file(command_file)
+    operation = payload["operation"]
     argv = payload["argv"]
-    scope = command_scope(argv)
-    rollback_applicable = bool(payload.get("rollback_applicable", False))
     try:
+        classification, rule = operation_rule(policy, operation)
+        if classification != "gated" or rule.get("transport") != "ssh" or not rule.get("mutating"):
+            raise GuardError("policy", "SSH command operation must be a gated mutating SSH class", operation=operation)
+        scope = operation_scope(operation, argv)
         decision = evaluate(
-            "ssh_admin_command",
+            operation,
             scope=scope,
             pre_readback_file=pre_readback_file,
             authorization_file=authorization_file,
             rollback_anchor_file=rollback_anchor_file,
-            rollback_applicable=rollback_applicable,
             policy=policy,
         )
     except GuardError as exc:
@@ -230,7 +235,7 @@ def gated_exec(
         "ok": True,
         "transport": "ssh",
         "fallback_reason": reason,
-        "operation": "ssh_admin_command",
+        "operation": operation,
         "scope": scope,
         "returncode": proc.returncode,
         "stdout_bytes": len(proc.stdout.encode()),
