@@ -64,56 +64,56 @@
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     },
     "host_reboot": {
       "transport": "ssh",
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     },
     "docker_engine_restart": {
       "transport": "ssh",
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     },
     "unraid_os_upgrade": {
       "transport": "ssh",
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     },
     "disk_format": {
       "transport": "ssh",
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     },
     "broad_share_delete": {
       "transport": "ssh",
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     },
     "broad_appdata_delete": {
       "transport": "ssh",
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     },
     "broad_network_change": {
       "transport": "ssh",
       "mutating": true,
       "pre_readback": "evidence_file",
       "user_gate": "external_user_authorization",
-      "rollback_anchor": "required_if_applicable"
+      "rollback_anchor": "required"
     }
   },
   "unknown_operation_policy": "deny"
