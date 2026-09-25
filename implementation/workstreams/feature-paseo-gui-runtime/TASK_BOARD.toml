@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 37
+revision = 38
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -170,5 +170,5 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M03-T01-R01
 [[jit_triggers]]
 id = "after-M03-T01-materialize-M03-T02"
 after_card = "M03-T01"
-state = "waiting"
+state = "satisfied"
 condition = "The exact GREEN GraphQL-primary host-control result is required before SSH fallback and mutation-guard work can bind the real primary transport, credential/readback contract and safe gap boundary."
