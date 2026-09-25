@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-gui-runtime"
 card_id = "M01-T01"
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "green"
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M01-T01-R01-independent-review-2026-09-25.md"
 
 [subject]
 class = "git_blob"
@@ -17,4 +17,4 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M01-T01.md"
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "Review is reserved for a fresh independent context that did not materially produce or repair this exact result subject."
+basis = "Fresh independent review context did not materially produce or repair the exact reviewed result subject."
