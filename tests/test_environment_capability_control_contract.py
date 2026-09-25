@@ -210,6 +210,21 @@ class EnvironmentCapabilityControlContractTests(unittest.TestCase):
         self.assertEqual(result["state"], "RED")
         self.assertEqual(len(result["unexpected_disappeared"]), 1)
 
+    def test_control_rejects_payload_rebased_to_alternate_desired_authority(self) -> None:
+        alternate_candidate = copy.deepcopy(CANDIDATE)
+        alternate_candidate["components"]["pi"]["version"] = "999.999.999"
+        payload = inventory.derive_inventory(
+            DEFINITION,
+            alternate_candidate,
+            ROOT,
+            self._perfect_observations(),
+        )
+
+        with self.assertRaises(control.CapabilityControlError):
+            control.doctor(payload, depth="full")
+        with self.assertRaises(control.CapabilityControlError):
+            control.build_reconcile_plan(payload)
+
     def test_reconcile_cli_rejects_noncanonical_desired_state_sources(self) -> None:
         cases = [
             (
