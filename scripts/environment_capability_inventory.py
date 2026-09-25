@@ -247,16 +247,37 @@ def desired_for(capability: dict, candidate: dict, root: Path) -> dict:
     raise InventoryError("unsupported desired-state selector")
 
 
-def sanitize_observation(value: Any) -> dict | None:
+def _observation_fingerprint(value: str) -> str:
+    return "sha256:" + hashlib.sha256(value.encode()).hexdigest()
+
+
+def sanitize_observation(
+    value: Any,
+    desired: dict,
+    runtime_location: dict,
+) -> dict | None:
     if not isinstance(value, dict):
         return None
+
     safe: dict[str, Any] = {}
     if isinstance(value.get("present"), bool):
         safe["present"] = value["present"]
-    if isinstance(value.get("version"), str):
-        safe["version"] = value["version"][:256]
-    if isinstance(value.get("location"), str):
-        safe["location"] = value["location"][:512]
+
+    observed_version = value.get("version")
+    if isinstance(observed_version, str):
+        if observed_version == desired["version"]:
+            safe["version"] = desired["version"]
+        else:
+            safe["version_fingerprint"] = _observation_fingerprint(observed_version)
+
+    observed_location = value.get("location")
+    expected_location = runtime_location.get("value")
+    if isinstance(observed_location, str):
+        if isinstance(expected_location, str) and observed_location == expected_location:
+            safe["location"] = expected_location
+        else:
+            safe["location_fingerprint"] = _observation_fingerprint(observed_location)
+
     return safe
 
 
@@ -292,6 +313,8 @@ def derive_inventory(
         observations = {}
     if not isinstance(observations, dict):
         raise InventoryError("observations must be an object keyed by capability id")
+    if not all(isinstance(capability_id, str) for capability_id in observations):
+        raise InventoryError("observation capability ids must be strings")
 
     rendered = []
     known_ids: set[str] = set()
@@ -299,8 +322,13 @@ def derive_inventory(
         capability_id = capability["id"]
         known_ids.add(capability_id)
         desired = desired_for(capability, candidate, root)
-        observed = sanitize_observation(observations.get(capability_id))
-        health, drift = classify(desired, observed)
+        raw_observation = observations.get(capability_id)
+        health, drift = classify(desired, raw_observation)
+        observed = sanitize_observation(
+            raw_observation,
+            desired,
+            capability["runtime_location"],
+        )
         rendered.append(
             {
                 "id": capability_id,
@@ -316,7 +344,11 @@ def derive_inventory(
         )
 
     unexpected = [
-        {"id": capability_id, "health": "WARN", "drift": "unexpected"}
+        {
+            "id_fingerprint": _observation_fingerprint(capability_id),
+            "health": "WARN",
+            "drift": "unexpected",
+        }
         for capability_id in sorted(set(observations) - known_ids)
     ]
 
