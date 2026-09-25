@@ -23,7 +23,7 @@ scripts/paseo-relay-access.sh revocation-capability
 
 Status reports only Relay enablement plus presence/mode/ownership metadata for the native daemon keypair. It never prints the keypair or a pairing offer.
 
-Paseo 0.9.2 stores the persistent ECDH daemon identity at `$PASEO_HOME/daemon-keypair.json`. M02-T02 smoke verifies that the private file remains mode 0600, numeric 99:100, and byte-identical across container recreation while Relay remains disabled.
+Paseo 0.9.2 stores the persistent ECDH daemon identity at `$PASEO_HOME/daemon-keypair.json`. Because upstream creates that identity only when a Relay pairing offer is generated, M02-T02 smoke first proves that a non-consenting `pair --json` fails with `RELAY_DISABLED`, then explicitly enables Relay only inside the disposable fixture to generate an offer captured without logging, immediately restores `daemon.relay.enabled=false`, and verifies that the private keypair remains mode 0600, numeric 99:100, and byte-identical across container recreation.
 
 The v0.9.2 CLI exposes `daemon pair` but no command for listing and individually revoking paired-device credentials. `revocation-capability` therefore reports unsupported and fails closed semantically; deleting/regenerating the daemon keypair is not presented as an equivalent device-revocation operation.
 

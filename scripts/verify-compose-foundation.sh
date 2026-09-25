@@ -55,6 +55,19 @@ case "$pair_disabled" in
   *) printf 'expected RELAY_DISABLED from non-consenting pair probe; got: %s\n' "$pair_disabled" >&2; exit 1 ;;
 esac
 
+# Exercise upstream identity creation only inside this disposable fixture.
+# The pairing offer is captured and never printed; no real phone/user credential
+# is involved. Restore relay=false immediately after the probe.
+pair_offer="$(docker run --rm --user "$uid:$gid" \
+  -v "$fixture/home:/home/paseo" \
+  "$image" paseo daemon pair --relay --json --home /home/paseo/.paseo 2>/dev/null)"
+test -n "$pair_offer"
+unset pair_offer
+
+docker run --rm --user "$uid:$gid" \
+  -v "$fixture/home:/home/paseo" \
+  "$image" paseo daemon config set daemon.relay.enabled false --home /home/paseo/.paseo >/dev/null
+
 docker run --rm --user "$uid:$gid" \
   -v "$fixture/home:/home/paseo:ro" \
   "$image" python3 -c '
