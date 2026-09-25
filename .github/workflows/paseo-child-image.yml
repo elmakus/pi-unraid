@@ -1,0 +1,36 @@
+name: Paseo child image foundation
+
+on:
+  push:
+    branches:
+      - feat/paseo-gui-runtime
+    paths:
+      - Dockerfile
+      - config/paseo-candidate.json
+      - tests/test_paseo_child_image_contract.py
+      - .github/workflows/paseo-child-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Candidate and child-image contract tests
+        run: |
+          python3 -m unittest tests/test_paseo_candidate_resolver.py -v
+          python3 -m unittest tests/test_paseo_child_image_contract.py -v
+      - name: Build frozen Paseo child-image foundation
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: docker build --progress=plain -t pi-unraid:paseo-foundation .
+      - name: Inspect immutable foundation metadata
+        run: |
+          test "$(docker image inspect pi-unraid:paseo-foundation --format '{{ index .Config.Labels "io.pi-unraid.candidate-id" }}')" = "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69"
+          docker image inspect pi-unraid:paseo-foundation --format '{{.Id}}'
