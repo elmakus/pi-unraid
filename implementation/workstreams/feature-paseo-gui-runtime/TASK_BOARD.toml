@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 8
+revision = 9
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -49,5 +49,5 @@ condition = "The exact frozen candidate result is required before the child-imag
 [[jit_triggers]]
 id = "after-M01-T02-materialize-M01-T03"
 after_card = "M01-T02"
-state = "waiting"
+state = "satisfied"
 condition = "The exact child-image foundation result is required before provenance and disposable image smoke can bind the concrete image construction and verification surface."
