@@ -1,43 +1,29 @@
 services:
-  pi:
+  paseo:
     build:
       context: .
-    image: pi-unraid:local
+    image: pi-unraid:paseo
+    user: "${PASEO_UID:-99}:${PASEO_GID:-100}"
     restart: unless-stopped
     stop_grace_period: 20s
+    shm_size: "1gb"
     environment:
-      PI_UID: "${PI_UID:-1000}"
-      PI_GID: "${PI_GID:-1000}"
       TZ: Europe/Zurich
-      PI_CODEX_LB_BASE_URL: "${PI_CODEX_LB_BASE_URL:-http://host.docker.internal:2455/v1}"
-      PI_CODEX_LB_MODEL: "${PI_CODEX_LB_MODEL:-gpt-5.6-sol}"
-      PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    secrets:
-      - source: codex_lb_client
-        target: pi-unraid-codex-lb
     stdin_open: true
     tty: true
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/pi-unraid-service", "health"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-      start_period: 5s
     volumes:
       - type: bind
-        source: /mnt/user/appdata/pi-unraid/home
-        target: /home/pi
+        source: "${PASEO_HOME_HOST:-/mnt/user/appdata/pi-unraid/paseo-home}"
+        target: /home/paseo
         bind:
           create_host_path: false
       - type: bind
-        source: /mnt/user/projects
+        source: "${PASEO_PROJECTS_HOST:-/mnt/user/projects}"
         target: /projects
         bind:
           create_host_path: false
       - type: bind
-        source: /mnt/user/pi-worktrees
+        source: "${PASEO_WORKTREES_HOST:-/mnt/user/pi-worktrees}"
         target: /worktrees
         bind:
           create_host_path: false
@@ -46,7 +32,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-
-secrets:
-  codex_lb_client:
-    file: "${PI_CODEX_LB_SECRET_SOURCE:-/mnt/user/appdata/pi-unraid/secrets/codex-lb.env}"

@@ -1,4 +1,4 @@
-name: Paseo child image foundation
+name: Paseo image and runtime foundation
 
 on:
   push:
@@ -6,9 +6,13 @@ on:
       - feat/paseo-gui-runtime
     paths:
       - Dockerfile
+      - compose.yaml
       - config/paseo-candidate.json
       - scripts/smoke_paseo_image.py
+      - scripts/verify-compose-foundation.sh
+      - tests/test_paseo_candidate_resolver.py
       - tests/test_paseo_child_image_contract.py
+      - tests/test_paseo_runtime_contract.py
       - .github/workflows/paseo-child-image.yml
   workflow_dispatch:
 
@@ -25,19 +29,22 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Verify exact M01-T02 dependency binding
+      - name: Verify exact M01-T03 dependency binding
         run: |
-          test "$(git rev-parse 4e60c855a84b2e74d50de812db1ba9cc156af400:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T02.md)" = "be820f52901a9d2d4a40b71c3da6d19ffc08edea"
-      - name: Candidate and child-image contract tests
+          test "$(git rev-parse bbc862c37c0da81a08a91876499cfe865be958ab:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md)" = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
+      - name: Candidate image and runtime contract tests
         run: |
           python3 -m unittest tests/test_paseo_candidate_resolver.py -v
           python3 -m unittest tests/test_paseo_child_image_contract.py -v
+          python3 -m unittest tests/test_paseo_runtime_contract.py -v
       - name: Build frozen Paseo child-image foundation
         env:
           DOCKER_BUILDKIT: "1"
         run: docker build --progress=plain -t pi-unraid:paseo-foundation .
       - name: Disposable image and provenance smoke
         run: python3 scripts/smoke_paseo_image.py pi-unraid:paseo-foundation config/paseo-candidate.json
+      - name: Disposable persistence and ownership smoke
+        run: bash scripts/verify-compose-foundation.sh pi-unraid:paseo-foundation
       - name: Inspect immutable foundation metadata
         run: |
           test "$(docker image inspect pi-unraid:paseo-foundation --format '{{ index .Config.Labels "io.pi-unraid.candidate-id" }}')" = "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69"
