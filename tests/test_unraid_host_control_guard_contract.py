@@ -39,7 +39,7 @@ class UnraidHostControlGuardContractTests(unittest.TestCase):
             self.assertTrue(rule["mutating"])
             self.assertEqual(rule["pre_readback"], "evidence_file")
             self.assertEqual(rule["user_gate"], "external_user_authorization")
-            self.assertEqual(rule["rollback_anchor"], "required_if_applicable")
+            self.assertEqual(rule["rollback_anchor"], "required")
         expected_graphql = {f"graphql_container_{action}" for action in ("start", "stop", "restart", "pause", "unpause")}
         self.assertTrue(expected_graphql.issubset(POLICY["ordinary_operations"]))
         for operation in expected_graphql:
@@ -55,7 +55,8 @@ class UnraidHostControlGuardContractTests(unittest.TestCase):
         self.assertEqual(ctx.exception.kind, "policy")
 
     def test_gated_command_binds_authorization_pre_readback_and_anchor_to_exact_scope(self) -> None:
-        scope = guard.command_scope(["/usr/local/sbin/example-admin", "--target", "demo"])
+        argv = ["/usr/local/sbin/example-admin", "--target", "demo"]
+        scope = guard.operation_scope("ssh_admin_command", argv)
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
             pre, auth, anchor = td / "pre.json", td / "auth.json", td / "anchor.json"
@@ -65,18 +66,24 @@ class UnraidHostControlGuardContractTests(unittest.TestCase):
             pre.chmod(0o644); auth.chmod(0o600); anchor.chmod(0o644)
             with self.assertRaises(guard.GuardError):
                 guard.evaluate("ssh_admin_command", scope=scope, pre_readback_file=str(pre), policy=POLICY)
+            with self.assertRaises(guard.GuardError):
+                guard.evaluate(
+                    "ssh_admin_command", scope=scope, pre_readback_file=str(pre),
+                    authorization_file=str(auth), policy=POLICY,
+                )
             decision = guard.evaluate(
                 "ssh_admin_command", scope=scope, pre_readback_file=str(pre), authorization_file=str(auth),
-                rollback_anchor_file=str(anchor), rollback_applicable=True, policy=POLICY,
+                rollback_anchor_file=str(anchor), policy=POLICY,
             )
             self.assertEqual(decision["classification"], "gated")
+            self.assertEqual(decision["rollback_anchor"], "required")
             wrong = td / "wrong.json"
             wrong.write_text(json.dumps({"schema_version": 1, "kind": "external_user_authorization", "scope": "sha256:wrong", "ok": True}))
             wrong.chmod(0o600)
             with self.assertRaises(guard.GuardError):
                 guard.evaluate(
                     "ssh_admin_command", scope=scope, pre_readback_file=str(pre),
-                    authorization_file=str(wrong), policy=POLICY,
+                    authorization_file=str(wrong), rollback_anchor_file=str(anchor), policy=POLICY,
                 )
 
     def test_ssh_identity_is_private_and_status_is_secret_safe(self) -> None:
@@ -173,21 +180,43 @@ class UnraidHostControlGuardContractTests(unittest.TestCase):
         config = {"host": "tower", "user": "root", "identity_file": "id", "known_hosts_file": "kh"}
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
-            command, pre, auth = td / "command.json", td / "pre.json", td / "auth.json"
+            command, pre, auth, anchor = td / "command.json", td / "pre.json", td / "auth.json", td / "anchor.json"
             argv = ["/usr/bin/example", "--safe"]
-            command.write_text(json.dumps({"schema_version": 1, "argv": argv, "rollback_applicable": False})); command.chmod(0o644)
-            scope = guard.command_scope(argv)
+            operation = "ssh_admin_command"
+            command.write_text(json.dumps({"schema_version": 1, "operation": operation, "argv": argv})); command.chmod(0o644)
+            scope = guard.operation_scope(operation, argv)
             pre.write_text(json.dumps({"schema_version": 1, "kind": "pre_mutation_readback", "scope": scope, "ok": True})); pre.chmod(0o644)
             auth.write_text(json.dumps({"schema_version": 1, "kind": "external_user_authorization", "scope": scope, "ok": True})); auth.chmod(0o600)
+            anchor.write_text(json.dumps({"schema_version": 1, "kind": "rollback_anchor", "scope": scope, "ok": True})); anchor.chmod(0o644)
             secretish = "do-not-emit-this"
             with mock.patch.object(ssh, "run_remote", return_value=FakeProc(secretish, secretish)):
                 result = ssh.gated_exec(
                     config, reason="os_plugin_filesystem_recovery", command_file=str(command),
                     authorization_file=str(auth), pre_readback_file=str(pre),
-                    rollback_anchor_file=None, policy=POLICY,
+                    rollback_anchor_file=str(anchor), policy=POLICY,
                 )
             self.assertNotIn(secretish, json.dumps(result))
-            self.assertEqual(result["operation"], "ssh_admin_command")
+            self.assertEqual(result["operation"], operation)
+            self.assertEqual(result["guard"]["scope"], scope)
+
+    def test_ssh_exec_rejects_non_gated_operation_class(self) -> None:
+        config = {"host": "tower", "user": "root", "identity_file": "id", "known_hosts_file": "kh"}
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            command = td / "command.json"
+            command.write_text(json.dumps({
+                "schema_version": 1,
+                "operation": "graphql_container_start",
+                "argv": ["/usr/bin/example", "--safe"],
+            }))
+            command.chmod(0o644)
+            with self.assertRaises(ssh.SshFallbackError) as ctx:
+                ssh.gated_exec(
+                    config, reason="os_plugin_filesystem_recovery", command_file=str(command),
+                    authorization_file="missing", pre_readback_file="missing",
+                    rollback_anchor_file="missing", policy=POLICY,
+                )
+            self.assertEqual(ctx.exception.kind, "policy")
 
     def test_image_and_ci_surface_include_ssh_fallback_contract(self) -> None:
         dockerfile = (ROOT / "Dockerfile").read_text()
