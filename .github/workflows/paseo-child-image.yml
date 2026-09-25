@@ -8,15 +8,21 @@ on:
       - Dockerfile
       - compose.yaml
       - config/paseo-candidate.json
+      - config/pi-agent/**
       - scripts/configure-paseo-runtime.sh
+      - scripts/configure-pi-instruction-plane.sh
+      - scripts/pi_instruction_plane.py
       - scripts/paseo-relay-access.sh
       - scripts/smoke_paseo_image.py
       - scripts/verify-compose-foundation.sh
+      - scripts/verify-pi-instruction-plane.sh
       - tests/test_paseo_candidate_resolver.py
       - tests/test_paseo_child_image_contract.py
       - tests/test_paseo_runtime_contract.py
       - tests/test_paseo_relay_auth_contract.py
+      - tests/test_pi_instruction_plane_contract.py
       - docs/PASEO_RELAY_AUTH.md
+      - docs/PI_INSTRUCTION_PLANE.md
       - .github/workflows/paseo-child-image.yml
   workflow_dispatch:
 
@@ -37,12 +43,14 @@ jobs:
         run: |
           test "$(git rev-parse bbc862c37c0da81a08a91876499cfe865be958ab:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md)" = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
           test "$(git rev-parse 727b6f25a3b957551d10c9c24d9e9d1e26efd6ab:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T01.md)" = "e5075d474bb7aaf0583baf66757add56fb556253"
+          test "$(git rev-parse d70e95292c561ad7ca5491027a221a7c22177574:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T02.md)" = "7b8574df581ace7e62125b8dc79fb48c1e491e7d"
       - name: Candidate image and runtime contract tests
         run: |
           python3 -m unittest tests/test_paseo_candidate_resolver.py -v
           python3 -m unittest tests/test_paseo_child_image_contract.py -v
           python3 -m unittest tests/test_paseo_runtime_contract.py -v
           python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
+          python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
       - name: Build frozen Paseo child-image foundation
         env:
           DOCKER_BUILDKIT: "1"
@@ -51,6 +59,8 @@ jobs:
         run: python3 scripts/smoke_paseo_image.py pi-unraid:paseo-foundation config/paseo-candidate.json
       - name: Disposable persistence and ownership smoke
         run: bash scripts/verify-compose-foundation.sh pi-unraid:paseo-foundation
+      - name: Disposable Pi instruction-plane smoke
+        run: bash scripts/verify-pi-instruction-plane.sh pi-unraid:paseo-foundation
       - name: Inspect immutable foundation metadata
         run: |
           test "$(docker image inspect pi-unraid:paseo-foundation --format '{{ index .Config.Labels "io.pi-unraid.candidate-id" }}')" = "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69"
