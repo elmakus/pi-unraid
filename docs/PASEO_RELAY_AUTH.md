@@ -12,7 +12,7 @@ Pairing is a deliberate human action:
 scripts/paseo-relay-access.sh pair
 ```
 
-The helper requires an interactive terminal and invokes native `paseo daemon pair` without `--relay`. Paseo therefore asks before enabling Relay, with the upstream default answer remaining false. The QR code/pairing link is a trust anchor and must be treated as secret material; it is never emitted by automated CI/evidence.
+The helper requires an interactive terminal and performs its own explicit confirmation, defaulting to **no**. Exact Paseo 0.9.2 `paseo daemon pair` does not prompt to enable Relay when Relay is disabled; it exits with `RELAY_DISABLED`. Only after the operator explicitly answers yes does the helper invoke native `paseo daemon pair --relay`, which is the upstream explicit-consent path and persists Relay enablement. The QR code/pairing link is a trust anchor and must be treated as secret material.
 
 For bounded non-secret readback:
 
@@ -23,7 +23,7 @@ scripts/paseo-relay-access.sh revocation-capability
 
 Status reports only Relay enablement plus presence/mode/ownership metadata for the native daemon keypair. It never prints the keypair or a pairing offer.
 
-Paseo 0.9.2 stores the persistent ECDH daemon identity at `$PASEO_HOME/daemon-keypair.json`. Because upstream creates that identity only when a Relay pairing offer is generated, M02-T02 smoke first proves that a non-consenting `pair --json` fails with `RELAY_DISABLED`, then explicitly enables Relay only inside the disposable fixture to generate an offer captured without logging, immediately restores `daemon.relay.enabled=false`, and verifies that the private keypair remains mode 0600, numeric 99:100, and byte-identical across container recreation.
+Paseo 0.9.2 stores the persistent ECDH daemon identity at `$PASEO_HOME/daemon-keypair.json`. M02-T02 smoke first proves that a non-consenting `pair --json` fails with `RELAY_DISABLED`, then simulates explicit consent only inside the disposable fixture with `pair --relay --json`. The offer is captured without logging. The smoke then keeps `daemon.relay.enabled=true` through container creation and recreation and verifies that both Relay enablement and the private keypair survive, with the keypair remaining mode 0600, numeric 99:100, and byte-identical across recreation. The entire fixture is removed on cleanup.
 
 The v0.9.2 CLI exposes `daemon pair` but no command for listing and individually revoking paired-device credentials. `revocation-capability` therefore reports unsupported and fails closed semantically; deleting/regenerating the daemon keypair is not presented as an equivalent device-revocation operation.
 
@@ -49,6 +49,7 @@ Verified against `getpaseo/paseo@v0.9.2`:
 
 - `public-docs/configuration.md`: managed config lives in `PASEO_HOME/config.json`; new homes keep Relay disabled and older omitted settings retain legacy behavior.
 - `public-docs/security.md`: Relay is opt-in, outbound and end-to-end encrypted; the persistent daemon keypair lives at `$PASEO_HOME/daemon-keypair.json`.
-- `public-docs/cli.md`: `paseo daemon pair` prompts; `pair --relay` is explicit non-interactive consent; `pair --json` never prompts and returns `RELAY_DISABLED` while disabled.
-- `packages/cli/src/commands/daemon/pair.ts`: exact 0.9.2 behavior for consent and `RELAY_DISABLED`.
-- `packages/server/src/server/daemon-keypair.ts`: exact keypair path and private-file persistence behavior.
+- `public-docs/cli.md`: `paseo daemon pair --relay` is the explicit consent path; `pair --json` does not prompt and returns `RELAY_DISABLED` while disabled.
+- `packages/cli/src/commands/daemon/pair.ts` and `packages/cli/tests/03-daemon.test.ts`: exact 0.9.2 behavior confirms plain `daemon pair` does not create an offer while Relay is disabled, while `--relay` persists explicit consent.
+- `packages/cli/src/commands/onboard.ts`: the upstream interactive Relay confirmation is part of `onboard`, not the standalone `daemon pair` command.
+- `packages/server/src/server/daemon-keypair.ts` and `private-files.ts`: exact keypair path and private-file mode behavior.

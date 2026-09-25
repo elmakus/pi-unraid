@@ -40,9 +40,7 @@ docker run --rm --user 0:0 --entrypoint chown \
 bash "$repo_root/scripts/configure-paseo-runtime.sh" \
   "$image" "$fixture/home" "$fixture/worktrees" "$uid" "$gid"
 
-# Non-interactive pairing must fail closed while relay is disabled. This
-# exercise may create the native daemon identity, but it must not enable relay
-# or print/store a real user credential.
+# Non-interactive pairing must fail closed while Relay is disabled.
 set +e
 pair_disabled="$(docker run --rm --user "$uid:$gid" \
   -v "$fixture/home:/home/paseo" \
@@ -55,9 +53,10 @@ case "$pair_disabled" in
   *) printf 'expected RELAY_DISABLED from non-consenting pair probe; got: %s\n' "$pair_disabled" >&2; exit 1 ;;
 esac
 
-# Exercise upstream identity creation only inside this disposable fixture.
-# The pairing offer is captured and never printed; no real phone/user credential
-# is involved. Restore relay=false immediately after the probe.
+# Simulate explicit human consent only inside this disposable fixture. The
+# pairing offer is captured and never printed. Keep relay=true through both
+# container starts so recreation proves persisted Relay state as well as the
+# private daemon identity.
 pair_offer="$(docker run --rm --user "$uid:$gid" \
   -v "$fixture/home:/home/paseo" \
   "$image" paseo daemon pair --relay --json --home /home/paseo/.paseo 2>/dev/null)"
@@ -65,16 +64,12 @@ test -n "$pair_offer"
 unset pair_offer
 
 docker run --rm --user "$uid:$gid" \
-  -v "$fixture/home:/home/paseo" \
-  "$image" paseo daemon config set daemon.relay.enabled false --home /home/paseo/.paseo >/dev/null
-
-docker run --rm --user "$uid:$gid" \
   -v "$fixture/home:/home/paseo:ro" \
   "$image" python3 -c '
 import json
 from pathlib import Path
 cfg=json.loads(Path("/home/paseo/.paseo/config.json").read_text())
-assert cfg["daemon"]["relay"]["enabled"] is False, cfg
+assert cfg["daemon"]["relay"]["enabled"] is True, cfg
 assert Path("/home/paseo/.paseo/daemon-keypair.json").is_file()
 '
 
@@ -129,7 +124,7 @@ import json
 from pathlib import Path
 cfg=json.loads(Path("/home/paseo/.paseo/config.json").read_text())
 assert cfg["worktrees"]["root"] == "/worktrees", cfg
-assert cfg["daemon"]["relay"]["enabled"] is False, cfg
+assert cfg["daemon"]["relay"]["enabled"] is True, cfg
 '
 
 docker exec "$cid" sh -ec '
@@ -188,11 +183,11 @@ docker exec "$cid" python3 -c '
 import json
 from pathlib import Path
 cfg=json.loads(Path("/home/paseo/.paseo/config.json").read_text())
-assert cfg["daemon"]["relay"]["enabled"] is False, cfg
+assert cfg["daemon"]["relay"]["enabled"] is True, cfg
 '
 
 keypair_sha_after="$(docker exec "$cid" sha256sum /home/paseo/.paseo/daemon-keypair.json | awk '{print $1}')"
 test "$keypair_sha_after" = "$keypair_sha_before"
 test "$(docker exec "$cid" stat -c '%a' /home/paseo/.paseo/daemon-keypair.json)" = "600"
 
-printf '{"card":"M02-T02","home_persisted":true,"projects_persisted":true,"worktrees_persisted":true,"worktrees_root":"/worktrees","relay_enabled":false,"daemon_identity_persisted":true,"raw_host_ports":0,"revocation_cli":"unsupported","runtime_uid":%s,"runtime_gid":%s,"shm_bytes":1073741824,"resource_caps":"none","result":"GREEN"}\n' "$uid" "$gid"
+printf '{"card":"M02-T02","home_persisted":true,"projects_persisted":true,"worktrees_persisted":true,"worktrees_root":"/worktrees","relay_default_disabled":true,"relay_enabled_after_consent":true,"relay_enabled_after_recreate":true,"daemon_identity_persisted":true,"raw_host_ports":0,"revocation_cli":"unsupported","runtime_uid":%s,"runtime_gid":%s,"shm_bytes":1073741824,"resource_caps":"none","result":"GREEN"}\n' "$uid" "$gid"

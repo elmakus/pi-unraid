@@ -12,15 +12,17 @@ DOC = (ROOT / "docs" / "PASEO_RELAY_AUTH.md").read_text()
 
 
 class PaseoRelayAuthContractTests(unittest.TestCase):
-    def test_relay_is_persisted_disabled_until_human_pairing(self) -> None:
+    def test_relay_is_disabled_until_explicit_human_consent(self) -> None:
         self.assertIn(
             "paseo daemon config set daemon.relay.enabled false --home /home/paseo/.paseo",
             CONFIGURE,
         )
         self.assertIn('cfg["daemon"]["relay"]["enabled"] is False', CONFIGURE)
-        self.assertIn("paseo daemon pair --home /home/paseo/.paseo", ACCESS)
-        self.assertNotIn("daemon pair --relay", ACCESS)
         self.assertIn("require_tty", ACCESS)
+        self.assertIn("read -r answer", ACCESS)
+        self.assertIn("[y/N]", ACCESS)
+        self.assertIn("paseo daemon pair --relay --home /home/paseo/.paseo", ACCESS)
+        self.assertIn("Pairing cancelled; Relay was not enabled by this helper.", ACCESS)
 
     def test_no_raw_port_or_secret_environment_wiring(self) -> None:
         self.assertNotIn("ports:", COMPOSE)
@@ -34,14 +36,18 @@ class PaseoRelayAuthContractTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, COMPOSE)
 
-    def test_smoke_proves_disabled_relay_and_persistent_private_identity(self) -> None:
+    def test_smoke_proves_default_off_then_persistent_enabled_relay_and_identity(self) -> None:
         self.assertIn('"code":"RELAY_DISABLED"', SMOKE)
+        self.assertIn("paseo daemon pair --relay --json", SMOKE)
+        self.assertIn('cfg["daemon"]["relay"]["enabled"] is True', SMOKE)
         self.assertIn("daemon-keypair.json", SMOKE)
         self.assertIn("keypair_sha_before", SMOKE)
         self.assertIn("keypair_sha_after", SMOKE)
-        self.assertIn("= \"600\"", SMOKE)
+        self.assertIn('= "600"', SMOKE)
         self.assertIn("{{len .HostConfig.PortBindings}}", SMOKE)
-        self.assertIn('"relay_enabled":false', SMOKE)
+        self.assertIn('"relay_default_disabled":true', SMOKE)
+        self.assertIn('"relay_enabled_after_consent":true', SMOKE)
+        self.assertIn('"relay_enabled_after_recreate":true', SMOKE)
         self.assertIn('"daemon_identity_persisted":true', SMOKE)
 
     def test_readback_is_metadata_only_and_revocation_fails_closed(self) -> None:
@@ -55,7 +61,10 @@ class PaseoRelayAuthContractTests(unittest.TestCase):
         self.assertIn("auth-shell", ACCESS)
         self.assertIn("require_tty", ACCESS)
         self.assertIn('exec -w /home/paseo paseo sh', ACCESS)
-        self.assertIn("First-time provider or account authentication is never part of normal container startup", DOC)
+        self.assertIn(
+            "First-time provider or account authentication is never part of normal container startup",
+            DOC,
+        )
         self.assertIn("getpaseo/paseo@v0.9.2", DOC)
 
 

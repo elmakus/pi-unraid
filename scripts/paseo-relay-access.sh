@@ -26,7 +26,6 @@ case "$action" in
     require_running
     "${compose[@]}" exec -T paseo python3 -c '
 import json
-import os
 import stat
 from pathlib import Path
 
@@ -52,8 +51,17 @@ print(json.dumps(result, sort_keys=True))
     require_running
     require_tty
     echo "Pairing offer/QR is a trust anchor. Keep this terminal private." >&2
-    echo "Paseo will ask before enabling Relay; the default answer is no." >&2
-    exec "${compose[@]}" exec paseo paseo daemon pair --home /home/paseo/.paseo
+    echo "Paseo v0.9.2 daemon pair does not prompt to enable Relay by itself." >&2
+    printf 'Enable Paseo Relay and print a pairing offer? [y/N] ' >&2
+    read -r answer
+    case "$answer" in
+      y|Y|yes|YES|Yes) ;;
+      *)
+        echo "Pairing cancelled; Relay was not enabled by this helper." >&2
+        exit 1
+        ;;
+    esac
+    exec "${compose[@]}" exec paseo paseo daemon pair --relay --home /home/paseo/.paseo
     ;;
 
   auth-shell)
