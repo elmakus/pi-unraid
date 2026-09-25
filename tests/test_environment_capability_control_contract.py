@@ -2,10 +2,13 @@ from __future__ import annotations
 
 import copy
 import importlib.util
+import io
 import json
 import sys
 import unittest
+from contextlib import redirect_stderr
 from pathlib import Path
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -206,6 +209,51 @@ class EnvironmentCapabilityControlContractTests(unittest.TestCase):
 
         self.assertEqual(result["state"], "RED")
         self.assertEqual(len(result["unexpected_disappeared"]), 1)
+
+    def test_reconcile_cli_rejects_noncanonical_desired_state_sources(self) -> None:
+        cases = [
+            (
+                [
+                    "environment_capability_control.py",
+                    "--root",
+                    str(ROOT.parent),
+                    "reconcile",
+                    "--before-observations",
+                    "ignored.json",
+                ],
+                "canonical root",
+            ),
+            (
+                [
+                    "environment_capability_control.py",
+                    "--definition",
+                    str(ROOT / "config" / "alternate-capabilities.json"),
+                    "reconcile",
+                    "--before-observations",
+                    "ignored.json",
+                ],
+                "canonical inventory",
+            ),
+            (
+                [
+                    "environment_capability_control.py",
+                    "--candidate",
+                    str(ROOT / "config" / "alternate-candidate.json"),
+                    "reconcile",
+                    "--before-observations",
+                    "ignored.json",
+                ],
+                "canonical current candidate",
+            ),
+        ]
+
+        for argv, expected in cases:
+            with self.subTest(argv=argv):
+                stderr = io.StringIO()
+                with patch.object(sys, "argv", argv), redirect_stderr(stderr):
+                    rc = control.main()
+                self.assertEqual(rc, 1)
+                self.assertIn(expected, stderr.getvalue())
 
     def test_control_surface_is_read_only_and_does_not_own_update_or_or_pw_policy(self) -> None:
         raw = CONTROL_PATH.read_text()
