@@ -95,6 +95,15 @@ class EnvironmentCapabilityInventoryContractTests(unittest.TestCase):
         self.assertEqual(green["state"], "GREEN")
         self.assertTrue(all(item["health"] == "GREEN" for item in green["capabilities"]))
         self.assertTrue(all(item["drift"] == "none" for item in green["capabilities"]))
+        self.assertTrue(
+            all(item["observed"]["version"] == item["desired"]["version"] for item in green["capabilities"])
+        )
+        self.assertTrue(
+            all(
+                item["observed"]["location"] == item["runtime_location"]["value"]
+                for item in green["capabilities"]
+            )
+        )
 
         missing_observations = copy.deepcopy(observations)
         missing_observations["pi"] = {"present": False}
@@ -116,6 +125,11 @@ class EnvironmentCapabilityInventoryContractTests(unittest.TestCase):
         )
         self.assertEqual(mismatch["state"], "RED")
         self.assertEqual(mismatch_node["drift"], "version_mismatch")
+        self.assertNotIn("version", mismatch_node["observed"])
+        self.assertEqual(
+            mismatch_node["observed"]["version_fingerprint"],
+            inventory._observation_fingerprint("not-the-frozen-version"),
+        )
 
         unexpected_observations = copy.deepcopy(observations)
         unexpected_observations["unknown_extra"] = {
@@ -129,16 +143,26 @@ class EnvironmentCapabilityInventoryContractTests(unittest.TestCase):
         self.assertEqual(unexpected["state"], "WARN")
         self.assertEqual(
             unexpected["unexpected_observations"],
-            [{"id": "unknown_extra", "health": "WARN", "drift": "unexpected"}],
+            [
+                {
+                    "id_fingerprint": inventory._observation_fingerprint("unknown_extra"),
+                    "health": "WARN",
+                    "drift": "unexpected",
+                }
+            ],
         )
-        self.assertNotIn("delete", json.dumps(unexpected))
+        unexpected_json = json.dumps(unexpected)
+        self.assertNotIn("unknown_extra", unexpected_json)
+        self.assertNotIn("delete", unexpected_json)
 
     def test_output_is_deterministic_and_observations_are_secret_safe(self) -> None:
         observations = self._perfect_observations()
         secret = "RAW-CREDENTIAL-MATERIAL-MUST-NOT-APPEAR"
         observations["pi"]["token"] = secret
         observations["pi"]["credential"] = secret
-        observations["unknown_extra"] = {"token": secret, "present": True}
+        observations["pi"]["version"] = secret
+        observations["pi"]["location"] = f"https://user:{secret}@example.invalid"
+        observations[f"unknown-{secret}"] = {"token": secret, "present": True}
 
         first = inventory.derive_inventory(DEFINITION, CANDIDATE, ROOT, observations)
         second = inventory.derive_inventory(DEFINITION, CANDIDATE, ROOT, observations)
@@ -149,6 +173,22 @@ class EnvironmentCapabilityInventoryContractTests(unittest.TestCase):
         self.assertNotIn(secret, first_json)
         self.assertNotIn("token", first_json)
         self.assertNotIn("credential", first_json)
+
+        pi_observed = next(
+            item["observed"] for item in first["capabilities"] if item["id"] == "pi"
+        )
+        self.assertEqual(
+            pi_observed["version_fingerprint"],
+            inventory._observation_fingerprint(secret),
+        )
+        self.assertEqual(
+            pi_observed["location_fingerprint"],
+            inventory._observation_fingerprint(
+                f"https://user:{secret}@example.invalid"
+            ),
+        )
+        self.assertNotIn("version", pi_observed)
+        self.assertNotIn("location", pi_observed)
 
     def test_definition_rejects_or_and_pw_policy_fields(self) -> None:
         for forbidden_key in ("role_ceilings", "action_classification", "task_board"):
