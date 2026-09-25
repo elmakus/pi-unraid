@@ -13,10 +13,14 @@ from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
+SCRIPTS = ROOT / "scripts"
+if str(SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS))
 CLIENT_PATH = ROOT / "scripts" / "unraid_graphql_host_control.py"
 CREDENTIAL_PATH = ROOT / "scripts" / "configure_unraid_graphql_credential.py"
 COMPOSE = (ROOT / "compose.yaml").read_text()
 PROFILE = json.loads((ROOT / "config" / "unraid-host-control" / "permission-profile.json").read_text())
+SAFETY_POLICY = json.loads((ROOT / "config" / "unraid-host-control" / "host-safety-policy.json").read_text())
 
 spec = importlib.util.spec_from_file_location("host_control", CLIENT_PATH)
 host_control = importlib.util.module_from_spec(spec)
@@ -140,6 +144,53 @@ class UnraidGraphqlHostControlContractTests(unittest.TestCase):
             self.assertNotIn("updateAllContainers", query)
         with self.assertRaises(host_control.HostControlError):
             host_control.action_query("removeContainer")
+
+    def test_container_mutation_consumes_safety_policy_before_side_effect(self) -> None:
+        before = {"id": "docker:demo", "state": "stopped"}
+        after = {"id": "docker:demo", "state": "running"}
+        changed = {"id": "docker:demo", "state": "running"}
+        with mock.patch.object(host_control, "container_state", side_effect=[before, after]) as state, \
+             mock.patch.object(host_control, "graphql", return_value={"docker": {"start": changed}}) as gql:
+            result = host_control.perform_container_action(
+                "http://tower/graphql", "b" * 64, "docker:demo", "start", SAFETY_POLICY,
+            )
+        self.assertEqual(state.call_count, 2)
+        gql.assert_called_once()
+        self.assertEqual(result["before"], before)
+        self.assertEqual(result["after"], after)
+        self.assertEqual(result["safety"]["operation"], "graphql_container_start")
+        self.assertEqual(result["safety"]["classification"], "ordinary")
+        self.assertEqual(result["safety"]["transport"], "graphql")
+        self.assertEqual(
+            result["safety"]["scope"],
+            host_control.operation_scope("graphql_container_start", ["container", "docker:demo"]),
+        )
+
+        denied = json.loads(json.dumps(SAFETY_POLICY))
+        denied["ordinary_operations"].pop("graphql_container_start")
+        with mock.patch.object(host_control, "container_state", return_value=before), \
+             mock.patch.object(host_control, "graphql") as gql:
+            with self.assertRaises(host_control.GuardError):
+                host_control.perform_container_action(
+                    "http://tower/graphql", "b" * 64, "docker:demo", "start", denied,
+                )
+            gql.assert_not_called()
+
+    def test_graphql_mutation_fails_closed_if_policy_reclassifies_operation(self) -> None:
+        before = {"id": "docker:demo", "state": "stopped"}
+        gated = json.loads(json.dumps(SAFETY_POLICY))
+        rule = gated["ordinary_operations"].pop("graphql_container_start")
+        rule["pre_readback"] = "evidence_file"
+        rule["user_gate"] = "external_user_authorization"
+        rule["rollback_anchor"] = "required"
+        gated["gated_operations"]["graphql_container_start"] = rule
+        with mock.patch.object(host_control, "container_state", return_value=before), \
+             mock.patch.object(host_control, "graphql") as gql:
+            with self.assertRaises(host_control.GuardError):
+                host_control.perform_container_action(
+                    "http://tower/graphql", "b" * 64, "docker:demo", "start", gated,
+                )
+            gql.assert_not_called()
 
     def test_credential_install_is_atomic_private_and_secret_safe(self) -> None:
         key = "c" * 64
