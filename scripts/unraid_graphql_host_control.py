@@ -12,7 +12,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from unraid_host_safety_guard import GuardError, evaluate, load_policy, operation_scope
+
 ALLOWED_ACTIONS = ("start", "stop", "restart", "pause", "unpause")
+ACTION_OPERATIONS = {action: f"graphql_container_{action}" for action in ALLOWED_ACTIONS}
+DEFAULT_POLICY_PATH = Path(__file__).resolve().parents[1] / "config" / "unraid-host-control" / "host-safety-policy.json"
 KEY_PATTERN = re.compile(r"^[A-Za-z0-9_-]{16,}$")
 
 READBACK_QUERY = """
@@ -163,6 +167,30 @@ def container_state(endpoint: str, api_key: str, container_id: str) -> dict:
     return container
 
 
+def perform_container_action(endpoint: str, api_key: str, container_id: str, action: str, policy: dict) -> dict:
+    operation = ACTION_OPERATIONS.get(action)
+    if operation is None:
+        raise HostControlError("policy", "unsupported Docker mutation", allowed=list(ALLOWED_ACTIONS))
+    before = container_state(endpoint, api_key, container_id)
+    scope = operation_scope(operation, ["container", container_id])
+    decision = evaluate(operation, scope=scope, policy=policy)
+    if (
+        decision["classification"] != "ordinary"
+        or decision["transport"] != "graphql"
+        or decision["mutating"] is not True
+        or decision["pre_readback"] != "transport_internal"
+        or decision["user_gate"] != "none"
+    ):
+        raise HostControlError("policy", "GraphQL mutation policy is not an ordinary transport-internal operation")
+    mutation = graphql(endpoint, api_key, action_query(action), {"id": container_id})
+    docker = mutation.get("docker")
+    changed = docker.get(action) if isinstance(docker, dict) else None
+    if not isinstance(changed, dict):
+        raise HostControlError("protocol", "Docker mutation did not return a container")
+    after = container_state(endpoint, api_key, container_id)
+    return {"before": before, "mutation_result": changed, "after": after, "safety": decision}
+
+
 def action_query(action: str) -> str:
     if action not in ALLOWED_ACTIONS:
         raise HostControlError(
@@ -189,6 +217,7 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint")
     parser.add_argument("--api-key-file")
+    parser.add_argument("--policy", default=str(DEFAULT_POLICY_PATH))
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("readback")
     state = sub.add_parser("container-state")
@@ -212,25 +241,18 @@ def main() -> int:
             emit({"ok": True, "operation": "container-state", "container": current})
             return 0
 
-        before = container_state(endpoint, api_key, args.id)
-        mutation = graphql(endpoint, api_key, action_query(args.action), {"id": args.id})
-        docker = mutation.get("docker")
-        changed = docker.get(args.action) if isinstance(docker, dict) else None
-        if not isinstance(changed, dict):
-            raise HostControlError("protocol", "Docker mutation did not return a container")
-        after = container_state(endpoint, api_key, args.id)
+        policy = load_policy(Path(args.policy))
+        result = perform_container_action(endpoint, api_key, args.id, args.action, policy)
         emit(
             {
                 "ok": True,
                 "operation": "container-action",
                 "action": args.action,
-                "before": before,
-                "mutation_result": changed,
-                "after": after,
+                **result,
             }
         )
         return 0
-    except HostControlError as exc:
+    except (HostControlError, GuardError) as exc:
         emit(
             {
                 "ok": False,
