@@ -1,0 +1,35 @@
+name: Paseo candidate resolver
+
+on:
+  push:
+    branches:
+      - feat/paseo-gui-runtime
+    paths:
+      - scripts/resolve-paseo-candidate.py
+      - tests/test_paseo_candidate_resolver.py
+      - tests/fixtures/paseo-candidate/**
+      - .github/workflows/paseo-candidate-resolver.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  resolve:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Fixture tests
+        run: python3 -m unittest tests/test_paseo_candidate_resolver.py -v
+      - name: Live read-only resolution
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          python3 scripts/resolve-paseo-candidate.py --check > candidate-live.json
+          python3 scripts/resolve-paseo-candidate.py --validate candidate-live.json
+          echo "CANDIDATE_JSON_BEGIN"
+          cat candidate-live.json
+          echo "CANDIDATE_JSON_END"
