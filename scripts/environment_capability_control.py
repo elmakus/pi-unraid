@@ -379,12 +379,32 @@ def main() -> int:
     try:
         root = Path(args.root).resolve()
         definition_path = _path(root, args.definition)
+        if args.command == "reconcile":
+            canonical_root = ROOT.resolve()
+            if root != canonical_root:
+                raise CapabilityControlError(
+                    "reconcile root must remain the repository-owned canonical root"
+                )
+            if definition_path.resolve() != DEFAULT_DEFINITION.resolve():
+                raise CapabilityControlError(
+                    "reconcile definition must remain the repository-owned canonical inventory"
+                )
+
         definition = inventory.load_json(definition_path)
         inventory.validate_definition(definition)
         candidate_path = _path(
             root,
             args.candidate or definition["candidate_source"],
         )
+        if args.command == "reconcile":
+            canonical_candidate = inventory._resolve_under_root(
+                root,
+                definition["candidate_source"],
+            )
+            if candidate_path.resolve() != canonical_candidate:
+                raise CapabilityControlError(
+                    "reconcile candidate must remain the canonical current candidate"
+                )
 
         if args.command == "doctor":
             payload = derive(
