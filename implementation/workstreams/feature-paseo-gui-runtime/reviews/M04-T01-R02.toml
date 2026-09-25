@@ -1,7 +1,7 @@
 workstream_id = "feature-paseo-gui-runtime"
 card_id = "M04-T01"
 attempt = "R02"
-verdict = "GREEN"
+verdict = "green"
 evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M04-T01-R02-independent-review-2026-09-26.md"
 
 [subject]
