@@ -5,8 +5,8 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 if [ "$#" -ge 1 ]; then image="$1"; else image="pi-unraid:paseo-foundation"; fi
 tmpbase="/tmp"
 if printenv TMPDIR >/dev/null 2>&1; then tmpbase="$TMPDIR"; fi
-fixture="$(mktemp -d "$tmpbase/pi-unraid-m02-t01.XXXXXX")"
-project="piunraid-m02-t01-$$"
+fixture="$(mktemp -d "$tmpbase/pi-unraid-m02-t02.XXXXXX")"
+project="piunraid-m02-t02-$"
 uid="$(printenv PASEO_TEST_UID || true)"
 gid="$(printenv PASEO_TEST_GID || true)"
 [ -n "$uid" ] || uid=99
@@ -39,6 +39,36 @@ docker run --rm --user 0:0 --entrypoint chown \
 
 bash "$repo_root/scripts/configure-paseo-runtime.sh" \
   "$image" "$fixture/home" "$fixture/worktrees" "$uid" "$gid"
+
+# Non-interactive pairing must fail closed while relay is disabled. This
+# exercise may create the native daemon identity, but it must not enable relay
+# or print/store a real user credential.
+set +e
+pair_disabled="$(docker run --rm --user "$uid:$gid" \
+  -v "$fixture/home:/home/paseo" \
+  "$image" paseo daemon pair --json --home /home/paseo/.paseo 2>&1)"
+pair_rc=$?
+set -e
+test "$pair_rc" -ne 0
+case "$pair_disabled" in
+  *'"code":"RELAY_DISABLED"'*) ;;
+  *) printf 'expected RELAY_DISABLED from non-consenting pair probe; got: %s\n' "$pair_disabled" >&2; exit 1 ;;
+esac
+
+docker run --rm --user "$uid:$gid" \
+  -v "$fixture/home:/home/paseo:ro" \
+  "$image" python3 -c '
+import json
+from pathlib import Path
+cfg=json.loads(Path("/home/paseo/.paseo/config.json").read_text())
+assert cfg["daemon"]["relay"]["enabled"] is False, cfg
+assert Path("/home/paseo/.paseo/daemon-keypair.json").is_file()
+'
+
+keypair_sha_before="$(docker run --rm --user "$uid:$gid" --entrypoint sha256sum \
+  -v "$fixture/home:/home/paseo:ro" \
+  "$image" /home/paseo/.paseo/daemon-keypair.json | awk '{print $1}')"
+test -n "$keypair_sha_before"
 
 cat > "$fixture/compose.fixture.yaml" <<EOF
 services:
@@ -86,6 +116,7 @@ import json
 from pathlib import Path
 cfg=json.loads(Path("/home/paseo/.paseo/config.json").read_text())
 assert cfg["worktrees"]["root"] == "/worktrees", cfg
+assert cfg["daemon"]["relay"]["enabled"] is False, cfg
 '
 
 docker exec "$cid" sh -ec '
@@ -105,6 +136,11 @@ assert_fixture_owner home/m02-home-marker
 assert_fixture_owner projects/m02-project-marker
 assert_fixture_owner worktrees/m02-worktree-marker
 assert_fixture_owner home/.paseo/config.json
+assert_fixture_owner home/.paseo/daemon-keypair.json
+
+test "$(docker run --rm --user 0:0 --entrypoint stat \
+  -v "$fixture:/fixture:ro" \
+  "$image" -c '%a' /fixture/home/.paseo/daemon-keypair.json)" = "600"
 
 mounts="$(docker inspect -f '{{range .Mounts}}{{.Destination}};{{end}}' "$cid")"
 for target in /home/paseo /projects /worktrees; do
@@ -118,6 +154,7 @@ test "$(docker inspect -f '{{.HostConfig.Privileged}}' "$cid")" = "false"
 test "$(docker inspect -f '{{.HostConfig.ShmSize}}' "$cid")" = "1073741824"
 test "$(docker inspect -f '{{.HostConfig.Memory}}' "$cid")" = "0"
 test "$(docker inspect -f '{{.HostConfig.NanoCpus}}' "$cid")" = "0"
+test "$(docker inspect -f '{{len .HostConfig.PortBindings}}' "$cid")" = "0"
 test "$(docker inspect -f '{{.HostConfig.LogConfig.Type}}' "$cid")" = "json-file"
 test "$(docker inspect -f '{{index .HostConfig.LogConfig.Config "max-size"}}' "$cid")" = "10m"
 test "$(docker inspect -f '{{index .HostConfig.LogConfig.Config "max-file"}}' "$cid")" = "3"
@@ -132,5 +169,17 @@ test "$(docker exec "$cid" cat /worktrees/m02-worktree-marker)" = "worktree"
 assert_fixture_owner home/m02-home-marker
 assert_fixture_owner projects/m02-project-marker
 assert_fixture_owner worktrees/m02-worktree-marker
+assert_fixture_owner home/.paseo/daemon-keypair.json
 
-printf '{"card":"M02-T01","home_persisted":true,"projects_persisted":true,"worktrees_persisted":true,"worktrees_root":"/worktrees","runtime_uid":%s,"runtime_gid":%s,"shm_bytes":1073741824,"resource_caps":"none","result":"GREEN"}\n' "$uid" "$gid"
+docker exec "$cid" python3 -c '
+import json
+from pathlib import Path
+cfg=json.loads(Path("/home/paseo/.paseo/config.json").read_text())
+assert cfg["daemon"]["relay"]["enabled"] is False, cfg
+'
+
+keypair_sha_after="$(docker exec "$cid" sha256sum /home/paseo/.paseo/daemon-keypair.json | awk '{print $1}')"
+test "$keypair_sha_after" = "$keypair_sha_before"
+test "$(docker exec "$cid" stat -c '%a' /home/paseo/.paseo/daemon-keypair.json)" = "600"
+
+printf '{"card":"M02-T02","home_persisted":true,"projects_persisted":true,"worktrees_persisted":true,"worktrees_root":"/worktrees","relay_enabled":false,"daemon_identity_persisted":true,"raw_host_ports":0,"revocation_cli":"unsupported","runtime_uid":%s,"runtime_gid":%s,"shm_bytes":1073741824,"resource_caps":"none","result":"GREEN"}\n' "$uid" "$gid"

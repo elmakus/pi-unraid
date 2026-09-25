@@ -24,6 +24,12 @@ docker run --rm --user "$uid:$gid" \
   -v "$worktrees_host:/worktrees" \
   "$image" paseo daemon config set worktrees.root /worktrees --home /home/paseo/.paseo >/dev/null
 
+# Relay is deliberately opt-in. Pin the persisted setting to false so old
+# homes cannot inherit the upstream legacy "missing means enabled" behavior.
+docker run --rm --user "$uid:$gid" \
+  -v "$home_host:/home/paseo" \
+  "$image" paseo daemon config set daemon.relay.enabled false --home /home/paseo/.paseo >/dev/null
+
 docker run --rm --user "$uid:$gid" \
   -v "$home_host:/home/paseo" \
   "$image" python3 -c '
@@ -31,4 +37,5 @@ import json
 from pathlib import Path
 cfg = json.loads(Path("/home/paseo/.paseo/config.json").read_text())
 assert cfg["worktrees"]["root"] == "/worktrees", cfg
+assert cfg["daemon"]["relay"]["enabled"] is False, cfg
 '
