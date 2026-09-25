@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 CLIENT_PATH = ROOT / "scripts" / "unraid_graphql_host_control.py"
 CREDENTIAL_PATH = ROOT / "scripts" / "configure_unraid_graphql_credential.py"
 COMPOSE = (ROOT / "compose.yaml").read_text()
+PROFILE = json.loads((ROOT / "config" / "unraid-host-control" / "permission-profile.json").read_text())
 
 spec = importlib.util.spec_from_file_location("host_control", CLIENT_PATH)
 host_control = importlib.util.module_from_spec(spec)
@@ -58,6 +59,16 @@ class UnraidGraphqlHostControlContractTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden, source)
         self.assertNotIn("/var/run/docker.sock", COMPOSE)
+        self.assertNotIn('source: "/"', COMPOSE)
+        self.assertEqual(PROFILE["roles"], [])
+        self.assertEqual(
+            PROFILE["permissions"],
+            [
+                {"resource": "INFO", "actions": ["READ_ANY"]},
+                {"resource": "DOCKER", "actions": ["READ_ANY", "UPDATE_ANY"]},
+            ],
+        )
+        self.assertEqual(PROFILE["docker_mutations"], list(host_control.ALLOWED_ACTIONS))
 
     def test_api_key_file_must_be_private(self) -> None:
         with tempfile.TemporaryDirectory() as td:
@@ -91,6 +102,35 @@ class UnraidGraphqlHostControlContractTests(unittest.TestCase):
                     "query { info { id } }",
                 )
         self.assertEqual(ctx.exception.kind, "graphql")
+
+
+    def test_cli_fails_closed_with_machine_readable_missing_or_invalid_credential(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            missing = Path(td) / "missing.key"
+            for path, prepare in (
+                (missing, None),
+                (Path(td) / "invalid.key", "not-a-valid-key\n"),
+            ):
+                if prepare is not None:
+                    path.write_text(prepare)
+                    path.chmod(0o600)
+                run = subprocess.run(
+                    [
+                        sys.executable,
+                        str(CLIENT_PATH),
+                        "--endpoint",
+                        "http://tower/graphql",
+                        "--api-key-file",
+                        str(path),
+                        "readback",
+                    ],
+                    text=True,
+                    capture_output=True,
+                )
+                self.assertNotEqual(run.returncode, 0)
+                payload = json.loads(run.stderr)
+                self.assertFalse(payload["ok"])
+                self.assertEqual(payload["error"], "credential")
 
     def test_only_allowlisted_mutations_can_be_built(self) -> None:
         for action in host_control.ALLOWED_ACTIONS:

@@ -27,6 +27,7 @@ on:
       - docs/PASEO_RELAY_AUTH.md
       - docs/PI_INSTRUCTION_PLANE.md
       - docs/UNRAID_GRAPHQL_HOST_CONTROL.md
+      - config/unraid-host-control/permission-profile.json
       - .github/workflows/paseo-child-image.yml
   workflow_dispatch:
 
