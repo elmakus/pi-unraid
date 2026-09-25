@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 19
+revision = 20
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -97,5 +97,20 @@ condition = "The exact GREEN M01 candidate-image smoke result is required before
 [[jit_triggers]]
 id = "after-M02-T01-materialize-M02-T02"
 after_card = "M02-T01"
-state = "satisfied"
+state = "consumed"
 condition = "The exact GREEN persistence/workspace ownership result is required before Relay, pairing, authentication and secret-state work can bind the concrete Paseo HOME/config/runtime surfaces."
+
+
+[[cards]]
+id = "M02-T02"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M02-T02.md"
+
+[[jit_triggers]]
+id = "after-M02-T02-materialize-M02-T03"
+after_card = "M02-T02"
+state = "waiting"
+condition = "The exact GREEN Relay/auth/secret-state result is required before the Pi-native instruction/config plane can bind the persisted HOME surfaces and authentication boundary."
