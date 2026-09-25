@@ -137,12 +137,19 @@ def graphql_check(endpoint: str | None, api_key_file: str | None) -> dict:
     except (graphql_control.HostControlError, OSError) as exc:
         kind = getattr(exc, "kind", "credential")
         message = getattr(exc, "message", "GraphQL credential metadata is unavailable")
-        return {
+        details = getattr(exc, "details", {})
+        http_status = details.get("status") if isinstance(details, dict) else None
+        if kind == "http" and http_status in {401, 403}:
+            kind = "auth"
+        result = {
             "state": "RED",
             "transport": "graphql",
             "error": kind,
             "message": message,
         }
+        if isinstance(http_status, int):
+            result["http_status"] = http_status
+        return result
 
 
 def ssh_check(
