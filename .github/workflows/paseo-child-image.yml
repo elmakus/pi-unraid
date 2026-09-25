@@ -65,6 +65,7 @@ jobs:
           test "$(git rev-parse cac4ac5e5a4b6c96ad71d9bbce12962388f7a4be:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T03.md)" = "0d13d7fe5a6dd29fb68e700d13cc5c1251722c28"
           test "$(git rev-parse 16e5a14f1f0357b8af40fa23602c6d6c1da24724:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T01.md)" = "1b157d85116b5a9dffab7df7766f62cc8a288f3e"
           test "$(git rev-parse 97e7833edaa55d54b35336a07c46bf261795fc46:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T02.md)" = "a5c8a0c3a84b5c7f6da3d147896ee60995860800"
+          test "$(git rev-parse affd83590ec534ed144b9048a2b9075434761f27:implementation/workstreams/feature-paseo-gui-runtime/results/M04-T01.md)" = "5173447ec3ab8775450a9defbf193aede63ca290"
       - name: Candidate image and runtime contract tests
         run: |
           python3 -m unittest tests/test_paseo_candidate_resolver.py -v
