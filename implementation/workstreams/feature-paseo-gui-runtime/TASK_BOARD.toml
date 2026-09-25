@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 49
+revision = 50
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -205,7 +205,7 @@ condition = "The exact GREEN SSH-fallback and mutation-guard result is required 
 
 [[cards]]
 id = "M03-T03"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
