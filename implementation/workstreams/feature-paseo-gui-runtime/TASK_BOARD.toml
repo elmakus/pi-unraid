@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 14
+revision = 15
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -70,8 +70,22 @@ after_card = "M01-T02"
 state = "consumed"
 condition = "The exact child-image foundation result is required before provenance and disposable image smoke can bind the concrete image construction and verification surface."
 
+[[cards]]
+id = "M02-T01"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M02-T01.md"
+
 [[jit_triggers]]
 id = "after-M01-T03-materialize-M02-T01"
 after_card = "M01-T03"
-state = "satisfied"
+state = "consumed"
 condition = "The exact GREEN M01 candidate-image smoke result is required before persistence/workspace ownership work can bind the concrete Paseo image/runtime contract."
+
+[[jit_triggers]]
+id = "after-M02-T01-materialize-M02-T02"
+after_card = "M02-T01"
+state = "waiting"
+condition = "The exact GREEN persistence/workspace ownership result is required before Relay, pairing, authentication and secret-state work can bind the concrete Paseo HOME/config/runtime surfaces."
