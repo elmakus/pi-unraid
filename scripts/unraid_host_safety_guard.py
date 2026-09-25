@@ -44,10 +44,26 @@ def operation_rule(policy: dict, operation: str) -> tuple[str, dict]:
     raise GuardError("policy", "operation is not classified and is denied", operation=operation)
 
 
-def command_scope(argv: list[str]) -> str:
+def _validated_argv(argv: list[str]) -> list[str]:
     if not argv or any(not isinstance(item, str) or not item for item in argv):
         raise GuardError("configuration", "command argv must contain non-empty strings")
-    canonical = json.dumps(argv, separators=(",", ":"), ensure_ascii=False).encode()
+    return argv
+
+
+def command_scope(argv: list[str]) -> str:
+    canonical = json.dumps(_validated_argv(argv), separators=(",", ":"), ensure_ascii=False).encode()
+    return "sha256:" + hashlib.sha256(canonical).hexdigest()
+
+
+def operation_scope(operation: str, argv: list[str]) -> str:
+    if not isinstance(operation, str) or not operation:
+        raise GuardError("configuration", "operation class is required")
+    canonical = json.dumps(
+        {"operation": operation, "argv": _validated_argv(argv)},
+        separators=(",", ":"),
+        sort_keys=True,
+        ensure_ascii=False,
+    ).encode()
     return "sha256:" + hashlib.sha256(canonical).hexdigest()
 
 
@@ -86,11 +102,11 @@ def evaluate(
     pre_readback_file: str | None = None,
     authorization_file: str | None = None,
     rollback_anchor_file: str | None = None,
-    rollback_applicable: bool = False,
     policy: dict | None = None,
 ) -> dict:
     policy = policy or load_policy()
     classification, rule = operation_rule(policy, operation)
+    transport = rule.get("transport")
     mutating = bool(rule.get("mutating"))
     pre_readback = rule.get("pre_readback", "none")
     gate = rule.get("user_gate", "none")
@@ -100,19 +116,21 @@ def evaluate(
         _load_evidence(pre_readback_file, private=False, kind="pre_mutation_readback", scope=scope)
     if gate == "external_user_authorization":
         _load_evidence(authorization_file, private=True, kind="external_user_authorization", scope=scope)
-    if rollback == "required_if_applicable" and rollback_applicable:
+    if rollback == "required":
         _load_evidence(rollback_anchor_file, private=False, kind="rollback_anchor", scope=scope)
+    elif rollback not in {"none", "pre_state", "automatic_cleanup"}:
+        raise GuardError("policy", "unsupported rollback-anchor policy", operation=operation, rollback_anchor=rollback)
 
     return {
         "ok": True,
         "operation": operation,
         "classification": classification,
+        "transport": transport,
         "mutating": mutating,
         "scope": scope,
         "pre_readback": pre_readback,
         "user_gate": gate,
         "rollback_anchor": rollback,
-        "rollback_applicable": rollback_applicable,
     }
 
 
@@ -128,7 +146,6 @@ def main() -> int:
     check.add_argument("--pre-readback-file")
     check.add_argument("--authorization-file")
     check.add_argument("--rollback-anchor-file")
-    check.add_argument("--rollback-applicable", action="store_true")
     args = parser.parse_args()
     try:
         policy = load_policy(Path(args.policy))
@@ -142,7 +159,6 @@ def main() -> int:
             pre_readback_file=args.pre_readback_file,
             authorization_file=args.authorization_file,
             rollback_anchor_file=args.rollback_anchor_file,
-            rollback_applicable=args.rollback_applicable,
             policy=policy,
         ))
         return 0
