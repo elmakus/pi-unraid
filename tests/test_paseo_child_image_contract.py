@@ -62,6 +62,7 @@ class PaseoChildImageContractTests(unittest.TestCase):
             "iproute2",
             "dnsutils",
             "netcat-openbsd",
+            "openssh-client",
         ):
             self.assertIn(token, DOCKERFILE)
 

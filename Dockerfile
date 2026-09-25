@@ -33,6 +33,7 @@ RUN set -eux; \
       jq \
       less \
       netcat-openbsd \
+      openssh-client \
       python3 \
       python3-pip \
       ripgrep \

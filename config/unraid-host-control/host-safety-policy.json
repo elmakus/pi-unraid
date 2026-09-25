@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "primary_transport": "graphql",
+  "allowed_fallback_reasons": [
+    "api_gap",
+    "api_outage",
+    "os_plugin_filesystem_recovery",
+    "forced_test"
+  ],
+  "ordinary_operations": {
+    "graphql_container_start": {
+      "transport": "graphql",
+      "mutating": true,
+      "pre_readback": "transport_internal",
+      "user_gate": "none",
+      "rollback_anchor": "pre_state"
+    },
+    "graphql_container_stop": {
+      "transport": "graphql",
+      "mutating": true,
+      "pre_readback": "transport_internal",
+      "user_gate": "none",
+      "rollback_anchor": "pre_state"
+    },
+    "graphql_container_restart": {
+      "transport": "graphql",
+      "mutating": true,
+      "pre_readback": "transport_internal",
+      "user_gate": "none",
+      "rollback_anchor": "pre_state"
+    },
+    "graphql_container_pause": {
+      "transport": "graphql",
+      "mutating": true,
+      "pre_readback": "transport_internal",
+      "user_gate": "none",
+      "rollback_anchor": "pre_state"
+    },
+    "graphql_container_unpause": {
+      "transport": "graphql",
+      "mutating": true,
+      "pre_readback": "transport_internal",
+      "user_gate": "none",
+      "rollback_anchor": "pre_state"
+    },
+    "ssh_readback": {
+      "transport": "ssh",
+      "mutating": false,
+      "pre_readback": "none",
+      "user_gate": "none",
+      "rollback_anchor": "none"
+    },
+    "ssh_forced_smoke_marker": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "transport_internal",
+      "user_gate": "none",
+      "rollback_anchor": "automatic_cleanup"
+    }
+  },
+  "gated_operations": {
+    "ssh_admin_command": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    },
+    "host_reboot": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    },
+    "docker_engine_restart": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    },
+    "unraid_os_upgrade": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    },
+    "disk_format": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    },
+    "broad_share_delete": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    },
+    "broad_appdata_delete": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    },
+    "broad_network_change": {
+      "transport": "ssh",
+      "mutating": true,
+      "pre_readback": "evidence_file",
+      "user_gate": "external_user_authorization",
+      "rollback_anchor": "required_if_applicable"
+    }
+  },
+  "unknown_operation_policy": "deny"
+}

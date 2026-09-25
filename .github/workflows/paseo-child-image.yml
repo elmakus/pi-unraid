@@ -18,16 +18,22 @@ on:
       - scripts/verify-pi-instruction-plane.sh
       - scripts/configure_unraid_graphql_credential.py
       - scripts/unraid_graphql_host_control.py
+      - scripts/unraid_host_safety_guard.py
+      - scripts/unraid_ssh_fallback.py
+      - scripts/unraid_host_control_router.py
       - tests/test_paseo_candidate_resolver.py
       - tests/test_paseo_child_image_contract.py
       - tests/test_paseo_runtime_contract.py
       - tests/test_paseo_relay_auth_contract.py
       - tests/test_pi_instruction_plane_contract.py
       - tests/test_unraid_graphql_host_control_contract.py
+      - tests/test_unraid_host_control_guard_contract.py
       - docs/PASEO_RELAY_AUTH.md
       - docs/PI_INSTRUCTION_PLANE.md
       - docs/UNRAID_GRAPHQL_HOST_CONTROL.md
+      - docs/UNRAID_HOST_CONTROL_SAFETY.md
       - config/unraid-host-control/permission-profile.json
+      - config/unraid-host-control/host-safety-policy.json
       - .github/workflows/paseo-child-image.yml
   workflow_dispatch:
 
@@ -49,6 +55,7 @@ jobs:
           test "$(git rev-parse bbc862c37c0da81a08a91876499cfe865be958ab:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md)" = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
           test "$(git rev-parse 727b6f25a3b957551d10c9c24d9e9d1e26efd6ab:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T01.md)" = "e5075d474bb7aaf0583baf66757add56fb556253"
           test "$(git rev-parse d70e95292c561ad7ca5491027a221a7c22177574:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T02.md)" = "7b8574df581ace7e62125b8dc79fb48c1e491e7d"
+          test "$(git rev-parse 16e5a14f1f0357b8af40fa23602c6d6c1da24724:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T01.md)" = "1b157d85116b5a9dffab7df7766f62cc8a288f3e"
       - name: Candidate image and runtime contract tests
         run: |
           python3 -m unittest tests/test_paseo_candidate_resolver.py -v
@@ -57,6 +64,7 @@ jobs:
           python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
           python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
           python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
       - name: Build frozen Paseo child-image foundation
         env:
           DOCKER_BUILDKIT: "1"

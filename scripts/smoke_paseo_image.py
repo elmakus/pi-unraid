@@ -198,7 +198,7 @@ def main() -> int:
             "set -e; "
             "git --version; python3 --version; gh --version | head -n1; "
             "docker --version; docker compose version --short; "
-            "playwright --version; command -v Xvfb; command -v xvfb-run"
+            "playwright --version; ssh -V 2>&1; command -v Xvfb; command -v xvfb-run"
         ),
         timeout=30,
     )
