@@ -75,3 +75,10 @@ Create a dedicated Unraid API key named `Pi Unraid M03 T01 Smoke` in the native 
 - `DOCKER:UPDATE_ANY`
 
 Place the key value on Tower at `/tmp/pi-unraid-m03-t01/unraid-api.key` as a regular mode-`0600` file without posting the key in chat. Once that path exists, M03-T01 resumes with authenticated readback, a disposable reversible Docker GraphQL smoke, cleanup/revocation, result reconciliation and required independent review.
+
+
+## Resume attempt readback — 2026-09-25
+
+After the user reported the credential ready, Tower readback found `/tmp/pi-unraid-m03-t01/unraid-api.key` as a regular non-symlink file owned by root:root with mode `0600`, but its size is exactly **1 byte**. This is consistent with a newline-only/empty credential and does not satisfy the live-authentication resume condition. The raw file content was not printed or copied.
+
+The blocker therefore remains active. Resume requires the same path to contain the actual dedicated API key value and remain a private `0600` regular file.

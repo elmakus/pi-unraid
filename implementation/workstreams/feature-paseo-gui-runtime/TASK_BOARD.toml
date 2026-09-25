@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 32
+revision = 33
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -159,7 +159,7 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M03-T01.md"
 [cards.blocker]
 kind = "runtime_input"
 evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M03-T01-blocked-live-credential-2026-09-25.md"
-resume_condition = "Dedicated least-privilege Unraid API key is available on Tower at /tmp/pi-unraid-m03-t01/unraid-api.key as a regular mode-0600 file; the raw key is not posted to chat."
+resume_condition = "Dedicated least-privilege Unraid API key is available on Tower at /tmp/pi-unraid-m03-t01/unraid-api.key as a non-empty valid-format regular mode-0600 file; the raw key is not posted to chat."
 
 [[jit_triggers]]
 id = "after-M03-T01-materialize-M03-T02"
