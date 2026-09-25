@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 59
+revision = 60
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -265,9 +265,13 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M04-T02.md"
 [cards.result]
 class = "result"
 path = "implementation/workstreams/feature-paseo-gui-runtime/results/M04-T02.md"
-commit = "3064a79dee1ae48d6ea0bc5396e477bc2a514c99"
-blob = "a4751b6f310a3da0a730a3b8b22940db01694b4e"
+commit = "e9a412557bfbe927a64b1f7ba0d892f5f059e08a"
+blob = "c6adc8514548b701c3aa959df9f5a6f4ff581a9d"
 
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T02-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T02-R02.toml"
