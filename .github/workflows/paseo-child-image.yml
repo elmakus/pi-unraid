@@ -8,6 +8,7 @@ on:
       - Dockerfile
       - compose.yaml
       - config/paseo-candidate.json
+      - config/environment-capabilities.json
       - config/pi-agent/**
       - scripts/configure-paseo-runtime.sh
       - scripts/configure-pi-instruction-plane.sh
@@ -22,6 +23,7 @@ on:
       - scripts/unraid_ssh_fallback.py
       - scripts/unraid_host_control_router.py
       - scripts/unraid_host_control_doctor.py
+      - scripts/environment_capability_inventory.py
       - tests/test_paseo_candidate_resolver.py
       - tests/test_paseo_child_image_contract.py
       - tests/test_paseo_runtime_contract.py
@@ -30,6 +32,7 @@ on:
       - tests/test_unraid_graphql_host_control_contract.py
       - tests/test_unraid_host_control_guard_contract.py
       - tests/test_unraid_host_control_doctor_contract.py
+      - tests/test_environment_capability_inventory_contract.py
       - docs/PASEO_RELAY_AUTH.md
       - docs/PI_INSTRUCTION_PLANE.md
       - docs/UNRAID_GRAPHQL_HOST_CONTROL.md
@@ -57,6 +60,7 @@ jobs:
           test "$(git rev-parse bbc862c37c0da81a08a91876499cfe865be958ab:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md)" = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
           test "$(git rev-parse 727b6f25a3b957551d10c9c24d9e9d1e26efd6ab:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T01.md)" = "e5075d474bb7aaf0583baf66757add56fb556253"
           test "$(git rev-parse d70e95292c561ad7ca5491027a221a7c22177574:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T02.md)" = "7b8574df581ace7e62125b8dc79fb48c1e491e7d"
+          test "$(git rev-parse cac4ac5e5a4b6c96ad71d9bbce12962388f7a4be:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T03.md)" = "0d13d7fe5a6dd29fb68e700d13cc5c1251722c28"
           test "$(git rev-parse 16e5a14f1f0357b8af40fa23602c6d6c1da24724:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T01.md)" = "1b157d85116b5a9dffab7df7766f62cc8a288f3e"
           test "$(git rev-parse 97e7833edaa55d54b35336a07c46bf261795fc46:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T02.md)" = "a5c8a0c3a84b5c7f6da3d147896ee60995860800"
       - name: Candidate image and runtime contract tests
@@ -69,6 +73,7 @@ jobs:
           python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
           python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
           python3 -m unittest tests/test_unraid_host_control_doctor_contract.py -v
+          python3 -m unittest tests/test_environment_capability_inventory_contract.py -v
       - name: Build frozen Paseo child-image foundation
         env:
           DOCKER_BUILDKIT: "1"
