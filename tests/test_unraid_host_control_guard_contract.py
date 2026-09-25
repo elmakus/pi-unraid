@@ -124,7 +124,7 @@ class UnraidHostControlGuardContractTests(unittest.TestCase):
         with mock.patch.object(router, "graphql_readback", return_value={"info": {"id": "x"}}) as gql, \
              mock.patch.object(ssh, "readback", return_value={"ok": True, "transport": "ssh", "fallback_reason": "forced_test", "data": {}}) as sr:
             primary = router.routed_readback(
-                endpoint="http://tower/graphql", api_key_file="/secret/key", ssh_config=config,
+                endpoint="http://tower/graphql", api_key_file="/secret/key", ssh_config=None,
                 explicit_reason=None, policy=POLICY,
             )
             self.assertEqual(primary["transport"], "graphql")
@@ -136,12 +136,20 @@ class UnraidHostControlGuardContractTests(unittest.TestCase):
             self.assertEqual(forced["transport"], "ssh")
             self.assertFalse(forced["primary_attempted"])
             again = router.routed_readback(
-                endpoint="http://tower/graphql", api_key_file="/secret/key", ssh_config=config,
+                endpoint="http://tower/graphql", api_key_file="/secret/key", ssh_config=None,
                 explicit_reason=None, policy=POLICY,
             )
             self.assertEqual(again["transport"], "graphql")
             self.assertTrue(again["primary_attempted"])
         outage = graphql.HostControlError("transport", "down")
+        with mock.patch.object(router, "graphql_readback", side_effect=outage), mock.patch.object(ssh, "readback") as sr:
+            with self.assertRaises(router.RouterError) as ctx:
+                router.routed_readback(
+                    endpoint="http://tower/graphql", api_key_file="/secret/key", ssh_config=None,
+                    explicit_reason=None, policy=POLICY,
+                )
+            self.assertEqual(ctx.exception.kind, "fallback_unavailable")
+            sr.assert_not_called()
         with mock.patch.object(router, "graphql_readback", side_effect=outage), \
              mock.patch.object(ssh, "readback", return_value={"ok": True, "transport": "ssh", "fallback_reason": "api_outage", "data": {}}) as sr:
             fallback = router.routed_readback(

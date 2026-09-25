@@ -44,13 +44,15 @@ def routed_readback(
     *,
     endpoint: str,
     api_key_file: str,
-    ssh_config: dict,
+    ssh_config: dict | None,
     explicit_reason: str | None,
     policy: dict,
 ) -> dict:
     if explicit_reason is not None:
         if explicit_reason not in EXPLICIT_FALLBACK_REASONS:
             raise RouterError("policy", "explicit fallback reason is not permitted", reason=explicit_reason)
+        if ssh_config is None:
+            raise RouterError("fallback_unavailable", "SSH fallback configuration is required for explicit fallback")
         result = ssh_fallback.readback(ssh_config, reason=explicit_reason, policy=policy)
         return {**result, "primary_transport": "graphql", "primary_attempted": False}
     try:
@@ -70,6 +72,12 @@ def routed_readback(
                 "GraphQL primary failed with a non-fallback error",
                 primary_error=exc.kind,
             ) from exc
+        if ssh_config is None:
+            raise RouterError(
+                "fallback_unavailable",
+                "GraphQL primary is unavailable and SSH fallback is not configured",
+                primary_error=exc.kind,
+            ) from exc
         result = ssh_fallback.readback(ssh_config, reason="api_outage", policy=policy)
         return {**result, "primary_transport": "graphql", "primary_attempted": True, "primary_error": exc.kind}
 
@@ -78,10 +86,10 @@ def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--endpoint", required=True)
     parser.add_argument("--api-key-file", required=True)
-    parser.add_argument("--ssh-host", required=True)
-    parser.add_argument("--ssh-user", required=True)
-    parser.add_argument("--ssh-identity-file", required=True)
-    parser.add_argument("--ssh-known-hosts-file", required=True)
+    parser.add_argument("--ssh-host")
+    parser.add_argument("--ssh-user")
+    parser.add_argument("--ssh-identity-file")
+    parser.add_argument("--ssh-known-hosts-file")
     parser.add_argument(
         "--policy",
         default=str(Path(__file__).resolve().parents[1] / "config" / "unraid-host-control" / "host-safety-policy.json"),
@@ -92,8 +100,18 @@ def main() -> int:
     args = parser.parse_args()
     try:
         policy = load_policy(Path(args.policy))
-        ssh_config = ssh_fallback.validate_config(
-            args.ssh_host, args.ssh_user, args.ssh_identity_file, args.ssh_known_hosts_file
+        ssh_values = (
+            args.ssh_host,
+            args.ssh_user,
+            args.ssh_identity_file,
+            args.ssh_known_hosts_file,
+        )
+        if any(ssh_values) and not all(ssh_values):
+            raise RouterError("configuration", "SSH fallback configuration must be supplied as a complete set")
+        ssh_config = (
+            ssh_fallback.validate_config(*ssh_values)
+            if all(ssh_values)
+            else None
         )
         emit(routed_readback(
             endpoint=args.endpoint,
