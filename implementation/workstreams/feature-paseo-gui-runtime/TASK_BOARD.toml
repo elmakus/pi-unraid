@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 13
+revision = 14
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -73,5 +73,5 @@ condition = "The exact child-image foundation result is required before provenan
 [[jit_triggers]]
 id = "after-M01-T03-materialize-M02-T01"
 after_card = "M01-T03"
-state = "waiting"
+state = "satisfied"
 condition = "The exact GREEN M01 candidate-image smoke result is required before persistence/workspace ownership work can bind the concrete Paseo image/runtime contract."
