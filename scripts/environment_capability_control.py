@@ -79,6 +79,38 @@ def _validate_inventory_payload(payload: dict) -> None:
         raise CapabilityControlError("unexpected observation set is invalid")
 
 
+def _canonical_authority_payload() -> dict:
+    definition = inventory.load_json(DEFAULT_DEFINITION)
+    inventory.validate_definition(definition)
+    candidate_path = inventory._resolve_under_root(
+        ROOT,
+        definition["candidate_source"],
+    )
+    candidate = inventory.load_json(candidate_path)
+    return inventory.derive_inventory(definition, candidate, ROOT)
+
+
+def _validate_current_authority(payload: dict) -> None:
+    _validate_inventory_payload(payload)
+    canonical = _canonical_authority_payload()
+    if payload["candidate_id"] != canonical["candidate_id"]:
+        raise CapabilityControlError("inventory candidate is not the canonical current candidate")
+
+    payload_by_id = {item["id"]: item for item in payload["capabilities"]}
+    canonical_by_id = {item["id"]: item for item in canonical["capabilities"]}
+    if set(payload_by_id) != set(canonical_by_id):
+        raise CapabilityControlError("inventory capability set is not canonical current authority")
+
+    for capability_id in sorted(canonical_by_id):
+        current = payload_by_id[capability_id]
+        expected = canonical_by_id[capability_id]
+        for key in ("approval", "delivery_mode", "desired", "runtime_location", "probe"):
+            if current.get(key) != expected.get(key):
+                raise CapabilityControlError(
+                    f"inventory desired authority drift for {capability_id}"
+                )
+
+
 def _capability_view(capability: dict) -> dict:
     return {
         "id": capability["id"],
@@ -93,7 +125,7 @@ def _capability_view(capability: dict) -> dict:
 
 
 def doctor(payload: dict, *, depth: str) -> dict:
-    _validate_inventory_payload(payload)
+    _validate_current_authority(payload)
     if depth not in {"quick", "full"}:
         raise CapabilityControlError("doctor depth must be quick or full")
 
@@ -146,7 +178,7 @@ def build_reconcile_plan(
     *,
     requested_ids: list[str] | None = None,
 ) -> dict:
-    _validate_inventory_payload(payload)
+    _validate_current_authority(payload)
     by_id = _capability_map(payload)
 
     if requested_ids is None:
@@ -236,8 +268,8 @@ def _ensure_desired_state_unchanged(before: dict, after: dict) -> None:
 
 
 def verify_reconcile_readback(before: dict, after: dict, plan: dict) -> dict:
-    _validate_inventory_payload(before)
-    _validate_inventory_payload(after)
+    _validate_current_authority(before)
+    _validate_current_authority(after)
     if before["candidate_id"] != after["candidate_id"]:
         raise CapabilityControlError("reconcile cannot change the frozen candidate identity")
     if plan.get("candidate_id") != before["candidate_id"]:
