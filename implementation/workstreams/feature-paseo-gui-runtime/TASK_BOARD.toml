@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 44
+revision = 45
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -199,5 +199,14 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M03-T02-R02
 [[jit_triggers]]
 id = "after-M03-T02-materialize-M03-T03"
 after_card = "M03-T02"
-state = "satisfied"
+state = "consumed"
 condition = "The exact GREEN SSH-fallback and mutation-guard result is required before the host-control doctor Card can bind both transport health surfaces, safety-policy readback and credential-health fingerprint contracts."
+
+
+[[cards]]
+id = "M03-T03"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M03-T03.md"
