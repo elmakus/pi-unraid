@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 15
+revision = 16
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -72,7 +72,7 @@ condition = "The exact child-image foundation result is required before provenan
 
 [[cards]]
 id = "M02-T01"
-status = "ready"
+status = "in_progress"
 
 [cards.contract]
 class = "task_card"
