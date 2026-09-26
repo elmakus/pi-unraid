@@ -542,29 +542,67 @@ def phase_browser_headed_xvfb(image: str, profile: Path, downloads: Path) -> dic
     }
 
 
+def parse_isolation_content(content: str) -> tuple[int, int, dict[str, int]]:
+    values: dict[str, str] = {}
+    download_sizes: dict[str, int] = {}
+    for line in content.splitlines():
+        if line.startswith("download="):
+            name, _, size = line[len("download="):].partition(":")
+            try:
+                download_sizes[name] = int(size)
+            except ValueError:
+                fail(f"unreadable download size: {line!r}")
+        elif "=" in line:
+            key, _, value = line.partition("=")
+            values[key] = value
+    if "content_check=done" not in content:
+        fail("container-side content check incomplete")
+    try:
+        entry_count = int((values.get("entries") or "").strip())
+    except ValueError:
+        fail(f"unreadable profile entry count: {values.get('entries')!r}")
+    try:
+        preferences_size = int(values.get("preferences", "missing"))
+    except ValueError:
+        preferences_size = 0
+    return entry_count, preferences_size, download_sizes
+
+
 def phase_profile_isolation(image: str, home: Path, profile: Path, downloads: Path) -> dict:
     # The headed leg ran against the dedicated bind-mounted profile. Prove
     # the automation profile is populated, every download landed in the
-    # temp/task directory, and no personal profile was touched.
-    entries = sorted(path.name for path in profile.iterdir()) if profile.is_dir() else []
-    if not entries:
+    # temp/task directory, and no personal profile was touched. Content
+    # reads run container-side as the writing user: Chromium profile files
+    # (0600, container-owned) are not host-readable.
+    content = docker_run(
+        image,
+        browser_flags(f"{profile}:{AUTOMATION_PROFILE_PATH}",
+                      f"{downloads}:{AUTOMATION_DOWNLOADS_PATH}"),
+        ["sh", "-c", "set -eu; "
+         f"printf 'entries=%s\\n' \"$(ls -A {AUTOMATION_PROFILE_PATH} | wc -l)\"; "
+         f"if [ -f {AUTOMATION_PROFILE_PATH}/Default/Preferences ]; then "
+         f"printf 'preferences=%s\\n' \"$(stat -c '%s' {AUTOMATION_PROFILE_PATH}/Default/Preferences)\"; "
+         "else printf 'preferences=missing\\n'; fi; "
+         f"for f in {AUTOMATION_DOWNLOADS_PATH}/*; do "
+         "[ -f \"$f\" ] || continue; "
+         "printf 'download=%s:%s\\n' \"$(basename \"$f\")\" \"$(stat -c '%s' \"$f\")\"; done; "
+         "printf 'content_check=done\\n'"],
+        timeout=60,
+    )
+    entry_count, preferences_size, download_sizes = parse_isolation_content(content)
+    if entry_count <= 0:
         fail("automation profile directory is empty after headed run")
     # Chromium stores the default profile under the user data dir, so the
     # persistence marker is Default/Preferences, not top-level Preferences.
-    preferences = profile / "Default" / "Preferences"
-    if not preferences.is_file() or preferences.stat().st_size == 0:
+    if preferences_size <= 0:
         fail("automation profile Default/Preferences missing; persistent profile unproven")
-    download_files = sorted(path.name for path in downloads.iterdir() if path.is_file())
+    for name, size in sorted(download_sizes.items()):
+        if size <= 0:
+            fail(f"download artifact empty: {name}")
+    download_files = sorted(download_sizes)
     expected_downloads = ["headed.png", "headless.pdf", "headless.png", "task-download.txt"]
     if download_files != expected_downloads:
         fail(f"downloads directory mismatch: {download_files}")
-    personal_hits = []
-    for path in home.rglob("*"):
-        rel = path.relative_to(home).as_posix()
-        if any(rel == personal or rel.startswith(personal + "/") for personal in PERSONAL_PROFILE_PATHS):
-            personal_hits.append(rel)
-    if personal_hits:
-        fail(f"personal profile paths touched: {personal_hits}")
     out = docker_run(
         image,
         container_flags(f"{home}:/home/paseo"),
@@ -582,7 +620,7 @@ def phase_profile_isolation(image: str, home: Path, profile: Path, downloads: Pa
         "automation_profile": AUTOMATION_PROFILE_PATH,
         "automation_profile_populated": True,
         "preferences": "Default/Preferences",
-        "profile_entries": len(entries),
+        "profile_entries": entry_count,
         "downloads": download_files,
         "downloads_path": AUTOMATION_DOWNLOADS_PATH,
         "personal_profiles_touched": [],

@@ -348,10 +348,13 @@ class BrowserToolCompatContractTests(unittest.TestCase):
             self.assertIn("docker_run_browser(", source)
             self.assertNotIn("container_flags(", source)
 
-    def test_isolation_probe_stays_on_runtime_identity(self) -> None:
+    def test_isolation_reads_run_container_side_with_proper_identity(self) -> None:
         isolation_source = HARNESS[HARNESS.index("def phase_profile_isolation"):HARNESS.index("def phase_dev_baseline")]
+        self.assertIn("browser_flags(", isolation_source)
         self.assertIn("container_flags(", isolation_source)
-        self.assertNotIn("browser_flags(", isolation_source)
+        self.assertIn("parse_isolation_content(content)", isolation_source)
+        for host_read in ("iterdir()", "rglob(", ".stat()", "read_bytes()", "read_text("):
+            self.assertNotIn(host_read, isolation_source)
 
     def test_prepare_browser_dirs_makes_fixture_writable(self) -> None:
         import os
@@ -397,8 +400,40 @@ class BrowserToolCompatContractTests(unittest.TestCase):
 
     def test_profile_persistence_uses_chromium_default_layout(self) -> None:
         isolation_source = HARNESS[HARNESS.index("def phase_profile_isolation"):HARNESS.index("def phase_dev_baseline")]
-        self.assertIn('profile / "Default" / "Preferences"', isolation_source)
+        self.assertIn("Default/Preferences", isolation_source)
         self.assertIn('"preferences": "Default/Preferences"', HARNESS)
+
+    def test_isolation_content_parses_valid_probe(self) -> None:
+        entries, preferences, downloads = FLOW.parse_isolation_content(
+            "entries=6\npreferences=128\n"
+            "download=headed.png:1024\ndownload=headless.pdf:2048\n"
+            "download=headless.png:512\ndownload=task-download.txt:24\n"
+            "content_check=done\n"
+        )
+        self.assertEqual(entries, 6)
+        self.assertEqual(preferences, 128)
+        self.assertEqual(
+            downloads,
+            {"headed.png": 1024, "headless.pdf": 2048,
+             "headless.png": 512, "task-download.txt": 24},
+        )
+
+    def test_isolation_content_rejects_incomplete_probe(self) -> None:
+        with self.assertRaises(SystemExit):
+            FLOW.parse_isolation_content("entries=6\npreferences=128\n")
+        with self.assertRaises(SystemExit):
+            FLOW.parse_isolation_content("entries=many\npreferences=128\ncontent_check=done\n")
+        with self.assertRaises(SystemExit):
+            FLOW.parse_isolation_content(
+                "entries=6\npreferences=128\ndownload=headed.png:big\ncontent_check=done\n"
+            )
+
+    def test_isolation_content_missing_preferences_parses_zero(self) -> None:
+        entries, preferences, _ = FLOW.parse_isolation_content(
+            "entries=6\npreferences=missing\ncontent_check=done\n"
+        )
+        self.assertEqual(entries, 6)
+        self.assertEqual(preferences, 0)
 
     def test_fixture_mode_set_before_ownership_transfer(self) -> None:
         flow_source = HARNESS[HARNESS.index("def disposable_flow"):HARNESS.index("def main(")]
