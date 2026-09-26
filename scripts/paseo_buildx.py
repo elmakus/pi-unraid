@@ -18,8 +18,17 @@ to M05-T02B.
 Every ``build`` run writes one machine-readable record with the immutable
 image identity, structured provenance and per-phase timings for the
 resolution/readback, build, test and prune phases, so cold and warm runs can
-be compared. Cache cleanup is bounded (``--keep-storage`` only, no age
-filter, never before the build) and runs only after successful work.
+be compared. The acceptance flow is ``build`` then ``test`` then ``prune``
+against that same record: ``test`` runs the complete disposable smoke suite
+and measures the test phase, and ``prune`` is gated on that exact record
+showing a successful build and test before it runs the bounded cleanup and
+measures the prune phase. There is no unconditional cleanup path:
+``build --with-prune`` requires ``--with-smoke`` in the same invocation, and
+standalone ``prune`` requires ``--record`` pointing at a successfully tested
+build record for the same builder. A failed smoke prevents prune and leaves
+the prior coherent cache and images untouched. Cache cleanup is bounded
+(``--keep-storage`` only, no age filter, never before the build) and runs
+only after successful work.
 
 Portability note: on an ephemeral CI host the named builder persists across
 steps within one job, so the cold/warm cache-reuse proof there is within-job
@@ -42,6 +51,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_CANDIDATE = ROOT / "config" / "paseo-candidate.json"
 SMOKE_SCRIPT = ROOT / "scripts" / "smoke_paseo_image.py"
+COMPOSE_SMOKE = ROOT / "scripts" / "verify-compose-foundation.sh"
+INSTRUCTION_SMOKE = ROOT / "scripts" / "verify-pi-instruction-plane.sh"
+CAPABILITY_SMOKE = ROOT / "scripts" / "verify-pi-global-capabilities.sh"
 
 BUILDER_NAME_DEFAULT = "pi-unraid-paseo"
 RUNTIME_SERVICE_NAME = "paseo"
@@ -313,7 +325,75 @@ def docker_env(state_dir: Path) -> dict[str, str]:
     return env
 
 
+def atomic_write_json(path: Path, data: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rendered = json.dumps(data, sort_keys=True, indent=2) + "\n"
+    tmp = path.with_name(path.name + f".tmp-{os.getpid()}")
+    tmp.write_text(rendered)
+    os.replace(tmp, path)
+
+
+def load_build_record(path: Path) -> dict:
+    try:
+        raw = path.read_text()
+    except FileNotFoundError as exc:
+        raise BuildxError(f"build record is missing: {path}") from exc
+    except OSError as exc:
+        raise BuildxError(f"build record is unreadable: {path}") from exc
+    try:
+        record = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise BuildxError(f"build record is not valid JSON: {path}") from exc
+    if not isinstance(record, dict):
+        raise BuildxError("build record must be a JSON object")
+    if record.get("schema_version") != RECORD_SCHEMA_VERSION:
+        raise BuildxError("build record uses an unsupported schema")
+    if record.get("command") != "build":
+        raise BuildxError("record is not a build record")
+    if not isinstance(record.get("phases"), dict):
+        raise BuildxError("build record has no phases")
+    return record
+
+
+def smoke_suite(tag: str, candidate_path: str) -> list[tuple[str, list[str]]]:
+    """The complete disposable smoke suite for one built tag, in order."""
+    return [
+        ("image_provenance", [sys.executable, str(SMOKE_SCRIPT), tag, candidate_path]),
+        ("persistence_ownership", ["bash", str(COMPOSE_SMOKE), tag]),
+        ("instruction_plane", ["bash", str(INSTRUCTION_SMOKE), tag]),
+        ("global_capabilities", ["bash", str(CAPABILITY_SMOKE), tag]),
+    ]
+
+
+def run_smoke_suite(tag: str, candidate_path: str, per_smoke_timeout: int) -> dict:
+    """Run the complete suite fail-fast; returns the test-phase detail."""
+    smokes: list[dict] = []
+    for name, argv in smoke_suite(tag, candidate_path):
+        print(f"--- smoke: {name} ---", flush=True)
+        begin = time.monotonic()
+        try:
+            proc = _run(argv, dict(os.environ), per_smoke_timeout)
+        except subprocess.TimeoutExpired as exc:
+            raise BuildxError(f"smoke timed out: {name}") from exc
+        duration_ms = int((time.monotonic() - begin) * 1000)
+        if proc.returncode != 0:
+            raise BuildxError(
+                f"smoke failed: {name} (rc={proc.returncode}): "
+                f"{_tail(proc.stderr or proc.stdout)}"
+            )
+        if proc.stdout:
+            sys.stdout.write(_tail(proc.stdout, 2000))
+            if not proc.stdout.endswith("\n"):
+                sys.stdout.write("\n")
+        smokes.append({"name": name, "status": "ok", "duration_ms": duration_ms})
+    return {"smokes": smokes}
+
+
 def cmd_build(args: argparse.Namespace) -> int:
+    if args.with_prune and not args.with_smoke:
+        print("build refused: --with-prune requires --with-smoke "
+              "(cleanup only after successful build/smoke)", file=sys.stderr)
+        return EXIT_VALIDATION
     recorder = Recorder()
     started = _utcnow()
     builder = args.builder or os.environ.get(ENV_BUILDER, BUILDER_NAME_DEFAULT)
@@ -347,8 +427,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             "finished_at": _utcnow(),
             "phases": recorder.phases,
         }
-        record_path.parent.mkdir(parents=True, exist_ok=True)
-        record_path.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
+        atomic_write_json(record_path, record)
         print(json.dumps({"tag": tag, "record": str(record_path)}, sort_keys=True))
         return exit_code
 
@@ -443,22 +522,12 @@ def cmd_build(args: argparse.Namespace) -> int:
         exit_code = EXIT_BUILD
         return finish()
 
-    # Phase 4: test (fast image/provenance smoke when requested).
+    # Phase 4: test (complete disposable smoke suite when requested).
     if args.with_smoke:
         begin = time.monotonic()
         try:
-            proc = _run(
-                [sys.executable, str(SMOKE_SCRIPT), tag, str(candidate_path)],
-                dict(os.environ),
-                args.smoke_timeout,
-            )
-            if proc.returncode != 0:
-                raise BuildxError(
-                    f"image smoke failed (rc={proc.returncode}): "
-                    f"{_tail(proc.stderr or proc.stdout)}"
-                )
-            recorder.record("test", "ok", int((time.monotonic() - begin) * 1000),
-                            {"smoke": "smoke_paseo_image.py", "summary": _tail(proc.stdout, 1000)})
+            detail = run_smoke_suite(tag, str(candidate_path), args.smoke_timeout)
+            recorder.record("test", "ok", int((time.monotonic() - begin) * 1000), detail)
         except (BuildxError, subprocess.TimeoutExpired) as exc:
             recorder.record("test", "failed", int((time.monotonic() - begin) * 1000),
                             {"error": str(exc)})
@@ -485,6 +554,52 @@ def cmd_build(args: argparse.Namespace) -> int:
     return finish()
 
 
+def _phase_status(record: dict, phase: str) -> str:
+    phases = record.get("phases") or {}
+    entry = phases.get(phase) or {}
+    status = entry.get("status")
+    return status if isinstance(status, str) else ""
+
+
+def cmd_test(args: argparse.Namespace) -> int:
+    record_path = Path(args.record)
+    try:
+        record = load_build_record(record_path)
+    except BuildxError as exc:
+        print(f"test refused: {exc}", file=sys.stderr)
+        return EXIT_VALIDATION
+    if _phase_status(record, "build") != "ok":
+        print("test refused: record has no successful build phase", file=sys.stderr)
+        return EXIT_VALIDATION
+    tag = record.get("tag") or ""
+    candidate_path = (record.get("candidate") or {}).get("path") or ""
+    if not tag or not candidate_path:
+        print("test refused: record lacks tag/candidate identity", file=sys.stderr)
+        return EXIT_VALIDATION
+    begin = time.monotonic()
+    try:
+        detail = run_smoke_suite(tag, candidate_path, args.smoke_timeout)
+    except (BuildxError, subprocess.TimeoutExpired) as exc:
+        record["phases"]["test"] = {
+            "status": "failed",
+            "duration_ms": int((time.monotonic() - begin) * 1000),
+            "detail": {"error": str(exc)},
+        }
+        record["finished_at"] = _utcnow()
+        atomic_write_json(record_path, record)
+        print(f"test failed: {exc}", file=sys.stderr)
+        return EXIT_BUILD
+    record["phases"]["test"] = {
+        "status": "ok",
+        "duration_ms": int((time.monotonic() - begin) * 1000),
+        "detail": detail,
+    }
+    record["finished_at"] = _utcnow()
+    atomic_write_json(record_path, record)
+    print(json.dumps({"tag": tag, "record": str(record_path), "test": "ok"}, sort_keys=True))
+    return 0
+
+
 def cmd_prune(args: argparse.Namespace) -> int:
     builder = args.builder or os.environ.get(ENV_BUILDER, BUILDER_NAME_DEFAULT)
     state_dir = Path(args.state_dir or os.environ.get(ENV_STATE_DIR, str(STATE_DIR_DEFAULT)))
@@ -497,6 +612,21 @@ def cmd_prune(args: argparse.Namespace) -> int:
     except BuildxError as exc:
         print(f"bounded prune refused: {exc}", file=sys.stderr)
         return EXIT_VALIDATION
+    record_path = Path(args.record)
+    try:
+        record = load_build_record(record_path)
+    except BuildxError as exc:
+        print(f"bounded prune refused: {exc}", file=sys.stderr)
+        return EXIT_VALIDATION
+    if _phase_status(record, "build") != "ok" or _phase_status(record, "test") != "ok":
+        print("bounded prune refused: record lacks a successful build and test; "
+              "cleanup runs only after successful build/smoke", file=sys.stderr)
+        return EXIT_VALIDATION
+    if (record.get("builder") or {}).get("name") != builder:
+        print(f"bounded prune refused: record builder "
+              f"{(record.get('builder') or {}).get('name')!r} does not match {builder!r}",
+              file=sys.stderr)
+        return EXIT_VALIDATION
     begin = time.monotonic()
     try:
         detail = run_prune(
@@ -506,8 +636,22 @@ def cmd_prune(args: argparse.Namespace) -> int:
             docker_env(state_dir),
         )
     except (BuildxError, subprocess.TimeoutExpired) as exc:
+        record["phases"]["prune"] = {
+            "status": "failed",
+            "duration_ms": int((time.monotonic() - begin) * 1000),
+            "detail": {"error": str(exc)},
+        }
+        record["finished_at"] = _utcnow()
+        atomic_write_json(record_path, record)
         print(f"prune failed: {exc}", file=sys.stderr)
         return EXIT_BUILD
+    record["phases"]["prune"] = {
+        "status": "ok",
+        "duration_ms": int((time.monotonic() - begin) * 1000),
+        "detail": detail,
+    }
+    record["finished_at"] = _utcnow()
+    atomic_write_json(record_path, record)
     summary = {
         "schema_version": RECORD_SCHEMA_VERSION,
         "command": "prune",
@@ -542,11 +686,18 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--build-timeout", type=int, default=3600)
     build.add_argument("--smoke-timeout", type=int, default=600)
     build.add_argument("--with-smoke", action="store_true",
-                       help="run the fast image/provenance smoke as the test phase")
+                       help="run the complete disposable smoke suite as the test phase")
     build.add_argument("--with-prune", action="store_true",
-                       help="run the bounded prune after successful work")
+                       help="run the bounded prune after successful build/smoke (requires --with-smoke)")
+
+    test = sub.add_parser("test", help="run the complete smoke suite and record the test phase")
+    test.add_argument("--record", required=True, help="build record to test and update")
+    test.add_argument("--smoke-timeout", type=int, default=600,
+                      help="per-smoke timeout in seconds")
 
     prune = sub.add_parser("prune", help="bounded post-success cache prune only")
+    prune.add_argument("--record", required=True,
+                       help="successfully tested build record gating this prune")
     prune.add_argument("--builder", default=None)
     prune.add_argument("--state-dir", default=None)
     prune.add_argument("--keep-storage", default=None)
@@ -557,6 +708,8 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     if args.command == "build":
         return cmd_build(args)
+    if args.command == "test":
+        return cmd_test(args)
     if args.command == "prune":
         return cmd_prune(args)
     raise AssertionError("unreachable")

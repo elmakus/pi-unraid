@@ -199,7 +199,7 @@ class FailClosedTests(unittest.TestCase):
             args = parser.parse_args([
                 "build", "--candidate", str(ROOT / "config" / "paseo-candidate.json"),
                 "--context", str(ROOT), "--record", str(tdp / "record.json"),
-                "--state-dir", str(tdp / "state"), "--with-prune",
+                "--state-dir", str(tdp / "state"), "--with-smoke", "--with-prune",
             ])
             with mock.patch.object(buildx, "_run", side_effect=runner):
                 rc = buildx.cmd_build(args)
@@ -348,9 +348,30 @@ class TimingsAndPruneTests(unittest.TestCase):
         for step in ("#3 CACHED", "#4 CACHED", "#10 CACHED"):
             self.assertIn(step, echoed)
 
+    def test_build_with_prune_requires_with_smoke(self):
+        calls: list[list[str]] = []
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            parser = buildx.build_parser()
+            args = parser.parse_args([
+                "build", "--context", str(ROOT), "--record", str(tdp / "record.json"),
+                "--state-dir", str(tdp / "state"), "--with-prune",
+            ])
+            with mock.patch.object(buildx, "_run", side_effect=lambda a, e, t: calls.append(a)):
+                rc = buildx.cmd_build(args)
+        self.assertEqual(rc, buildx.EXIT_VALIDATION)
+        self.assertEqual(calls, [])
+        self.assertFalse((tdp / "record.json").exists())
+
     def test_prune_is_bounded_scoped_and_ordered_after_build(self):
-        rc, record, calls = self.run_mock_build(["--with-prune"])
+        rc, record, calls = self.run_mock_build(["--with-smoke", "--with-prune"])
         self.assertEqual(rc, 0)
+        self.assertEqual(record["phases"]["test"]["status"], "ok")
+        self.assertEqual(
+            [s["name"] for s in record["phases"]["test"]["detail"]["smokes"]],
+            ["image_provenance", "persistence_ownership",
+             "instruction_plane", "global_capabilities"],
+        )
         prunes = [c for c in calls if c[:3] == ["docker", "buildx", "prune"]]
         self.assertEqual(len(prunes), 1)
         prune = prunes[0]
@@ -372,11 +393,21 @@ class TimingsAndPruneTests(unittest.TestCase):
     def test_invalid_prune_bound_is_rejected_before_docker(self):
         calls: list[list[str]] = []
         parser = buildx.build_parser()
-        args = parser.parse_args(["prune", "--keep-storage", "all"])
-        with mock.patch.object(buildx, "_run", side_effect=lambda a, e, t: calls.append(a)):
-            rc = buildx.cmd_prune(args)
+        with tempfile.TemporaryDirectory() as td:
+            args = parser.parse_args([
+                "prune", "--record", str(Path(td) / "record.json"),
+                "--keep-storage", "all",
+            ])
+            with mock.patch.object(buildx, "_run", side_effect=lambda a, e, t: calls.append(a)):
+                rc = buildx.cmd_prune(args)
         self.assertEqual(rc, buildx.EXIT_VALIDATION)
         self.assertEqual(calls, [])
+
+    def test_prune_requires_record_flag(self):
+        parser = buildx.build_parser()
+        with self.assertRaises(SystemExit) as ctx:
+            parser.parse_args(["prune"])
+        self.assertEqual(ctx.exception.code, 2)
 
     def test_local_cache_backend_is_opt_in(self):
         _, _, plain = self.run_mock_build([])
@@ -394,6 +425,203 @@ class TimingsAndPruneTests(unittest.TestCase):
         self.assertIn("mode=max", joined)
         self.assertNotIn("type=registry", joined)
 
+
+class GatedTestPruneFlowTests(unittest.TestCase):
+    TAG = "pi-unraid:paseo-b4e0c1e7c276"
+
+    def write_record(self, tdp: Path, build_status="ok", test_status="skipped",
+                     builder="pi-unraid-paseo") -> Path:
+        record = {
+            "schema_version": 1,
+            "command": "build",
+            "builder": {"name": builder, "driver": "docker-container",
+                        "reused": False, "state_dir": str(tdp / "state")},
+            "candidate": {"path": str(ROOT / "config" / "paseo-candidate.json"),
+                          "candidate_id": CANDIDATE["candidate_id"]},
+            "context": str(ROOT),
+            "tag": self.TAG,
+            "image": {"id": "sha256:" + "d" * 64, "digests": [],
+                      "candidate_label": CANDIDATE["candidate_id"]},
+            "cache": {"local_dir": None},
+            "started_at": "2026-09-26T00:00:00+00:00",
+            "finished_at": "2026-09-26T00:01:00+00:00",
+            "phases": {
+                "resolution_readback": {"status": "ok", "duration_ms": 5, "detail": {}},
+                "builder_ensure": {"status": "ok", "duration_ms": 5, "detail": {}},
+                "build": {"status": build_status, "duration_ms": 1000,
+                          "detail": {"tag": self.TAG, "cached_steps": 8}},
+                "test": {"status": test_status, "duration_ms": 0, "detail": {}},
+                "prune": {"status": "skipped", "duration_ms": 0, "detail": {}},
+            },
+        }
+        path = tdp / "record.json"
+        path.write_text(json.dumps(record, sort_keys=True, indent=2) + "\n")
+        return path
+
+    def test_suite_runs_all_four_smokes_in_order(self):
+        suite = buildx.smoke_suite(self.TAG, "/tmp/candidate.json")
+        self.assertEqual([name for name, _ in suite],
+                         ["image_provenance", "persistence_ownership",
+                          "instruction_plane", "global_capabilities"])
+        self.assertIn("smoke_paseo_image.py", suite[0][1][1])
+        self.assertEqual(suite[0][1][-2:], [self.TAG, "/tmp/candidate.json"])
+        for _, argv in suite[1:]:
+            self.assertEqual(argv[0], "bash")
+            self.assertEqual(argv[-1], self.TAG)
+
+    def test_command_measures_test_phase_and_preserves_build(self):
+        calls: list[list[str]] = []
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            path = self.write_record(tdp)
+            parser = buildx.build_parser()
+            args = parser.parse_args(["test", "--record", str(path)])
+            with mock.patch.object(
+                    buildx, "_run",
+                    side_effect=lambda a, e, t: (calls.append(a), Completed(0, "ok\n"))[1]):
+                rc = buildx.cmd_test(args)
+            self.assertEqual(rc, 0)
+            self.assertEqual(len(calls), 4)
+            record = json.loads(path.read_text())
+        self.assertEqual(record["phases"]["test"]["status"], "ok")
+        self.assertGreaterEqual(record["phases"]["test"]["duration_ms"], 0)
+        self.assertEqual(
+            [s["name"] for s in record["phases"]["test"]["detail"]["smokes"]],
+            ["image_provenance", "persistence_ownership",
+             "instruction_plane", "global_capabilities"],
+        )
+        self.assertEqual(record["phases"]["build"]["status"], "ok")
+        self.assertEqual(record["phases"]["build"]["detail"]["cached_steps"], 8)
+        self.assertEqual(record["image"]["id"], "sha256:" + "d" * 64)
+        self.assertEqual(record["phases"]["prune"]["status"], "skipped")
+
+    def test_command_refuses_without_successful_build(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            bad_build = self.write_record(tdp, build_status="failed")
+            bad_build.rename(tdp / "failed.json")
+            cases = [tdp / "failed.json", tdp / "absent.json"]
+            broken = tdp / "broken.json"
+            broken.write_text("{not json")
+            cases.append(broken)
+            for case in cases:
+                with self.subTest(case=case.name):
+                    before = case.read_bytes() if case.exists() else None
+                    calls: list[list[str]] = []
+                    parser = buildx.build_parser()
+                    args = parser.parse_args(["test", "--record", str(case)])
+                    with mock.patch.object(
+                            buildx, "_run",
+                            side_effect=lambda a, e, t: calls.append(a)):
+                        rc = buildx.cmd_test(args)
+                    self.assertEqual(rc, buildx.EXIT_VALIDATION)
+                    self.assertEqual(calls, [])
+                    if before is not None:
+                        self.assertEqual(case.read_bytes(), before)
+
+    def test_failed_smoke_fails_fast_and_blocks_later_smokes(self):
+        calls: list[list[str]] = []
+
+        def runner(argv, env, timeout):
+            calls.append(argv)
+            if "verify-compose-foundation.sh" in argv[1]:
+                return Completed(1, "", "ownership drift")
+            return Completed(0, "ok\n")
+
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            path = self.write_record(tdp)
+            parser = buildx.build_parser()
+            args = parser.parse_args(["test", "--record", str(path)])
+            with mock.patch.object(buildx, "_run", side_effect=runner):
+                rc = buildx.cmd_test(args)
+            self.assertEqual(rc, buildx.EXIT_BUILD)
+            self.assertEqual(len(calls), 2)
+            record = json.loads(path.read_text())
+        self.assertEqual(record["phases"]["test"]["status"], "failed")
+        self.assertIn("persistence_ownership", record["phases"]["test"]["detail"]["error"])
+        self.assertEqual(record["phases"]["build"]["status"], "ok")
+        self.assertEqual(record["phases"]["prune"]["status"], "skipped")
+
+    def test_prune_refuses_until_build_and_test_succeed(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            for build_status, test_status in (("ok", "skipped"), ("ok", "failed"),
+                                              ("failed", "skipped")):
+                path = self.write_record(tdp, build_status=build_status,
+                                         test_status=test_status)
+                before = path.read_bytes()
+                calls: list[list[str]] = []
+                parser = buildx.build_parser()
+                args = parser.parse_args(["prune", "--record", str(path)])
+                with mock.patch.object(
+                        buildx, "_run",
+                        side_effect=lambda a, e, t: calls.append(a)):
+                    rc = buildx.cmd_prune(args)
+                self.assertEqual(rc, buildx.EXIT_VALIDATION, (build_status, test_status))
+                self.assertEqual(calls, [])
+                self.assertEqual(path.read_bytes(), before)
+
+    def test_prune_refuses_builder_mismatch(self):
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            path = self.write_record(tdp, test_status="ok", builder="pi-unraid-paseo")
+            before = path.read_bytes()
+            calls: list[list[str]] = []
+            parser = buildx.build_parser()
+            args = parser.parse_args(["prune", "--record", str(path),
+                                      "--builder", "pi-unraid-other"])
+            with mock.patch.object(
+                    buildx, "_run",
+                    side_effect=lambda a, e, t: calls.append(a)):
+                rc = buildx.cmd_prune(args)
+            self.assertEqual(rc, buildx.EXIT_VALIDATION)
+            self.assertEqual(calls, [])
+            self.assertEqual(path.read_bytes(), before)
+
+    def test_prune_measures_phase_and_preserves_record(self):
+        calls: list[list[str]] = []
+        buf = io.StringIO()
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            path = self.write_record(tdp, test_status="ok")
+            parser = buildx.build_parser()
+            args = parser.parse_args(["prune", "--record", str(path)])
+            with mock.patch.object(buildx, "_run", side_effect=lambda a, e, t: (
+                    calls.append(a), Completed(0, "Total: 1GB"))[1]), \
+                    mock.patch.object(sys, "stdout", buf):
+                rc = buildx.cmd_prune(args)
+            self.assertEqual(rc, 0)
+            record = json.loads(path.read_text())
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][:3], ["docker", "buildx", "prune"])
+        self.assertIn("--keep-storage", calls[0])
+        self.assertEqual(record["phases"]["prune"]["status"], "ok")
+        self.assertEqual(record["phases"]["prune"]["detail"]["keep_storage"], "8GB")
+        self.assertEqual(record["phases"]["build"]["status"], "ok")
+        self.assertEqual(record["phases"]["test"]["status"], "ok")
+        summary = json.loads(buf.getvalue())
+        self.assertEqual(summary["command"], "prune")
+        self.assertEqual(summary["builder"], "pi-unraid-paseo")
+
+    def test_full_test_then_prune_sequence(self):
+        calls: list[list[str]] = []
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            path = self.write_record(tdp)
+            parser = buildx.build_parser()
+            with mock.patch.object(
+                    buildx, "_run",
+                    side_effect=lambda a, e, t: (calls.append(a), Completed(0, "ok\n"))[1]):
+                self.assertEqual(buildx.cmd_test(parser.parse_args(["test", "--record", str(path)])), 0)
+                prune_before = [c for c in calls if c[:3] == ["docker", "buildx", "prune"]]
+                self.assertEqual(prune_before, [])
+                self.assertEqual(
+                    buildx.cmd_prune(parser.parse_args(["prune", "--record", str(path)])), 0)
+            record = json.loads(path.read_text())
+        self.assertEqual(record["phases"]["test"]["status"], "ok")
+        self.assertEqual(record["phases"]["prune"]["status"], "ok")
+        self.assertEqual(len(record["phases"]["test"]["detail"]["smokes"]), 4)
 
 class NoForbiddenSurfaceTests(unittest.TestCase):
     def scanned_source(self) -> str:

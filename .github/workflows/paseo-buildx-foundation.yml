@@ -116,37 +116,31 @@ jobs:
           python3 -c "import json;r=json.load(open('/tmp/warm-change-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is True,r['builder'];assert r['phases']['build']['detail']['cached_steps']>=4,r['phases']['build'];print('warm-change image:',r['image']['id']);print('warm-change cached steps:',r['phases']['build']['detail']['cached_steps'])"
           test "$(grep -c CACHED /tmp/warm-change-build.log)" -ge 4
           test "$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['image']['id'])")" != "$(python3 -c "import json;print(json.load(open('/tmp/warm-change-record.json'))['image']['id'])")"
-      - name: Bounded post-success prune retains warm cache and images
+      - name: Complete disposable smoke suite on cold image (recorded test phase)
+        run: |
+          python3 scripts/paseo_buildx.py test --record /tmp/cold-record.json 2>&1 | tee /tmp/cold-test.log
+          python3 -c "import json;r=json.load(open('/tmp/cold-record.json'));assert r['phases']['test']['status']=='ok',r['phases']['test'];print('smokes:',[(s['name'],s['duration_ms']) for s in r['phases']['test']['detail']['smokes']])"
+      - name: Bounded post-smoke prune retains warm cache and images
         run: |
           docker buildx du --builder pi-unraid-paseo --verbose | tee /tmp/buildx-du-before.txt
           test -s /tmp/buildx-du-before.txt
-          python3 scripts/paseo_buildx.py prune --keep-storage 8GB | tee /tmp/prune.json
+          python3 scripts/paseo_buildx.py prune --record /tmp/cold-record.json --keep-storage 8GB | tee /tmp/prune.json
           python3 -c "import json;d=json.load(open('/tmp/prune.json'));assert d['keep_storage']=='8GB',d;assert d['builder']=='pi-unraid-paseo',d"
+          python3 -c "import json;r=json.load(open('/tmp/cold-record.json'));assert r['phases']['prune']['status']=='ok',r['phases']['prune']"
           docker buildx du --builder pi-unraid-paseo --verbose | tee /tmp/buildx-du-after.txt
           test -s /tmp/buildx-du-after.txt
           COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
           docker image inspect "$COLD_TAG" --format '{{.Id}}'
           test "$(docker image inspect "$COLD_TAG" --format '{{ index .Config.Labels "io.pi-unraid.candidate-id" }}')" = "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69"
-      - name: Disposable image and provenance smoke on cold image
-        run: |
-          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
-          python3 scripts/smoke_paseo_image.py "$COLD_TAG" config/paseo-candidate.json
-      - name: Disposable persistence and ownership smoke
-        run: |
-          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
-          bash scripts/verify-compose-foundation.sh "$COLD_TAG"
-      - name: Disposable Pi instruction-plane smoke
-        run: |
-          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
-          bash scripts/verify-pi-instruction-plane.sh "$COLD_TAG"
-      - name: Disposable Pi global-capability smoke
-        run: |
-          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
-          bash scripts/verify-pi-global-capabilities.sh "$COLD_TAG"
       - name: Show machine-readable cold/warm timing comparison
         run: |
           python3 -c "
           import json
+          cold = json.load(open('/tmp/cold-record.json'))
+          assert cold['phases']['test']['status'] == 'ok', cold['phases']['test']
+          assert cold['phases']['prune']['status'] == 'ok', cold['phases']['prune']
+          assert cold['image']['id'], cold['image']
+          assert cold['image']['candidate_label'] == cold['candidate']['candidate_id'], cold['image']
           for name in ('cold', 'warm-same', 'warm-change'):
               r = json.load(open(f'/tmp/{name}-record.json'))
               phases = {k: (v['status'], v['duration_ms']) for k, v in r['phases'].items()}
@@ -163,6 +157,7 @@ jobs:
             /tmp/cold-record.json
             /tmp/cold-metadata.json
             /tmp/cold-build.log
+            /tmp/cold-test.log
             /tmp/warm-same-record.json
             /tmp/warm-same-metadata.json
             /tmp/warm-same-build.log
