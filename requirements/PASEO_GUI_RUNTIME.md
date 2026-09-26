@@ -1,11 +1,11 @@
 # Paseo/Pi Runtime on Unraid — Requirements
 
-Revision: `R1`
+Revision: `R2`
 Status: `approved`
-Updated: `2026-09-24`
-Definition subject: `paseo-gui-runtime@2`
+Updated: `2026-09-26`
+Definition subject: `paseo-gui-runtime@3`
 Source Brainstorming: `brainstorming/PASEO_GUI_RUNTIME.md`
-Exact promoted source: `elmakus/pi-unraid@f1626faf5e2709975383115453f118a82db7d7a8:brainstorming/PASEO_GUI_RUNTIME.md@3fe19a43f5187b6f071130c3dc47e2f9de8d3c11`
+Exact promoted source: `elmakus/pi-unraid@7f5b17e0216cc61407e075846dab021c6b8f2e98:brainstorming/PASEO_GUI_RUNTIME.md@06f8e8aa025eec1cc0395afc094c33e3dd9aee75`
 Definition Research: `research/PASEO_GUI_RUNTIME_DEFINITION_FACTS_R1.md`
 
 ## Goal
@@ -106,7 +106,7 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 | PGR-REQ-058 | Candidate resolution SHOULD include exact versions and digest/SHA/integrity where upstream provides them, and the exact resolution MUST be recoverable from the built artifact/evidence. | MUST |
 | PGR-REQ-059 | If any mandatory component cannot be resolved or the coordinated latest set is incompatible, promotion MUST fail closed rather than silently produce an arbitrary partial environment. | MUST |
 | PGR-REQ-060 | A temporary compatibility exception from latest MAY be proposed but requires explicit user approval, durable rationale and automatic re-evaluation on later maintenance. | MUST |
-| PGR-REQ-061 | Build/publish SHOULD use the self-hosted Unraid runner and private GHCR for the project child image and remote BuildKit cache. The child image MUST derive from the exact resolved official stable `ghcr.io/getpaseo/paseo:<version-or-digest>` base. | SHOULD |
+| PGR-REQ-061 | The current deployment path MUST be local-first on Tower: build with the dedicated persistent Tower Buildx/BuildKit path and retain local immutable child images for staged deployment and rollback. Private project GHCR publication, registry-backed recovery cache and a self-hosted GitHub runner are optional deferred enhancements, not prerequisites for this deployment. The child image MUST derive from the exact resolved official stable `ghcr.io/getpaseo/paseo:<version-or-digest>` base. | MUST |
 | PGR-REQ-062 | Every promoted image MUST have immutable identity/provenance; floating `latest` is only an alias for a successfully promoted candidate. | MUST |
 | PGR-REQ-063 | Production cutover MUST use a staged build → fast checks → temporary runtime smoke → promote/cutover → post-deploy smoke flow. | MUST |
 | PGR-REQ-064 | A failed pre-deploy smoke MUST leave production untouched; a failed post-deploy smoke SHOULD automatically roll back to the prior coherent known-good set when safe/unambiguous. | MUST |
@@ -138,7 +138,7 @@ Provide Paseo as the normal Android/PC GUI and execution surface for Pi on Unrai
 |---|---|---|
 | PGR-REQ-081 | Orchestration Runtime MUST NOT be deployed as part of the initial Paseo+Pi bring-up; it integrates only after the base environment is GREEN. | MUST |
 | PGR-REQ-082 | The future PWv2.1 Pi-extension packaging/bootstrap is a separate later integration scope after PWv2.1's final contract stabilizes. | MUST |
-| PGR-REQ-083 | Secret materialization plus exact-candidate Paseo/Pi/Relay, SpecPi, pi-mcp-adapter, browser-runtime, filesystem-ownership and registry/cache behavior MUST be verified by implementation readback/smoke rather than guessed; Definition Research has selected GraphQL-primary/SSH-fallback host control and the official Paseo GHCR base. | MUST |
+| PGR-REQ-083 | Secret materialization plus exact-candidate Paseo/Pi/Relay, SpecPi, pi-mcp-adapter, browser-runtime, filesystem-ownership and Tower-local builder/cache/image-retention behavior MUST be verified by implementation readback/smoke rather than guessed; Definition Research has selected GraphQL-primary/SSH-fallback host control and the official Paseo GHCR base. Optional private project registry/runner enhancements are outside the required current-path acceptance surface. | MUST |
 | PGR-REQ-084 | Research/Planning MAY choose concrete schemas, command names, package lists, cache sizes, doctor check lists and transport implementations only if they preserve these authority and product constraints. | MUST |
 | PGR-REQ-085 | The legacy standalone Pi bootstrap runtime/appdata SHOULD be retired only after Paseo reaches GREEN and rollback/recovery are verified. | MUST |
 | PGR-REQ-086 | SpecPi core MUST be installed as an approved global capability with SpecPi scope monitoring inactive because PW owns project scope; its improvement/wishlist capability MAY remain enabled. The exact resolved SpecPi/Pi pair MUST pass compatibility smoke before promotion. | MUST |
