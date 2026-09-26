@@ -549,8 +549,11 @@ def phase_profile_isolation(image: str, home: Path, profile: Path, downloads: Pa
     entries = sorted(path.name for path in profile.iterdir()) if profile.is_dir() else []
     if not entries:
         fail("automation profile directory is empty after headed run")
-    if not (profile / "Preferences").is_file():
-        fail("automation profile Preferences missing; persistent profile unproven")
+    # Chromium stores the default profile under the user data dir, so the
+    # persistence marker is Default/Preferences, not top-level Preferences.
+    preferences = profile / "Default" / "Preferences"
+    if not preferences.is_file() or preferences.stat().st_size == 0:
+        fail("automation profile Default/Preferences missing; persistent profile unproven")
     download_files = sorted(path.name for path in downloads.iterdir() if path.is_file())
     expected_downloads = ["headed.png", "headless.pdf", "headless.png", "task-download.txt"]
     if download_files != expected_downloads:
@@ -578,6 +581,7 @@ def phase_profile_isolation(image: str, home: Path, profile: Path, downloads: Pa
     return {
         "automation_profile": AUTOMATION_PROFILE_PATH,
         "automation_profile_populated": True,
+        "preferences": "Default/Preferences",
         "profile_entries": len(entries),
         "downloads": download_files,
         "downloads_path": AUTOMATION_DOWNLOADS_PATH,

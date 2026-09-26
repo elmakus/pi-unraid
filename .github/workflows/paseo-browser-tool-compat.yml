@@ -140,6 +140,7 @@ jobs:
           assert headed['chromium_version'] == '153.0.8010.12', headed
           isolation = phases['profile_isolation']['detail']
           assert isolation['automation_profile_populated'] is True, isolation
+          assert isolation['preferences'] == 'Default/Preferences', isolation
           assert isolation['personal_profiles_touched'] == [], isolation
           assert isolation['downloads'] == ['headed.png', 'headless.pdf', 'headless.png', 'task-download.txt'], isolation
           assert phases['dev_baseline']['detail']['node'] == 'v22.23.3'

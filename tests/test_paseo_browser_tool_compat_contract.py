@@ -395,6 +395,11 @@ class BrowserToolCompatContractTests(unittest.TestCase):
                 FLOW.docker_run_browser("image", [], ["node"], what="probe")
         self.assertIn("secret-like value", str(ctx.exception))
 
+    def test_profile_persistence_uses_chromium_default_layout(self) -> None:
+        isolation_source = HARNESS[HARNESS.index("def phase_profile_isolation"):HARNESS.index("def phase_dev_baseline")]
+        self.assertIn('profile / "Default" / "Preferences"', isolation_source)
+        self.assertIn('"preferences": "Default/Preferences"', HARNESS)
+
     def test_fixture_mode_set_before_ownership_transfer(self) -> None:
         flow_source = HARNESS[HARNESS.index("def disposable_flow"):HARNESS.index("def main(")]
         prepare_at = flow_source.index("prepare_browser_dirs(profile, downloads)")
