@@ -1,30 +1,30 @@
 workstream_id = "feature-paseo-gui-runtime"
-state = "consumed"
-origin_role = "definition"
-origin_subject = "definition:R1|paseo-gui-runtime@2|current-runtime-integration-facts"
-return_target = "definition"
-return_reconciliation = "applied"
-return_result = "elmakus/pi-unraid@43ddd4d5509f9a206b1d3ab667c290461bc6ea83:research/PASEO_GUI_RUNTIME_DEFINITION_FACTS_R1.md@f30d8e527c71c8cfa20e25f3e35922491e2d66af"
-finding = "Current upstream/runtime evidence supports the promoted architecture with bounded refinements: official Paseo GHCR child-image base, GraphQL-primary/SSH-fallback Unraid administration, server-side Chromium/Playwright independent of desktop Browser Tools, host-compatible volume ownership, and exact-candidate compatibility smoke for SpecPi/pi-mcp-adapter."
-limitations = "No live production Paseo/Pi target exists yet; real provider launch, Relay persistence, volume ownership, browser execution, MCP behavior and host-control failover remain implementation acceptance/readback obligations."
-conflicts = "No material conflict with accepted product authority; three implementation assumptions were narrowed without reopening user scope."
+state = "active"
+origin_role = "execution_prep"
+origin_subject = "M05-T02B|live-ghcr-runner-tower-facts"
+return_target = "execution_prep:M05-T02B"
+return_reconciliation = "pending"
+return_result = ""
+finding = "M05-T02A R02 is GREEN and the M05-T02B JIT trigger is satisfied. Local Buildx acceptance is proven on exact SHA d4523248b8025d65649d4b734e58e89a894e03d9 by CI run 36238131162. Read-only GitHub runner inventory reports zero registered self-hosted runners. Private GHCR package state and Tower Docker/Buildx, builder/cache path, storage and registry reachability remain unobserved."
+limitations = "Current gh authentication lacks read:packages (package API 403). This workstation has no SSH configuration or UNRAID_GRAPHQL_ENDPOINT; hostname tower does not resolve. No Tower connection or private-package mutation was attempted. A resolvable Tower target and configured non-interactive read-only access are needed before stable M05-T02B acceptance can be bound."
+conflicts = "None in the evidence available so far; live project/runtime facts remain pending."
 
 [[sources]]
 class = "official_upstream"
-status = "checked"
-weight = "highest for current product/install/API/runtime facts"
+status = "pending"
+weight = "highest for current GitHub Actions/GHCR and Unraid API behavior needed by the Card"
 
 [[sources]]
 class = "project_runtime"
-status = "checked"
-weight = "highest for actual repository and available deployment evidence"
+status = "pending"
+weight = "highest for actual Tower runner, builder, storage, registry and credential readback"
 
 [[sources]]
 class = "tracker_discussion"
-status = "checked"
-weight = "supporting evidence for upstream limitations/failure modes"
+status = "not_relevant"
+weight = "supporting only; no issue or discussion fact can replace live Tower/GHCR readback"
 
 [[sources]]
 class = "practitioner_community"
-status = "checked"
-weight = "supporting evidence for practical deployment failure modes and workarounds"
+status = "not_relevant"
+weight = "supporting only; community guidance cannot bind this project's live acceptance"
