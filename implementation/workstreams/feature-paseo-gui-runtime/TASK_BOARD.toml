@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 70
+revision = 71
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -317,9 +317,9 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T01.md"
 
 [cards.result]
 class = "result"
-path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T01.md"
-commit = "456a795737cf981d7297daa45549a9fd78d3e74a"
-blob = "783e1f2696f228a94be26ebc1ac9b1ea9d8a1af3"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T01-R02.md"
+commit = "40ad9529f7f3bb05a27caa306d21a3cdc83c5bcd"
+blob = "7b3855238c59f35f2cd2af05a0d1456db34832db"
 
 [[cards.review_attempts]]
 class = "review_attempt"
