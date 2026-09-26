@@ -435,6 +435,33 @@ class BrowserToolCompatContractTests(unittest.TestCase):
         self.assertEqual(entries, 6)
         self.assertEqual(preferences, 0)
 
+    def test_dev_baseline_probe_joins_network_tools_on_one_line(self) -> None:
+        baseline_source = HARNESS[HARNESS.index("def phase_dev_baseline"):HARNESS.index("def parse_dev_baseline")]
+        self.assertIn("command -v dig getent nc ssh", baseline_source)
+        self.assertIn("| tr ", baseline_source)
+        self.assertIn("parse_dev_baseline(out)", baseline_source)
+
+    def test_dev_baseline_parses_space_joined_network_tools(self) -> None:
+        report = FLOW.parse_dev_baseline(
+            "bash=GNU bash 5.2\ngit=git version 2.44\n"
+            "gcc=gcc 13\nmake=GNU Make 4.3\npython=Python 3.13\nnode=v22.23.3\n"
+            "network_tools=/usr/bin/dig /usr/bin/getent /bin/nc /usr/bin/ssh \n"
+        )
+        self.assertEqual(report["node"], "v22.23.3")
+        self.assertEqual(report["network_tools"], ["dig", "getent", "nc", "ssh"])
+
+    def test_dev_baseline_rejects_missing_network_tool(self) -> None:
+        with self.assertRaises(SystemExit):
+            FLOW.parse_dev_baseline(
+                "bash=x\ngit=x\ngcc=x\nmake=x\npython=x\nnode=v22.23.3\n"
+                "network_tools=/usr/bin/dig \n"
+            )
+        with self.assertRaises(SystemExit):
+            FLOW.parse_dev_baseline(
+                "bash=x\ngit=x\ngcc=x\nmake=x\npython=x\nnode=v22.0.0\n"
+                "network_tools=/usr/bin/dig /usr/bin/getent /bin/nc /usr/bin/ssh \n"
+            )
+
     def test_fixture_mode_set_before_ownership_transfer(self) -> None:
         flow_source = HARNESS[HARNESS.index("def disposable_flow"):HARNESS.index("def main(")]
         prepare_at = flow_source.index("prepare_browser_dirs(profile, downloads)")

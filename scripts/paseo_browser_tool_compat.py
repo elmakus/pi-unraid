@@ -638,10 +638,16 @@ def phase_dev_baseline(image: str) -> dict:
          "printf 'make=%s\\n' \"$(make --version | head -n1)\"; "
          "printf 'python=%s\\n' \"$(python3 --version)\"; "
          "printf 'node=%s\\n' \"$(node --version)\"; "
-         "printf 'network_tools=%s\\n' \"$(command -v dig; command -v getent; command -v nc; command -v ssh; true)\"; "],
+         "printf 'network_tools=%s\\n' \"$(command -v dig getent nc ssh 2>/dev/null | tr '\\n' ' ')\"; "],
         timeout=120,
     )
-    values = dict(line.split("=", 1) for line in out.splitlines() if "=" in line)
+    return parse_dev_baseline(out)
+
+
+def parse_dev_baseline(output: str) -> dict:
+    # The network_tools value is space-joined on one line: a multi-line
+    # embedding would lose every path but the first during parsing.
+    values = dict(line.split("=", 1) for line in output.splitlines() if "=" in line)
     for key in ("bash", "git", "gcc", "make", "python", "node"):
         if not values.get(key):
             fail(f"dev baseline tool missing: {key}")
