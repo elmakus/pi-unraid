@@ -484,7 +484,7 @@ class TimingsAndPruneTests(unittest.TestCase):
         prune = prunes[0]
         self.assertIn("--builder", prune)
         self.assertIn("pi-unraid-paseo", prune)
-        self.assertIn("--keep-storage", prune)
+        self.assertIn("--max-used-space", prune)
         self.assertIn("8GB", prune)
         self.assertIn("--force", prune)
         order = [[c[2] for c in calls].index("build"), [c[2] for c in calls].index("prune")]
@@ -722,7 +722,7 @@ class GatedTestPruneFlowTests(unittest.TestCase):
             record = json.loads(path.read_text())
         self.assertEqual(len(calls), 1)
         self.assertEqual(calls[0][:3], ["docker", "buildx", "prune"])
-        self.assertIn("--keep-storage", calls[0])
+        self.assertIn("--max-used-space", calls[0])
         self.assertEqual(record["phases"]["prune"]["status"], "ok")
         self.assertEqual(record["phases"]["prune"]["detail"]["keep_storage"], "8GB")
         self.assertEqual(record["phases"]["build"]["status"], "ok")

@@ -7,6 +7,8 @@ import datetime
 import importlib.util
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -17,6 +19,7 @@ DEFAULT_ROOT = Path("/mnt/user/appdata/pi-unraid/buildx")
 DEFAULT_BOUNDARY = Path("/mnt/user/appdata/pi-unraid")
 DEFAULT_BUILDER = "pi-unraid-paseo"
 DEFAULT_RETAIN = 3
+DEFAULT_CACHE_MAX = "8GB"
 RETENTION_SCHEMA = 1
 IMAGE_PREFIX = "pi-unraid:paseo-"
 
@@ -56,6 +59,119 @@ def atomic_json(path: Path, data: dict) -> None:
     os.replace(tmp, path)
 
 
+def parse_storage_bytes(value: str) -> int:
+    match = re.fullmatch(r"([0-9]+(?:\\.[0-9]+)?)\\s*(B|KB|MB|GB|TB)", (value or "").strip(), re.I)
+    if not match:
+        raise TowerBuildError(f"cache bound is invalid: {value!r}")
+    units = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
+    return int(float(match.group(1)) * units[match.group(2).upper()])
+
+
+def cache_size_bytes(root: Path) -> int:
+    if not root.exists():
+        return 0
+    total = 0
+    for item in root.rglob("*"):
+        try:
+            if item.is_file():
+                total += item.stat().st_size
+        except OSError:
+            pass
+    return total
+
+
+def _digest_strings(obj) -> set[str]:
+    found: set[str] = set()
+    if isinstance(obj, dict):
+        for value in obj.values():
+            found.update(_digest_strings(value))
+    elif isinstance(obj, list):
+        for value in obj:
+            found.update(_digest_strings(value))
+    elif isinstance(obj, str) and re.fullmatch(r"sha256:[0-9a-f]{64}", obj):
+        found.add(obj)
+    return found
+
+
+def reachable_local_cache_blobs(cache_dir: Path) -> set[str]:
+    """Return OCI blob digests reachable from the current local-cache index."""
+    index = cache_dir / "index.json"
+    if not index.is_file():
+        return set()
+    try:
+        root = json.loads(index.read_text())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise TowerBuildError(f"local cache index is unreadable: {index}") from exc
+    reachable = _digest_strings(root)
+    queue = list(reachable)
+    seen = set()
+    while queue:
+        digest = queue.pop()
+        if digest in seen:
+            continue
+        seen.add(digest)
+        blob = cache_dir / "blobs" / "sha256" / digest.split(":", 1)[1]
+        try:
+            if not blob.is_file() or blob.stat().st_size > 2 * 1024 * 1024:
+                continue
+            nested = json.loads(blob.read_text())
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+            continue
+        for child in _digest_strings(nested):
+            if child not in reachable:
+                reachable.add(child)
+                queue.append(child)
+    return reachable
+
+
+def compact_local_cache(profile: dict, max_storage: str) -> dict:
+    """Post-success OCI cache GC plus a fail-safe hard cap."""
+    cache_dir = Path(profile["cache_dir"])
+    max_bytes = parse_storage_bytes(max_storage)
+    before = cache_size_bytes(cache_dir)
+    reachable = reachable_local_cache_blobs(cache_dir)
+    removed_blobs = 0
+    removed_bytes = 0
+    blob_root = cache_dir / "blobs" / "sha256"
+    if blob_root.is_dir():
+        for blob in blob_root.iterdir():
+            if not blob.is_file():
+                continue
+            digest = f"sha256:{blob.name}"
+            if digest in reachable:
+                continue
+            try:
+                size = blob.stat().st_size
+                blob.unlink()
+                removed_blobs += 1
+                removed_bytes += size
+            except OSError as exc:
+                raise TowerBuildError(f"cannot prune stale local-cache blob: {blob}") from exc
+
+    after_gc = cache_size_bytes(cache_dir)
+    cleared_over_bound = False
+    if after_gc > max_bytes:
+        shutil.rmtree(cache_dir)
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        cleared_over_bound = True
+    after = cache_size_bytes(cache_dir)
+    result = {
+        "schema_version": 1,
+        "max_storage": max_storage,
+        "max_bytes": max_bytes,
+        "bytes_before": before,
+        "bytes_after_gc": after_gc,
+        "bytes_after": after,
+        "reachable_blobs": len(reachable),
+        "removed_blobs": removed_blobs,
+        "removed_bytes": removed_bytes,
+        "cleared_over_bound": cleared_over_bound,
+        "pruned_at": _utcnow(),
+    }
+    atomic_json(Path(profile["cache_policy_file"]), result)
+    return result
+
+
 def resolve_profile(root: Path, boundary: Path, builder: str) -> dict[str, Path | str]:
     root = root.expanduser().resolve()
     boundary = boundary.expanduser().resolve()
@@ -73,6 +189,7 @@ def resolve_profile(root: Path, boundary: Path, builder: str) -> dict[str, Path 
         "cache_dir": root / "cache",
         "records_dir": root / "records",
         "retention_file": root / "retention.json",
+        "cache_policy_file": root / "cache-policy.json",
         "readback_file": root / "tower-readback.json",
     }
 
@@ -226,6 +343,10 @@ def readback(profile: dict) -> dict:
         "builder_readback": (inspect.stdout or inspect.stderr)[-2400:],
         "paths": {k: str(profile[k]) for k in ("root", "state_dir", "cache_dir", "records_dir")},
         "cache_bytes": cache_bytes,
+        "cache_policy": (
+            json.loads(Path(profile["cache_policy_file"]).read_text())
+            if Path(profile["cache_policy_file"]).is_file() else None
+        ),
         "retention": retention,
         "protected_images": protected,
         "read_at": _utcnow(),
@@ -253,6 +374,7 @@ def cmd_build(args, profile: dict) -> int:
     rc = buildx.main(inner)
     if rc != 0:
         return rc
+    compact_local_cache(profile, args.cache_max)
     retain_record(profile, record, args.retain)
     if args.prune_images:
         prune_unprotected_images(profile)
@@ -279,6 +401,7 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--record")
     build.add_argument("--keep-storage", default=buildx.KEEP_STORAGE_DEFAULT)
     build.add_argument("--retain", type=int, default=DEFAULT_RETAIN)
+    build.add_argument("--cache-max", default=DEFAULT_CACHE_MAX)
     build.add_argument("--build-label", action="append", default=[])
     build.add_argument("--with-prune", action="store_true")
     build.add_argument("--prune-images", action="store_true")

@@ -353,7 +353,7 @@ def run_prune(
     bound = check_keep_storage(keep_storage)
     proc = run_fn(
         ["docker", "buildx", "prune", "--builder", builder,
-         "--keep-storage", bound, "--force"],
+         "--max-used-space", bound, "--force"],
         env,
         300,
     )
