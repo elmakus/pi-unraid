@@ -1,0 +1,157 @@
+name: Paseo RPC workspace flow (M06-T01 disposable evidence)
+
+on:
+  push:
+    branches:
+      - feat/paseo-gui-runtime
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - config/paseo-candidate.json
+      - config/pi-agent/**
+      - scripts/paseo_rpc_workspace_flow.py
+      - scripts/paseo_buildx.py
+      - scripts/smoke_paseo_image.py
+      - scripts/verify-compose-foundation.sh
+      - scripts/verify-pi-instruction-plane.sh
+      - scripts/configure-paseo-runtime.sh
+      - scripts/configure-pi-instruction-plane.sh
+      - scripts/pi_instruction_plane.py
+      - tests/test_paseo_rpc_workspace_contract.py
+      - tests/test_paseo_candidate_resolver.py
+      - tests/test_paseo_child_image_contract.py
+      - tests/test_paseo_runtime_contract.py
+      - tests/test_paseo_relay_auth_contract.py
+      - tests/test_pi_instruction_plane_contract.py
+      - tests/test_pi_global_capabilities_contract.py
+      - tests/test_unraid_graphql_host_control_contract.py
+      - tests/test_unraid_host_control_guard_contract.py
+      - tests/test_unraid_host_control_doctor_contract.py
+      - tests/test_environment_capability_inventory_contract.py
+      - tests/test_environment_capability_control_contract.py
+      - tests/test_paseo_buildx_contract.py
+      - tests/test_paseo_tower_build_contract.py
+      - tests/test_paseo_staged_update_contract.py
+      - tests/test_paseo_staged_home_evidence_contract.py
+      - .github/workflows/paseo-rpc-workspace.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rpc-workspace-disposable-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      PI_UNRAID_BUILDX_BUILDER: pi-unraid-paseo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Configure persistent Buildx state location
+        run: |
+          STATE_DIR="$HOME/.local/share/pi-unraid/buildx"
+          mkdir -p "$STATE_DIR"
+          echo "DOCKER_CONFIG=$STATE_DIR" >> "$GITHUB_ENV"
+          echo "PI_UNRAID_BUILDX_STATE_DIR=$STATE_DIR" >> "$GITHUB_ENV"
+      - name: Verify exact M06-T01 predecessor bindings
+        run: |
+          test "$(git rev-parse 550c5f76cca783e43eb44b0bdbf82c7fe889bff6:implementation/workstreams/feature-paseo-gui-runtime/results/M05-T03-R02.md)" = "b526cf4717ea6d353fc6d23f082b1c726e7f55ed"
+          test "$(git rev-parse 727b6f25a3b957551d10c9c24d9e9d1e26efd6ab:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T01.md)" = "e5075d474bb7aaf0583baf66757add56fb556253"
+          test "$(git rev-parse cac4ac5e5a4b6c96ad71d9bbce12962388f7a4be:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T03.md)" = "0d13d7fe5a6dd29fb68e700d13cc5c1251722c28"
+      - name: Complete contract suite on this SHA
+        run: |
+          python3 -m unittest tests/test_paseo_rpc_workspace_contract.py -v
+          python3 -m unittest tests/test_paseo_candidate_resolver.py -v
+          python3 -m unittest tests/test_paseo_child_image_contract.py -v
+          python3 -m unittest tests/test_paseo_runtime_contract.py -v
+          python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
+          python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
+          python3 -m unittest tests/test_pi_global_capabilities_contract.py -v
+          python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_doctor_contract.py -v
+          python3 -m unittest tests/test_environment_capability_inventory_contract.py -v
+          python3 -m unittest tests/test_environment_capability_control_contract.py -v
+          python3 -m unittest tests/test_paseo_buildx_contract.py -v
+          python3 -m unittest tests/test_paseo_tower_build_contract.py -v
+          python3 -m unittest tests/test_paseo_staged_update_contract.py -v
+          python3 -m unittest tests/test_paseo_staged_home_evidence_contract.py -v
+      - name: Static machine-readable readback
+        run: |
+          python3 scripts/paseo_rpc_workspace_flow.py readback \
+            --report /tmp/m06-t01-readback.json | tee /tmp/m06-t01-readback-out.json
+          python3 - <<'EOF'
+          import json
+          r = json.load(open('/tmp/m06-t01-readback.json'))
+          assert r['card'] == 'M06-T01', r['card']
+          assert r['violations'] == [], r['violations']
+          assert r['verdict'] == 'technical_green_ha_outstanding', r['verdict']
+          assert r['full_green_claimed'] is False
+          assert r['autostart']['production_autostart_enabled'] is False
+          assert len(r['ha_deferred']) == 11, len(r['ha_deferred'])
+          print('readback verdict:', r['verdict'])
+          EOF
+      - name: Build frozen candidate image for the disposable flow
+        run: |
+          python3 scripts/paseo_buildx.py build \
+            --record /tmp/seed-record.json \
+            --metadata /tmp/seed-metadata.json \
+            --progress plain 2>&1 | tee /tmp/seed-build.log
+          python3 scripts/paseo_buildx.py test --record /tmp/seed-record.json 2>&1 | tee /tmp/seed-test.log
+          python3 -c "import json;r=json.load(open('/tmp/seed-record.json'));print('seed tag:',r['tag']);print('seed image:',r['image']['id'])"
+      - name: Disposable integrated RPC workspace flow with session-loss recovery
+        run: |
+          TAG="$(python3 -c "import json;print(json.load(open('/tmp/seed-record.json'))['tag'])")"
+          echo "SEED_TAG=$TAG" >> "$GITHUB_ENV"
+          python3 scripts/paseo_rpc_workspace_flow.py flow \
+            --scope disposable --image "$TAG" \
+            --report /tmp/m06-t01-flow.json | tee /tmp/m06-t01-flow-out.json
+          python3 - <<'EOF'
+          import json
+          r = json.load(open('/tmp/m06-t01-flow.json'))
+          assert r['card'] == 'M06-T01', r['card']
+          assert r['scope'] == 'disposable', r['scope']
+          assert r['outcome'] == 'integrated_flow_green', r['outcome']
+          assert r['full_green_claimed'] is False
+          assert r['production_mutation'] is False
+          phases = {p['name']: p['status'] for p in r['phases']}
+          for name in ('fixture', 'configure', 'rpc_on_demand',
+                       'workspace_readback_before', 'session_loss', 'recovery',
+                       'workspace_readback_after'):
+              assert phases.get(name) == 'ok', (name, phases)
+          print('flow outcome:', r['outcome'])
+          print('image:', r['image']['id'])
+          EOF
+      - name: Fail-closed guards refuse production scope
+        run: |
+          set +e
+          python3 scripts/paseo_rpc_workspace_flow.py flow \
+            --scope production --image "$SEED_TAG" >/tmp/m06-t01-production-out.txt 2>&1
+          test "$?" -ne 0
+          set -e
+          grep -i "refusing non-disposable scope" /tmp/m06-t01-production-out.txt
+      - name: Prove disposable scope and production untouched
+        if: always()
+        run: |
+          test ! -e /mnt/user/appdata/pi-unraid
+          test -z "$(docker ps -q --filter ancestor="$SEED_TAG")"
+          docker ps -a --format '{{.Names}} {{.Image}}'
+      - name: Upload rpc-workspace evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-rpc-workspace-evidence
+          path: |
+            /tmp/seed-record.json
+            /tmp/seed-metadata.json
+            /tmp/seed-build.log
+            /tmp/seed-test.log
+            /tmp/m06-t01-readback.json
+            /tmp/m06-t01-flow.json
+            /tmp/m06-t01-production-out.txt
