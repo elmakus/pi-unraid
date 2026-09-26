@@ -72,14 +72,20 @@ assert "npm:pi-mcp-adapter@2.37.0" in d["packages"]
 PY
 test "$(sha256sum "$fixture/home/.pi/agent/AGENTS.md" | awk '{print $1}')" = "$instruction_hash"
 test "$(sha256sum "$fixture/home/.pi/agent/provider-state.json" | awk '{print $1}')" = "$provider_hash"
-python3 - "$fixture/home/.pi-unraid/global-capabilities/snapshot.json" <<'PY'
+docker run --rm --user "$uid:$gid" \
+  -v "$fixture:/fixture" \
+  "$image" python3 - /fixture/home/.pi-unraid/global-capabilities/snapshot.json <<'PY'
 import json,sys
 d=json.load(open(sys.argv[1]))
 assert d["packages_field_present"] is True
 assert d["prior_managed_packages"]==[]
 PY
-test "$(stat -c '%a' "$fixture/home/.pi-unraid/global-capabilities/snapshot.json")" = "600"
-test "$(stat -c '%a' "$fixture/home/.pi-unraid/global-capabilities/compatibility.json")" = "600"
+test "$(docker run --rm --user "$uid:$gid" --entrypoint stat \
+  -v "$fixture:/fixture" \
+  "$image" -c '%a' /fixture/home/.pi-unraid/global-capabilities/snapshot.json)" = "600"
+test "$(docker run --rm --user "$uid:$gid" --entrypoint stat \
+  -v "$fixture:/fixture" \
+  "$image" -c '%a' /fixture/home/.pi-unraid/global-capabilities/compatibility.json)" = "600"
 
 noop_json="$(bash "$repo_root/scripts/configure-pi-global-capabilities.sh" \
   apply "$image" "$fixture/home" "$uid" "$gid")"
