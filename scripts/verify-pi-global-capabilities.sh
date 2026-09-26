@@ -74,18 +74,17 @@ test "$(sha256sum "$fixture/home/.pi/agent/AGENTS.md" | awk '{print $1}')" = "$i
 test "$(sha256sum "$fixture/home/.pi/agent/provider-state.json" | awk '{print $1}')" = "$provider_hash"
 docker run --rm --user "$uid:$gid" \
   -v "$fixture:/fixture" \
-  "$image" python3 - /fixture/home/.pi-unraid/global-capabilities/snapshot.json <<'PY'
-import json,sys
-d=json.load(open(sys.argv[1]))
+  "$image" python3 - \
+    /fixture/home/.pi-unraid/global-capabilities/snapshot.json \
+    /fixture/home/.pi-unraid/global-capabilities/compatibility.json <<'PY'
+import json,os,stat,sys
+snapshot, compatibility = sys.argv[1:3]
+d=json.load(open(snapshot))
 assert d["packages_field_present"] is True
 assert d["prior_managed_packages"]==[]
+assert stat.S_IMODE(os.stat(snapshot).st_mode) == 0o600
+assert stat.S_IMODE(os.stat(compatibility).st_mode) == 0o600
 PY
-test "$(docker run --rm --user "$uid:$gid" --entrypoint stat \
-  -v "$fixture:/fixture" \
-  "$image" -c '%a' /fixture/home/.pi-unraid/global-capabilities/snapshot.json)" = "600"
-test "$(docker run --rm --user "$uid:$gid" --entrypoint stat \
-  -v "$fixture:/fixture" \
-  "$image" -c '%a' /fixture/home/.pi-unraid/global-capabilities/compatibility.json)" = "600"
 
 noop_json="$(bash "$repo_root/scripts/configure-pi-global-capabilities.sh" \
   apply "$image" "$fixture/home" "$uid" "$gid")"
