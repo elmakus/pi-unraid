@@ -1,0 +1,188 @@
+name: Paseo browser/tool/extension compatibility (M06-T02 disposable evidence)
+
+on:
+  push:
+    branches:
+      - feat/paseo-gui-runtime
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - config/paseo-candidate.json
+      - scripts/paseo_browser_tool_compat.py
+      - scripts/paseo_buildx.py
+      - scripts/smoke_paseo_image.py
+      - scripts/pi_global_capabilities.py
+      - scripts/configure-pi-global-capabilities.sh
+      - tests/test_paseo_browser_tool_compat_contract.py
+      - tests/test_paseo_candidate_resolver.py
+      - tests/test_paseo_child_image_contract.py
+      - tests/test_paseo_runtime_contract.py
+      - tests/test_paseo_relay_auth_contract.py
+      - tests/test_pi_instruction_plane_contract.py
+      - tests/test_pi_global_capabilities_contract.py
+      - tests/test_unraid_graphql_host_control_contract.py
+      - tests/test_unraid_host_control_guard_contract.py
+      - tests/test_unraid_host_control_doctor_contract.py
+      - tests/test_environment_capability_inventory_contract.py
+      - tests/test_environment_capability_control_contract.py
+      - tests/test_paseo_buildx_contract.py
+      - tests/test_paseo_tower_build_contract.py
+      - tests/test_paseo_staged_update_contract.py
+      - tests/test_paseo_staged_home_evidence_contract.py
+      - tests/test_paseo_rpc_workspace_contract.py
+      - .github/workflows/paseo-browser-tool-compat.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-tool-compat-disposable-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    env:
+      PI_UNRAID_BUILDX_BUILDER: pi-unraid-paseo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Configure persistent Buildx state location
+        run: |
+          STATE_DIR="$HOME/.local/share/pi-unraid/buildx"
+          mkdir -p "$STATE_DIR"
+          echo "DOCKER_CONFIG=$STATE_DIR" >> "$GITHUB_ENV"
+          echo "PI_UNRAID_BUILDX_STATE_DIR=$STATE_DIR" >> "$GITHUB_ENV"
+      - name: Verify exact M06-T02 predecessor bindings
+        run: |
+          test "$(git rev-parse 0f8538f7d226c6c022b5070aeca42375ba2d751a:implementation/workstreams/feature-paseo-gui-runtime/results/M06-T01.md)" = "e01bd1dd4d84c94ec9b29f7bd1914e7160162d82"
+          test "$(git rev-parse fb6195831d047ede2f359146b69ede2690e84ef3:implementation/workstreams/feature-paseo-gui-runtime/results/M04-T03.md)" = "e31658fda900d748010bedc6caa0bb3aacf8c430"
+          test "$(git rev-parse dd3047320faf92f0dfe9d0ac0a0f5ff590e11250:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T01.md)" = "4ccca450fa664344ef3ded7de33de7df7c79d8f9"
+          test "$(git rev-parse 4e60c855a84b2e74d50de812db1ba9cc156af400:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T02.md)" = "be820f52901a9d2d4a40b71c3da6d19ffc08edea"
+          test "$(git rev-parse bbc862c37c0da81a08a91876499cfe865be958ab:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md)" = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
+      - name: Complete contract suite on this SHA
+        run: |
+          python3 -m unittest tests/test_paseo_browser_tool_compat_contract.py -v
+          python3 -m unittest tests/test_paseo_candidate_resolver.py -v
+          python3 -m unittest tests/test_paseo_child_image_contract.py -v
+          python3 -m unittest tests/test_paseo_runtime_contract.py -v
+          python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
+          python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
+          python3 -m unittest tests/test_pi_global_capabilities_contract.py -v
+          python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_doctor_contract.py -v
+          python3 -m unittest tests/test_environment_capability_inventory_contract.py -v
+          python3 -m unittest tests/test_environment_capability_control_contract.py -v
+          python3 -m unittest tests/test_paseo_buildx_contract.py -v
+          python3 -m unittest tests/test_paseo_tower_build_contract.py -v
+          python3 -m unittest tests/test_paseo_staged_update_contract.py -v
+          python3 -m unittest tests/test_paseo_staged_home_evidence_contract.py -v
+          python3 -m unittest tests/test_paseo_rpc_workspace_contract.py -v
+      - name: Static machine-readable readback
+        run: |
+          set -o pipefail
+          python3 scripts/paseo_browser_tool_compat.py readback \
+            --report /tmp/m06-t02-readback.json | tee /tmp/m06-t02-readback-out.json
+          python3 - <<'EOF'
+          import json
+          r = json.load(open('/tmp/m06-t02-readback.json'))
+          assert r['card'] == 'M06-T02', r['card']
+          assert r['violations'] == [], r['violations']
+          assert r['verdict'] == 'technical_green_ha_outstanding', r['verdict']
+          assert r['full_green_claimed'] is False
+          assert r['candidate']['chromium_version'] == '153.0.8010.12', r['candidate']
+          assert r['candidate']['frozen'] is True
+          assert r['browser_tooling']['socket_mounted'] is False
+          assert r['browser_tooling']['ports_published'] is False
+          assert r['extension_policy']['wishlist_owner'] == 'M07-T05'
+          assert len(r['ha_deferred']) == 12, len(r['ha_deferred'])
+          print('readback verdict:', r['verdict'])
+          EOF
+      - name: Build frozen candidate image for the disposable flow
+        run: |
+          set -o pipefail
+          python3 scripts/paseo_buildx.py build \
+            --record /tmp/seed-record.json \
+            --metadata /tmp/seed-metadata.json \
+            --progress plain 2>&1 | tee /tmp/seed-build.log
+          python3 scripts/paseo_buildx.py test --record /tmp/seed-record.json 2>&1 | tee /tmp/seed-test.log
+          python3 -c "import json;r=json.load(open('/tmp/seed-record.json'));print('seed tag:',r['tag']);print('seed image:',r['image']['id'])"
+      - name: Disposable browser/tool/extension compatibility flow
+        run: |
+          set -o pipefail
+          TAG="$(python3 -c "import json;print(json.load(open('/tmp/seed-record.json'))['tag'])")"
+          echo "SEED_TAG=$TAG" >> "$GITHUB_ENV"
+          python3 scripts/paseo_browser_tool_compat.py flow \
+            --scope disposable --image "$TAG" \
+            --report /tmp/m06-t02-flow.json | tee /tmp/m06-t02-flow-out.json
+          python3 - <<'EOF'
+          import json
+          r = json.load(open('/tmp/m06-t02-flow.json'))
+          assert r['card'] == 'M06-T02', r['card']
+          assert r['scope'] == 'disposable', r['scope']
+          assert r['outcome'] == 'browser_tool_compat_green', r['outcome']
+          assert r['full_green_claimed'] is False
+          assert r['production_mutation'] is False
+          phases = {p['name']: p for p in r['phases']}
+          for name in ('fixture', 'image_labels', 'browser_headless',
+                       'browser_headed_xvfb', 'profile_isolation', 'dev_baseline',
+                       'gh_unauth', 'docker_tooling', 'extension_compat'):
+              assert phases.get(name, {}).get('status') == 'ok', (name, phases)
+          assert r['image']['candidate_id'] == 'sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69'
+          headless = phases['browser_headless']['detail']
+          assert headless['chromium_version'] == '153.0.8010.12', headless
+          assert headless['pdf_supported'] is True, headless
+          headed = phases['browser_headed_xvfb']['detail']
+          assert headed['chromium_version'] == '153.0.8010.12', headed
+          isolation = phases['profile_isolation']['detail']
+          assert isolation['automation_profile_populated'] is True, isolation
+          assert isolation['personal_profiles_touched'] == [], isolation
+          assert isolation['downloads'] == ['headed.png', 'headless.pdf', 'headless.png', 'task-download.txt'], isolation
+          assert phases['dev_baseline']['detail']['node'] == 'v22.23.3'
+          gh = phases['gh_unauth']['detail']
+          assert gh['fail_closed'] is True and gh['authenticated_workflow_claimed'] is False, gh
+          tooling = phases['docker_tooling']['detail']
+          assert tooling['socket'] == 'absent' and tooling['control_fail_closed'] is True, tooling
+          assert tooling['host_control_claimed'] is False, tooling
+          ext = phases['extension_compat']['detail']
+          assert ext['compatibility'] == 'GREEN', ext
+          assert ext['scope'] == 'inactive_in_fresh_session', ext
+          assert ext['wishlist_activation_performed'] is False, ext
+          assert ext['wishlist_owner'] == 'M07-T05', ext
+          assert ext['failure_reason_observed'] == 'package_missing_or_invalid', ext
+          assert ext['restored_green'] is True, ext
+          print('flow outcome:', r['outcome'])
+          print('image:', r['image']['id'])
+          EOF
+      - name: Fail-closed guards refuse production scope
+        run: |
+          set +e
+          python3 scripts/paseo_browser_tool_compat.py flow \
+            --scope production --image "$SEED_TAG" >/tmp/m06-t02-production-out.txt 2>&1
+          test "$?" -ne 0
+          set -e
+          grep -i "refusing non-disposable scope" /tmp/m06-t02-production-out.txt
+      - name: Prove disposable scope and production untouched
+        if: always()
+        run: |
+          test ! -e /mnt/user/appdata/pi-unraid
+          test -z "$(docker ps -q --filter ancestor="$SEED_TAG")"
+          docker ps -a --format '{{.Names}} {{.Image}}'
+      - name: Upload browser-tool-compat evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-browser-tool-compat-evidence
+          path: |
+            /tmp/seed-record.json
+            /tmp/seed-metadata.json
+            /tmp/seed-build.log
+            /tmp/seed-test.log
+            /tmp/m06-t02-readback.json
+            /tmp/m06-t02-flow.json
+            /tmp/m06-t02-flow-out.json
+            /tmp/m06-t02-production-out.txt
