@@ -756,15 +756,104 @@ def collect_spawn_diagnostics(cid: str, agent_id: str | None, run_out: str) -> d
     return diagnostics
 
 
-def find_pi_child(ps_text: str) -> dict | None:
+def parse_ps_table(ps_text: str) -> list[dict]:
+    # Parses `ps -eo pid,ppid,comm,args` rows; skips the header and short lines.
+    rows = []
     for line in ps_text.splitlines():
-        parts = line.split(None, 2)
-        if len(parts) != 3:
+        parts = line.split(None, 3)
+        if len(parts) != 4:
             continue
-        pid, ppid, args = parts
-        if "pi --mode rpc" in args and "[p]i --mode rpc" not in args:
-            return {"pid": pid, "ppid": ppid, "args": args}
+        pid, ppid, comm, args = parts
+        if not pid.isdigit() or not ppid.isdigit():
+            continue
+        rows.append({"pid": pid, "ppid": ppid, "comm": comm, "args": args})
+    return rows
+
+
+def pid_info_map(ps_text: str) -> dict:
+    return {row["pid"]: row for row in parse_ps_table(ps_text)}
+
+
+def find_pi_children(ps_text: str) -> list[dict]:
+    # The daemon's pi child shows bare `pi` (argv/title normalization), so a
+    # literal `pi --mode rpc` predicate misses the real spawn. Match the exact
+    # comm or argv[0] basename instead; ancestry binding happens separately.
+    found = []
+    for row in parse_ps_table(ps_text):
+        argv0 = row["args"].split(None, 1)[0] if row["args"].strip() else ""
+        base = argv0.rsplit("/", 1)[-1]
+        if row["comm"] == "pi" or base == "pi":
+            found.append(row)
+    return found
+
+
+def bind_daemon_child(candidates: list[dict], worker_pid: str | None, info_map: dict) -> dict | None:
+    # Accept only a pi child of this container's actual daemon worker.
+    for cand in candidates:
+        if worker_pid and cand["ppid"] == worker_pid:
+            return {**cand, "parent_match": "worker_pid"}
+    if worker_pid:
+        return None
+    for cand in candidates:
+        info = info_map.get(cand["ppid"], {})
+        blob = f"{info.get('comm', '')} {info.get('args', '')}".lower()
+        if "node" in blob or "paseo" in blob:
+            return {**cand, "parent_match": "comm_fallback"}
     return None
+
+
+def read_proc_field(cid: str, pid: str, name: str) -> str | None:
+    # Best-effort true-argv/exe snapshot; the witness already holds at this
+    # point, so a raced exit degrades to None instead of failing.
+    if not pid.isdigit() or name not in ("cmdline", "exe"):
+        return None
+    try:
+        if name == "exe":
+            return run_command(["docker", "exec", cid, "readlink", f"/proc/{pid}/exe"],
+                               timeout=30).strip() or None
+        out = run_command(["docker", "exec", cid, "sh", "-c",
+                           f"tr '\\0' ' ' </proc/{pid}/cmdline"], timeout=30)
+        return out.strip() or None
+    except SystemExit:
+        return None
+
+
+def parse_worker_pid(status_text: str) -> str | None:
+    match = re.search(r"(?m)^workerPid:\s*(\d+)\s*$", status_text)
+    return match.group(1) if match else None
+
+
+def find_pi_agent(ls_text: str, agent_id: str | None) -> dict | None:
+    try:
+        agents = json.loads(ls_text)
+    except ValueError:
+        return None
+    if not isinstance(agents, list) or not agent_id:
+        return None
+    for agent in agents:
+        if not isinstance(agent, dict) or agent.get("id") != agent_id:
+            continue
+        provider = str(agent.get("provider", ""))
+        if provider == "pi" or provider.startswith("pi/"):
+            return {"id": agent_id, "provider": provider,
+                    "status": str(agent.get("status", "unknown"))}
+    return None
+
+
+def classify_agent_error(status: str, logs_text: str) -> str:
+    # Turn outcome is HA-owned; spawn proof must not depend on it. Classify
+    # only so evidence distinguishes model-auth failure from other faults.
+    if status != "error":
+        return "none"
+    if not logs_text.strip() or logs_text in ("no agent id parsed",) \
+            or logs_text.startswith("<unavailable"):
+        return "unknown"
+    lowered = logs_text.lower()
+    if any(marker in lowered for marker in
+           ("model", "provider", "api key", "apikey", "auth", "login",
+            "credential", "unauthorized", "401", "403", "quota", "billing")):
+        return "model_auth"
+    return "other"
 
 
 def paseo_spawn_probe(root: Path, image: str, report_path: Path | None) -> dict:
@@ -864,40 +953,61 @@ def paseo_spawn_probe(root: Path, image: str, report_path: Path | None) -> dict:
             fail(f"PASEO_SPAWN_BLOCKED:{run_gate}: agent launch output admits a gate: "
                  f"{run_out.strip()[:300]}")
         agent_id = parse_agent_id(run_out)
+        if agent_id is None:
+            fail(f"could not parse agent id from launch output: {run_out.strip()[:300]}")
+        status_out = run_command(
+            ["docker", "exec", "-u", f"{RUNTIME_UID}:{RUNTIME_GID}", cid,
+             "paseo", "--home", paseo_home, "status"],
+            timeout=60,
+        )
+        worker_pid = parse_worker_pid(status_out)
         spawn: dict | None = None
         poll_deadline = time.monotonic() + 90
         while time.monotonic() < poll_deadline:
             ps_out = run_command(
-                ["docker", "exec", cid, "sh", "-c",
-                 "ps -eo pid,ppid,args | grep '[p]i --mode rpc' || true"],
+                ["docker", "exec", cid, "ps", "-eo", "pid,ppid,comm,args"],
                 timeout=30,
             )
-            spawn = find_pi_child(ps_out)
+            spawn = bind_daemon_child(find_pi_children(ps_out), worker_pid,
+                                      pid_info_map(ps_out))
             if spawn is not None:
                 break
             time.sleep(1)
         if spawn is None:
-            fail("no pi --mode rpc child spawned by the Paseo daemon within the poll window; "
+            fail("no daemon-parented pi child spawned by the Paseo daemon within the poll window; "
                  "Paseo-driven launch unproven (direct pi CLI leg is separate evidence)")
-        ppid_comm = run_command(
-            ["docker", "exec", cid, "ps", "-o", "comm=", "-p", spawn["ppid"]],
-            timeout=30,
-        ).strip().lower()
-        if "node" not in ppid_comm and "paseo" not in ppid_comm:
-            fail(f"pi RPC parent is not the daemon worker: pid={spawn['pid']} "
-                 f"ppid={spawn['ppid']} comm={ppid_comm!r}")
+        cmdline = read_proc_field(cid, spawn["pid"], "cmdline")
+        exe = read_proc_field(cid, spawn["pid"], "exe")
+        ls_out = run_command(
+            ["docker", "exec", "-u", f"{RUNTIME_UID}:{RUNTIME_GID}", cid,
+             "paseo", "--home", paseo_home, "ls", "-a", "-g", "--json"],
+            timeout=60,
+        )
+        agent = find_pi_agent(ls_out, agent_id)
+        if agent is None:
+            fail(f"pi-provider agent {agent_id} not bound in daemon list; spawn unattributed")
+        try:
+            logs_out = run_command(
+                ["docker", "exec", "-u", f"{RUNTIME_UID}:{RUNTIME_GID}", cid,
+                 "paseo", "--home", paseo_home, "logs", agent_id, "--tail", "20"],
+                timeout=60,
+            )
+        except SystemExit:
+            logs_out = ""
+        error_class = classify_agent_error(agent["status"], logs_out)
         record(phases, "spawn_observed", "ok",
-               {"pid": spawn["pid"], "ppid": spawn["ppid"], "ppid_comm": ppid_comm,
-                "agent_id": agent_id})
-        if agent_id is not None:
-            try:
-                run_command(
-                    ["docker", "exec", "-u", f"{RUNTIME_UID}:{RUNTIME_GID}", cid,
-                     "paseo", "--home", paseo_home, "stop", agent_id],
-                    timeout=60,
-                )
-            except SystemExit:
-                pass
+               {"pid": spawn["pid"], "ppid": spawn["ppid"], "comm": spawn["comm"],
+                "parent_match": spawn["parent_match"], "worker_pid": worker_pid,
+                "agent_id": agent_id, "agent_provider": agent["provider"],
+                "agent_status": agent["status"], "agent_error_class": error_class})
+        try:
+            run_command(
+                ["docker", "exec", "-u", f"{RUNTIME_UID}:{RUNTIME_GID}", cid,
+                 "paseo", "--home", paseo_home, "stop", agent_id],
+                timeout=60,
+            )
+        except SystemExit:
+            pass
         dc("down", "-v")
         report = {
             "card": CARD_ID,
@@ -905,7 +1015,14 @@ def paseo_spawn_probe(root: Path, image: str, report_path: Path | None) -> dict:
             "image": {"ref": image},
             "phases": phases,
             "spawn": {"observed": True, "pid": spawn["pid"], "ppid": spawn["ppid"],
-                      "ppid_comm": ppid_comm},
+                      "comm": spawn["comm"], "parent_match": spawn["parent_match"],
+                      "worker_pid": worker_pid, "cmdline": cmdline, "exe": exe},
+            "agent": {"id": agent["id"], "provider": agent["provider"],
+                      "status": agent["status"], "error_class": error_class},
+            "rpc_semantics": {
+                "upstream": "process-backed pi --mode rpc (getpaseo/paseo v0.9.2 docs/providers.md)",
+                "direct_smoke": "M02 fresh pi --mode rpc --no-session GREEN; M06 rpc_on_demand x2 GREEN",
+            },
             "ha_deferred": list(HA_DEFERRED),
             "full_green_claimed": False,
             "production_mutation": False,
@@ -959,6 +1076,18 @@ def parse_agent_id(run_output: str) -> str | None:
     match = re.search(r'"id"\s*:\s*"([^"]+)"', run_output)
     if match:
         return match.group(1)
+    # CLI table shape: header line containing AGENT ID, then rows whose
+    # first token is the agent UUID.
+    uuid_re = re.compile(r"\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b",
+                         re.IGNORECASE)
+    lines = run_output.splitlines()
+    for index, line in enumerate(lines):
+        if "AGENT ID" in line:
+            for rest in lines[index + 1:]:
+                row = uuid_re.search(rest)
+                if row:
+                    return row.group(0)
+            break
     return None
 
 

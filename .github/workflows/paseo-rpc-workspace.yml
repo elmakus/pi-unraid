@@ -157,8 +157,14 @@ jobs:
               assert phases.get(name) == 'ok', (name, phases)
           assert r['spawn']['observed'] is True, r['spawn']
           assert r['spawn']['ppid'] != r['spawn']['pid'], r['spawn']
+          assert r['spawn']['ppid'] == r['spawn']['worker_pid'], r['spawn']
+          assert r['spawn']['parent_match'] == 'worker_pid', r['spawn']
+          provider = r['agent']['provider']
+          assert provider == 'pi' or provider.startswith('pi/'), r['agent']
+          assert r['agent']['error_class'] in ('none', 'model_auth', 'other', 'unknown'), r['agent']
           print('spawn outcome:', r['outcome'])
-          print('pi pid/ppid:', r['spawn']['pid'], r['spawn']['ppid'], r['spawn']['ppid_comm'])
+          print('pi pid/ppid:', r['spawn']['pid'], r['spawn']['ppid'], r['spawn']['worker_pid'])
+          print('agent:', r['agent']['id'], provider, r['agent']['status'], r['agent']['error_class'])
           EOF
       - name: Fail-closed guards refuse production scope
         run: |

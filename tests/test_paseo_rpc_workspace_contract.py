@@ -285,20 +285,82 @@ class RpcWorkspaceContractTests(unittest.TestCase):
         self.assertNotIn("--allow-empty", HARNESS)
         self.assertIn("verify_recovered_state", HARNESS)
 
-    def test_pi_child_parser_finds_paseo_spawned_rpc(self) -> None:
-        ps_text = (
-            "1 0 node /app/server.js\n"
-            "42 1 pi --mode rpc --session abc\n"
-            "99 42 sh -c ps\n"
-        )
-        hit = FLOW.find_pi_child(ps_text)
+    # Observed CI shape (run 36268682202, PIDs vary per run; the witness
+    # takes the daemon worker pid dynamically, never hardcoded).
+    OBSERVED_PS = (
+        "    PID    PPID COMMAND          COMMAND\n"
+        "      1       0 tini             /usr/bin/tini -- /usr/local/bin/paseo-docker-entrypoint\n"
+        "      7       1 Paseo Supervisor Paseo Supervisor\n"
+        "     48       7 Paseo Daemon     Paseo Daemon\n"
+        "     60      48 node             /usr/local/bin/node /usr/local/lib/node_modules/@getpaseo/server/dist/server/terminal/terminal-worker-process.js\n"
+        "    219      48 pi               pi\n"
+        "   1004       0 sh               sh -c ps -eo pid,ppid,comm,args\n"
+        "   1010    1004 ps               ps -eo pid,ppid,comm,args\n"
+    )
+
+    def test_daemon_child_witness_accepts_observed_shape(self) -> None:
+        # The literal `pi --mode rpc` predicate missed this real spawn: the
+        # daemon's pi child shows bare `pi` (argv/title normalization). The
+        # repaired witness matches comm/argv-basename plus daemon ancestry.
+        candidates = FLOW.find_pi_children(self.OBSERVED_PS)
+        self.assertEqual([(c["pid"], c["ppid"]) for c in candidates], [("219", "48")])
+        hit = FLOW.bind_daemon_child(candidates, "48", FLOW.pid_info_map(self.OBSERVED_PS))
         self.assertIsNotNone(hit)
-        self.assertEqual(hit["pid"], "42")
-        self.assertEqual(hit["ppid"], "1")
-        self.assertIn("pi --mode rpc", hit["args"])
-        self.assertIsNone(FLOW.find_pi_child("1 0 node /app/server.js\n"))
-        # The grep self-match residue must never count as a spawn.
-        self.assertIsNone(FLOW.find_pi_child("7 6 grep [p]i --mode rpc\n"))
+        self.assertEqual(hit["pid"], "219")
+        self.assertEqual(hit["parent_match"], "worker_pid")
+
+    def test_daemon_child_witness_rejects_wrong_parent(self) -> None:
+        impostor = (
+            "    PID    PPID COMM COMMAND\n"
+            "     48       7 Paseo Daemon Paseo Daemon\n"
+            "    219    1004 pi pi\n"
+            "   1004       0 sh sh -c probe\n"
+        )
+        candidates = FLOW.find_pi_children(impostor)
+        self.assertEqual(len(candidates), 1)
+        self.assertIsNone(FLOW.bind_daemon_child(candidates, "48", FLOW.pid_info_map(impostor)))
+
+    def test_daemon_child_witness_avoids_false_positives(self) -> None:
+        noise = (
+            "    PID    PPID COMM COMMAND\n"
+            "     11       7 pip pip install something\n"
+            "     12       7 happy /usr/local/bin/happy --serve\n"
+            "     13       7 node node app.js --pi-flag\n"
+            "     14       7 sh sh -c ps -eo pid,ppid,comm,args\n"
+        )
+        self.assertEqual(FLOW.find_pi_children(noise), [])
+        self.assertIsNone(FLOW.bind_daemon_child([], "48", {}))
+
+    def test_worker_pid_parse(self) -> None:
+        self.assertEqual(FLOW.parse_worker_pid("home: /home/paseo/.paseo\nworkerPid: 48\n"), "48")
+        self.assertIsNone(FLOW.parse_worker_pid("no pid here\n"))
+
+    def test_agent_table_id_parse(self) -> None:
+        table = (
+            "AGENT ID                              STATUS      PROVIDER    CWD\n"
+            "d6057fcc-ff7f-462b-a0aa-ed51e740a4a3  running     pi          /projects\n"
+        )
+        self.assertEqual(FLOW.parse_agent_id(table), "d6057fcc-ff7f-462b-a0aa-ed51e740a4a3")
+        self.assertEqual(FLOW.parse_agent_id('{"id": "abc"}'), "abc")
+        self.assertIsNone(FLOW.parse_agent_id("nothing here\n"))
+
+    def test_pi_agent_binding(self) -> None:
+        listing = json.dumps([{"id": "d6057fcc-ff7f-462b-a0aa-ed51e740a4a3",
+                               "provider": "pi/unknown/unknown", "status": "error"}])
+        bound = FLOW.find_pi_agent(listing, "d6057fcc-ff7f-462b-a0aa-ed51e740a4a3")
+        self.assertIsNotNone(bound)
+        self.assertEqual(bound["status"], "error")
+        self.assertIsNone(FLOW.find_pi_agent(listing, "other-id"))
+        other = json.dumps([{"id": "x", "provider": "codex/y", "status": "running"}])
+        self.assertIsNone(FLOW.find_pi_agent(other, "x"))
+        self.assertIsNone(FLOW.find_pi_agent("not json", "x"))
+
+    def test_agent_error_classification(self) -> None:
+        self.assertEqual(FLOW.classify_agent_error("running", "ok"), "none")
+        self.assertEqual(FLOW.classify_agent_error("error", "provider login required"), "model_auth")
+        self.assertEqual(FLOW.classify_agent_error("error", "model api key missing"), "model_auth")
+        self.assertEqual(FLOW.classify_agent_error("error", "weird internal fault"), "other")
+        self.assertEqual(FLOW.classify_agent_error("error", ""), "unknown")
 
     def test_spawn_blocker_classifier(self) -> None:
         self.assertEqual(FLOW.classify_spawn_blocker("Error: RELAY_DISABLED"), "relay_disabled")
