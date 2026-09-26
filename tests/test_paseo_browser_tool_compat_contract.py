@@ -334,6 +334,78 @@ class BrowserToolCompatContractTests(unittest.TestCase):
         self.assertIn("/mnt/user/appdata/pi-unraid", text)
         self.assertIn("--filter ancestor=", text)
 
+    def test_browser_flags_use_default_image_user_with_shm(self) -> None:
+        flags = FLOW.browser_flags("/host:/mnt")
+        self.assertNotIn("--user", flags)
+        self.assertIn("--shm-size=1gb", flags)
+        self.assertEqual(flags[-2:], ["-v", "/host:/mnt"])
+
+    def test_browser_legs_use_default_user_and_debug_runner(self) -> None:
+        headless_source = HARNESS[HARNESS.index("def phase_browser_headless"):HARNESS.index("def phase_browser_headed_xvfb")]
+        headed_source = HARNESS[HARNESS.index("def phase_browser_headed_xvfb"):HARNESS.index("def phase_profile_isolation")]
+        for source in (headless_source, headed_source):
+            self.assertIn("browser_flags(", source)
+            self.assertIn("docker_run_browser(", source)
+            self.assertNotIn("container_flags(", source)
+
+    def test_isolation_probe_stays_on_runtime_identity(self) -> None:
+        isolation_source = HARNESS[HARNESS.index("def phase_profile_isolation"):HARNESS.index("def phase_dev_baseline")]
+        self.assertIn("container_flags(", isolation_source)
+        self.assertNotIn("browser_flags(", isolation_source)
+
+    def test_prepare_browser_dirs_makes_fixture_writable(self) -> None:
+        import os
+        import stat
+        with tempfile.TemporaryDirectory() as tmp:
+            profile = Path(tmp) / "profile"
+            downloads = Path(tmp) / "downloads"
+            profile.mkdir()
+            downloads.mkdir()
+            FLOW.prepare_browser_dirs(profile, downloads)
+            self.assertEqual(stat.S_IMODE(os.stat(profile).st_mode), 0o777)
+            self.assertEqual(stat.S_IMODE(os.stat(downloads).st_mode), 0o777)
+
+    def test_bounded_output_keeps_tail_with_marker(self) -> None:
+        self.assertEqual(FLOW.bounded_output("short"), "short")
+        long_text = "x" * 7000 + "TAIL"
+        bounded = FLOW.bounded_output(long_text)
+        self.assertTrue(bounded.startswith("...[truncated]..."))
+        self.assertTrue(bounded.endswith("TAIL"))
+        self.assertLess(len(bounded), len(long_text))
+
+    def test_browser_probe_failure_carries_full_output(self) -> None:
+        proc = subprocess.CompletedProcess(
+            args=["docker"], returncode=1,
+            stdout="version=1.2.3\n", stderr="BROWSER_ERROR:boom-detail\n",
+        )
+        with mock.patch.object(FLOW, "run_command_unchecked", return_value=proc):
+            with self.assertRaises(SystemExit) as ctx:
+                FLOW.docker_run_browser("image", [], ["node"], what="headed xvfb browser probe")
+        message = str(ctx.exception)
+        self.assertIn("headed xvfb browser probe failed (1)", message)
+        self.assertIn("BROWSER_ERROR:boom-detail", message)
+
+    def test_browser_probe_output_is_secret_scanned(self) -> None:
+        proc = subprocess.CompletedProcess(
+            args=["docker"], returncode=1,
+            stdout="token ghp_1234567890abcdefghij\n", stderr="",
+        )
+        with mock.patch.object(FLOW, "run_command_unchecked", return_value=proc):
+            with self.assertRaises(SystemExit) as ctx:
+                FLOW.docker_run_browser("image", [], ["node"], what="probe")
+        self.assertIn("secret-like value", str(ctx.exception))
+
+    def test_failure_report_carries_phases_completed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report_path = Path(tmp) / "failure.json"
+            written = FLOW.write_failure_report(
+                report_path, "disposable", "boom",
+                extra={"phases_completed": ["fixture", "image_labels"]})
+            self.assertIsNotNone(written)
+            payload = json.loads(report_path.read_text())
+            self.assertEqual(payload["phases_completed"], ["fixture", "image_labels"])
+            self.assertEqual(payload["outcome"], "failed")
+
 
 if __name__ == "__main__":
     unittest.main()

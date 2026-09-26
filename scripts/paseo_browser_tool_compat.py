@@ -414,6 +414,44 @@ def container_flags(*mounts: str) -> list[str]:
     return flags
 
 
+def browser_flags(*mounts: str) -> list[str]:
+    # Browser legs run as the image default user: the M01-headed-proven
+    # context. Chromium headful requires a fully provisioned user (passwd
+    # entry, writable HOME) which numeric --user 99:100 does not provide,
+    # so the runtime-identity flag is intentionally absent here.
+    flags = ["--shm-size=1gb"]
+    for mount in mounts:
+        flags.extend(["-v", mount])
+    return flags
+
+
+def prepare_browser_dirs(profile: Path, downloads: Path) -> None:
+    # Fixture dirs pre-chowned to the runtime identity must also accept
+    # writes from the image default user during the browser legs.
+    for path in (profile, downloads):
+        os.chmod(path, 0o777)
+
+
+def bounded_output(text: str, limit: int = 6000) -> str:
+    text = text or ""
+    if len(text) <= limit:
+        return text
+    return "...[truncated]...\n" + text[-limit:]
+
+
+def docker_run_browser(image: str, run_args: list[str], command: list[str],
+                       *, what: str, timeout: int = 240) -> str:
+    # Browser probes keep their full secret-scanned output on failure so
+    # the CI log and failure report carry complete launch diagnostics.
+    proc = run_command_unchecked(["docker", "run", "--rm", *run_args, image, *command],
+                                 timeout=timeout)
+    combined = (proc.stdout or "") + (proc.stderr or "")
+    scan_secret_safe(combined, f"{what} output")
+    if proc.returncode != 0:
+        fail(f"{what} failed ({proc.returncode}): {bounded_output(combined.strip() or '(no output)')}")
+    return proc.stdout
+
+
 def chown_fixture(image: str, fixture: Path, *names: str) -> None:
     # Recursive: host-created nested content must transfer to the runtime
     # identity before the container legs run as non-root.
@@ -451,10 +489,11 @@ def phase_image_labels(image: str) -> dict:
 
 
 def phase_browser_headless(image: str, downloads: Path) -> dict:
-    out = docker_run(
+    out = docker_run_browser(
         image,
-        container_flags(f"{downloads}:{AUTOMATION_DOWNLOADS_PATH}"),
+        browser_flags(f"{downloads}:{AUTOMATION_DOWNLOADS_PATH}"),
         ["node", "-e", HEADLESS_JS],
+        what="headless browser probe",
         timeout=180,
     )
     version = parse_version_line(out, "version=")
@@ -475,11 +514,12 @@ def phase_browser_headless(image: str, downloads: Path) -> dict:
 
 
 def phase_browser_headed_xvfb(image: str, profile: Path, downloads: Path) -> dict:
-    out = docker_run(
+    out = docker_run_browser(
         image,
-        container_flags(f"{profile}:{AUTOMATION_PROFILE_PATH}",
-                        f"{downloads}:{AUTOMATION_DOWNLOADS_PATH}"),
+        browser_flags(f"{profile}:{AUTOMATION_PROFILE_PATH}",
+                      f"{downloads}:{AUTOMATION_DOWNLOADS_PATH}"),
         ["xvfb-run", "-a", "node", "-e", HEADED_JS],
+        what="headed xvfb browser probe",
         timeout=240,
     )
     version = parse_version_line(out, "version=")
@@ -791,34 +831,43 @@ def disposable_flow(root: Path, image: str, report_path: Path | None) -> dict:
             path.mkdir(parents=True)
         record(phases, "fixture", "ok", {"root": str(fixture)})
         chown_fixture(image, fixture, "home", "profile", "downloads")
+        prepare_browser_dirs(profile, downloads)
+        try:
+            image_detail = phase_image_labels(image)
+            record(phases, "image_labels", "ok", image_detail)
+            # Browser legs run before the extension leg so the profile-isolation
+            # scan observes a HOME untouched by capability delivery.
+            record(phases, "browser_headless", "ok", phase_browser_headless(image, downloads))
+            record(phases, "browser_headed_xvfb", "ok",
+                   phase_browser_headed_xvfb(image, profile, downloads))
+            record(phases, "profile_isolation", "ok",
+                   phase_profile_isolation(image, home, profile, downloads))
+            record(phases, "dev_baseline", "ok", phase_dev_baseline(image))
+            record(phases, "gh_unauth", "ok", phase_gh_unauth(image))
+            record(phases, "docker_tooling", "ok", phase_docker_tooling(image))
+            record(phases, "extension_compat", "ok", phase_extension_compat(root, image, home))
 
-        image_detail = phase_image_labels(image)
-        record(phases, "image_labels", "ok", image_detail)
-        # Browser legs run before the extension leg so the profile-isolation
-        # scan observes a HOME untouched by capability delivery.
-        record(phases, "browser_headless", "ok", phase_browser_headless(image, downloads))
-        record(phases, "browser_headed_xvfb", "ok",
-               phase_browser_headed_xvfb(image, profile, downloads))
-        record(phases, "profile_isolation", "ok",
-               phase_profile_isolation(image, home, profile, downloads))
-        record(phases, "dev_baseline", "ok", phase_dev_baseline(image))
-        record(phases, "gh_unauth", "ok", phase_gh_unauth(image))
-        record(phases, "docker_tooling", "ok", phase_docker_tooling(image))
-        record(phases, "extension_compat", "ok", phase_extension_compat(root, image, home))
-
-        leftover = run_command(["docker", "ps", "-q", "--filter", f"ancestor={image}"]).strip()
-        if leftover:
-            fail(f"containers left running: {leftover}")
-        report = {
-            "card": CARD_ID,
-            "scope": "disposable",
-            "image": {"ref": image, **image_detail},
-            "phases": phases,
-            "ha_deferred": list(HA_DEFERRED),
-            "full_green_claimed": False,
-            "production_mutation": False,
-            "outcome": "browser_tool_compat_green",
-        }
+            leftover = run_command(["docker", "ps", "-q", "--filter", f"ancestor={image}"]).strip()
+            if leftover:
+                fail(f"containers left running: {leftover}")
+            report = {
+                "card": CARD_ID,
+                "scope": "disposable",
+                "image": {"ref": image, **image_detail},
+                "phases": phases,
+                "ha_deferred": list(HA_DEFERRED),
+                "full_green_claimed": False,
+                "production_mutation": False,
+                "outcome": "browser_tool_compat_green",
+            }
+        except BaseException as exc:
+            if report_path is not None and not report_path.exists():
+                written = write_failure_report(
+                    report_path, "disposable", str(exc) or "flow failed",
+                    extra={"phases_completed": [phase["name"] for phase in phases]})
+                if written is not None:
+                    print(written)
+            raise
     finally:
         try:
             run_command(["docker", "run", "--rm", "--user", "0:0", "--entrypoint", "chown",
