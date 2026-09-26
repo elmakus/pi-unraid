@@ -5,8 +5,8 @@ Date: 2026-09-26
 Planning cycle: 3
 Plan revision: P3
 Plan path: planning/PASEO_GUI_RUNTIME_P3.md
-Audited plan commit: 9e2aa4594ad7a1944041bcad969bfa7e83fbea5f
-Audited plan blob: b19aec5966509012d19df1aba605c1e8f4a6dabc
+Audited plan commit: b1c5d4c3f340afb96bfb2f3ae44f694069bd6a63
+Audited plan blob: fb071b96e5e7b54187bfaa7040640f5f3eb59b89
 Definition: R2 / paseo-gui-runtime@3
 
 ## Audit result
@@ -34,3 +34,7 @@ The strongest counterfactual is to retain private GHCR as an off-host ready-imag
 No unresolved product decision remains in the P3 planning scope. The remaining Tower storage/path/retention quantities are bounded implementation details for Execution Prep/live readback, not new product authority.
 
 **Planner audit verdict: GREEN.**
+
+## Post-review correction
+
+After independent P3/R01 returned RED solely for stale lifecycle header metadata, Planning corrected `Planning cycle` from 2 to 3 and normalized the plan date to 2026-09-26. No strategy, milestone, requirement coverage, gate, rollback or scope semantics changed. This audit therefore remains GREEN for the corrected exact P3 subject above.
