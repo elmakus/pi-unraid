@@ -101,8 +101,10 @@ jobs:
             -v "$STAGED:/fixture" \
             "$TAG" 99:100 /fixture/home /fixture/projects /fixture/worktrees
           bash scripts/configure-paseo-runtime.sh "$TAG" "$STAGED/home" "$STAGED/worktrees" 99 100
-          test -f "$STAGED/home/.paseo/config.json"
-          find "$STAGED/home" -printf '%P %s %T@\n' | sort | sha256sum | tee "$STAGED/home-seed.sha"
+          docker run --rm --user 0:0 --entrypoint sh \
+            -v "$STAGED/home:/home/paseo:ro" \
+            "$TAG" -c 'test -f /home/paseo/.paseo/config.json; find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
+            | tee "$STAGED/home-seed.sha"
       - name: Seed disposable active/rollback anchors
         run: |
           python3 scripts/paseo_staged_update.py --scope disposable init \
@@ -146,7 +148,10 @@ jobs:
             --home-host "$STAGED/home" \
             --projects-host "$STAGED/projects" \
             --worktrees-host "$STAGED/worktrees" | tee "$STAGED/readback-after-success.json"
-          find "$STAGED/home" -printf '%P %s %T@\n' | sort | sha256sum | tee "$STAGED/home-after-success.sha"
+          docker run --rm --user 0:0 --entrypoint sh \
+            -v "$STAGED/home:/home/paseo:ro" \
+            "$SEED_TAG" -c 'find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
+            | tee "$STAGED/home-after-success.sha"
           test "$(cut -d' ' -f1 < "$STAGED/home-seed.sha")" = "$(cut -d' ' -f1 < "$STAGED/home-after-success.sha")"
       - name: Injected pre-smoke failure leaves active runtime untouched
         run: |
@@ -175,7 +180,10 @@ jobs:
               assert r['phases'][name]['status'] == 'skipped', (name, r['phases'][name])
           EOF
           sha256sum -c /tmp/staged-active-prefail.sha
-          find "$STAGED/home" -printf '%P %s %T@\n' | sort | sha256sum | tee "$STAGED/home-after-prefail.sha"
+          docker run --rm --user 0:0 --entrypoint sh \
+            -v "$STAGED/home:/home/paseo:ro" \
+            "$SEED_TAG" -c 'find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
+            | tee "$STAGED/home-after-prefail.sha"
           test "$(cut -d' ' -f1 < "$STAGED/home-seed.sha")" = "$(cut -d' ' -f1 < "$STAGED/home-after-prefail.sha")"
       - name: Injected post-smoke failure restores prior coherent runtime
         run: |
@@ -208,7 +216,10 @@ jobs:
             --home-host "$STAGED/home" \
             --projects-host "$STAGED/projects" \
             --worktrees-host "$STAGED/worktrees" | tee "$STAGED/readback-after-rollback.json"
-          find "$STAGED/home" -printf '%P %s %T@\n' | sort | sha256sum | tee "$STAGED/home-after-postfail.sha"
+          docker run --rm --user 0:0 --entrypoint sh \
+            -v "$STAGED/home:/home/paseo:ro" \
+            "$SEED_TAG" -c 'find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
+            | tee "$STAGED/home-after-postfail.sha"
           test "$(cut -d' ' -f1 < "$STAGED/home-seed.sha")" = "$(cut -d' ' -f1 < "$STAGED/home-after-postfail.sha")"
       - name: Fail-closed guards and readback idempotence
         run: |
@@ -249,14 +260,19 @@ jobs:
           docker compose ls
           docker ps -a --format '{{.Names}} {{.Image}}'
           echo "--- staged projects only ---"
-          docker compose ls --format '{{.Name}}' | tee /tmp/staged-projects.txt
-          grep -v '^pi-unraid-staged-' /tmp/staged-projects.txt | grep -v '^NAME' || true
-          test "$(grep -c '^pi-unraid-staged-' /tmp/staged-projects.txt)" -ge 1
-          test -z "$(grep -v '^pi-unraid-staged-' /tmp/staged-projects.txt | grep -v '^NAME' || true)"
+          docker compose ls --format json | tee /tmp/staged-projects.json
+          python3 - <<'EOF'
+          import json
+          rows = json.load(open('/tmp/staged-projects.json'))
+          names = [row.get('Name', '') for row in rows]
+          assert names, names
+          assert all(name.startswith('pi-unraid-staged-') for name in names), names
+          print('\n'.join(names))
+          EOF
       - name: Disposable cleanup
         if: always()
         run: |
-          for project in $(docker compose ls --format '{{.Name}}' 2>/dev/null | grep '^pi-unraid-staged-' || true); do
+          for project in $(docker compose ls --format json 2>/dev/null | python3 -c "import json,sys; print(' '.join(r.get('Name','') for r in json.load(sys.stdin) if r.get('Name','').startswith('pi-unraid-staged-')))" || true); do
             docker compose -p "$project" -f compose.yaml down -v || true
           done
           docker compose -p pi-unraid-staged-active -f compose.yaml -f "$STAGED/state/active.override.yaml" down -v || true
