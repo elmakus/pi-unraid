@@ -370,8 +370,17 @@ def check_home_live(run_fn, home: Path, tag: str, uid: str, gid: str,
     """Prove the HOME anchor is present and writable; read no HOME content."""
     if not home.is_dir():
         raise StagedUpdateError(f"HOME anchor is not a directory: {home}")
-    if not (home / HOME_MARKER).is_file():
-        raise StagedUpdateError(f"HOME anchor lacks the marker {HOME_MARKER}: {home}")
+    marker = run_fn(
+        ["docker", "run", "--rm", "--user", f"{uid}:{gid}",
+         "-v", f"{home}:/home/paseo:ro", tag,
+         "sh", "-c", f"test -f /home/paseo/{HOME_MARKER}"],
+        env, 120,
+    )
+    if marker.returncode != 0:
+        raise StagedUpdateError(
+            f"HOME anchor lacks a runtime-readable marker {HOME_MARKER}: "
+            f"{_tail(marker.stderr or marker.stdout)}"
+        )
     probe = run_fn(
         ["docker", "run", "--rm", "--user", f"{uid}:{gid}",
          "-v", f"{home}:/home/paseo", tag,

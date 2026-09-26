@@ -483,6 +483,23 @@ class PreflightTests(unittest.TestCase):
             self.assertTrue(detail["observed"]["home"]["writable"])
             self.assertEqual(detail["observed"]["retention"], {PRIOR_TAG: True})
 
+    def test_home_marker_is_checked_through_runtime_not_host_path(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td) / "home"
+            home.mkdir()
+            calls = []
+
+            def marker_missing(argv, env=None, timeout=120):
+                calls.append(list(argv))
+                return Completed(1, "", "marker missing")
+
+            with self.assertRaises(staged.StagedUpdateError):
+                staged.check_home_live(marker_missing, home, NEW_TAG, "99", "100", {})
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(calls[0][:2], ["docker", "run"])
+            self.assertIn(f"{home}:/home/paseo:ro", calls[0])
+            self.assertIn(f"test -f /home/paseo/{staged.HOME_MARKER}", calls[0])
+
     def test_preflight_rejects_live_image_mismatch(self):
         with tempfile.TemporaryDirectory() as td:
             fake = FakeDocker()
