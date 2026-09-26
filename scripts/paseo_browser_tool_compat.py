@@ -739,23 +739,58 @@ def capability_status(root: Path, image: str, home: Path) -> tuple[int, str]:
     return proc.returncode, proc.stdout
 
 
+EXTENSION_SEED_SETTINGS = {
+    "theme": "dark",
+    "packages": [{"source": "npm:unrelated-example@1.2.3", "autoload": False}],
+    "customUnrelated": {"keep": "sentinel"},
+}
+EXTENSION_SEED_PROVIDER = '{"providerState":"unchanged"}\n'
+
+
+def seed_extension_home(image: str, home: Path) -> None:
+    # Seed files are written container-side as the runtime identity: the
+    # fixture HOME already belongs to 99:100, so host-side writes are
+    # denied. Payloads must stay single-quote-free for shell delivery.
+    settings_text = json.dumps(EXTENSION_SEED_SETTINGS) + "\n"
+    for name, text in (("settings.json", settings_text),
+                       ("provider-state.json", EXTENSION_SEED_PROVIDER)):
+        if "'" in text:
+            fail(f"extension seed {name} is not shell-quotable")
+    docker_run(
+        image,
+        container_flags(f"{home}:/home/paseo"),
+        ["sh", "-c", "set -eu; mkdir -p /home/paseo/.pi/agent; "
+         f"printf '%s' '{settings_text}' > /home/paseo/.pi/agent/settings.json; "
+         f"printf '%s' '{EXTENSION_SEED_PROVIDER}' > /home/paseo/.pi/agent/provider-state.json; "],
+        timeout=60,
+    )
+
+
+def read_compat_marker(image: str, home: Path) -> dict:
+    # The marker is 0600 container-owned, so it is read container-side
+    # as the runtime identity rather than from the host.
+    out = docker_run(
+        image,
+        container_flags(f"{home}:/home/paseo"),
+        ["cat", "/home/paseo/.pi-unraid/global-capabilities/compatibility.json"],
+        timeout=60,
+    )
+    try:
+        marker = json.loads(out)
+    except ValueError:
+        fail("compatibility marker is not valid JSON")
+    if not isinstance(marker, dict):
+        fail("compatibility marker is malformed")
+    return marker
+
+
 def phase_extension_compat(root: Path, image: str, home: Path) -> dict:
     # Exact-pair SpecPi-core/pi-mcp-adapter compatibility on the exact
     # Paseo/Pi candidate, reusing the proven M04 delivery wrapper. Scope
     # and wishlist stay inactive: installed and smoke-verified, never
     # activated. No live MCP server is configured.
     agent_home = home / ".pi" / "agent"
-    agent_home.mkdir(parents=True)
-    (agent_home / "settings.json").write_text(json.dumps({
-        "theme": "dark",
-        "packages": [{"source": "npm:unrelated-example@1.2.3", "autoload": False}],
-        "customUnrelated": {"keep": "sentinel"},
-    }) + "\n")
-    (agent_home / "provider-state.json").write_text('{"providerState":"unchanged"}\n')
-    chown_fixture_run = ["docker", "run", "--rm", "--user", "0:0", "--entrypoint", "chown",
-                         "-v", f"{home}:/home/paseo", image, "-R",
-                         f"{RUNTIME_UID}:{RUNTIME_GID}", "/home/paseo"]
-    run_command(chown_fixture_run, timeout=120)
+    seed_extension_home(image, home)
 
     before_rc, before_out = capability_status(root, image, home)
     if before_rc == 0:
@@ -785,7 +820,7 @@ def phase_extension_compat(root: Path, image: str, home: Path) -> dict:
     # Wishlist inactive: the compatibility marker schema carries no
     # activation fields, settings hold exactly managed plus unrelated
     # declarations, and this flow performs zero activation mutations.
-    marker = json.loads((home / ".pi-unraid" / "global-capabilities" / "compatibility.json").read_text())
+    marker = read_compat_marker(image, home)
     if set(marker) != {"schema_version", "candidate_id", "runtime_pi_version", "packages", "smoke"}:
         fail(f"compatibility marker schema drift: {sorted(marker)}")
     if set(marker["smoke"]) != {"provider_free_rpc", "specpi_scope_inactive",

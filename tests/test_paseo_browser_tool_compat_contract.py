@@ -462,6 +462,45 @@ class BrowserToolCompatContractTests(unittest.TestCase):
                 "network_tools=/usr/bin/dig /usr/bin/getent /bin/nc /usr/bin/ssh \n"
             )
 
+    def test_extension_seed_writes_container_side_as_runtime_identity(self) -> None:
+        captured: dict = {}
+
+        def fake_docker_run(image, run_args, command, timeout=180, input_text=None):
+            captured["run_args"] = run_args
+            captured["command"] = command
+            return ""
+
+        with mock.patch.object(FLOW, "docker_run", side_effect=fake_docker_run):
+            FLOW.seed_extension_home("image:tag", Path("/tmp/fixture/home"))
+        self.assertEqual(captured["run_args"][1], "99:100")
+        script = " ".join(captured["command"])
+        self.assertIn("mkdir -p /home/paseo/.pi/agent", script)
+        self.assertIn("/home/paseo/.pi/agent/settings.json", script)
+        self.assertIn("/home/paseo/.pi/agent/provider-state.json", script)
+        self.assertIn("npm:unrelated-example@1.2.3", script)
+        self.assertNotIn("'", json.dumps(FLOW.EXTENSION_SEED_SETTINGS))
+        self.assertNotIn("'", FLOW.EXTENSION_SEED_PROVIDER)
+
+    def test_extension_phase_uses_container_side_seed_and_marker(self) -> None:
+        phase_source = HARNESS[HARNESS.index("def phase_extension_compat"):HARNESS.index("def disposable_flow")]
+        self.assertIn("seed_extension_home(image, home)", phase_source)
+        self.assertIn("read_compat_marker(image, home)", phase_source)
+        self.assertNotIn(".mkdir(", phase_source)
+        self.assertNotIn("compatibility.json\").read_text()", phase_source)
+
+    def test_compat_marker_read_parses_valid_json(self) -> None:
+        with mock.patch.object(FLOW, "docker_run", return_value='{"smoke": true}\n'):
+            self.assertEqual(
+                FLOW.read_compat_marker("image:tag", Path("/tmp/fixture/home")),
+                {"smoke": True},
+            )
+        with mock.patch.object(FLOW, "docker_run", return_value="not json\n"):
+            with self.assertRaises(SystemExit):
+                FLOW.read_compat_marker("image:tag", Path("/tmp/fixture/home"))
+        with mock.patch.object(FLOW, "docker_run", return_value="[1, 2]\n"):
+            with self.assertRaises(SystemExit):
+                FLOW.read_compat_marker("image:tag", Path("/tmp/fixture/home"))
+
     def test_fixture_mode_set_before_ownership_transfer(self) -> None:
         flow_source = HARNESS[HARNESS.index("def disposable_flow"):HARNESS.index("def main(")]
         prepare_at = flow_source.index("prepare_browser_dirs(profile, downloads)")
