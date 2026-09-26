@@ -60,7 +60,7 @@ def atomic_json(path: Path, data: dict) -> None:
 
 
 def parse_storage_bytes(value: str) -> int:
-    match = re.fullmatch(r"([0-9]+(?:\\.[0-9]+)?)\\s*(B|KB|MB|GB|TB)", (value or "").strip(), re.I)
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)?)\s*(B|KB|MB|GB|TB)", (value or "").strip(), re.I)
     if not match:
         raise TowerBuildError(f"cache bound is invalid: {value!r}")
     units = {"B": 1, "KB": 1024, "MB": 1024**2, "GB": 1024**3, "TB": 1024**4}
