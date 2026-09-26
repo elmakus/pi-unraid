@@ -1,0 +1,15 @@
+# M05-T03 R01 independent review — RED
+
+- Exact reviewed result: `elmakus/pi-unraid@a6f6ff41ddc8d45e5744d8f89203e923a467ca9d:implementation/workstreams/feature-paseo-gui-runtime/results/M05-T03.md`, blob `0b28adbe107c839b3f3f9a45618d12c9d9d36ebc`.
+- Acceptance: `implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T03.md`, with P3, ADR-004 and PGR-REQ-065 HOME preservation authority.
+- Independence: fresh reviewer context did not materially produce or repair the exact implementation or result.
+- Verdict: **RED**. The two HOME preservation findings below block the Card. The correction is bounded within the accepted M05-T03 contract, so the recovery route is Execution, followed by a new immutable result and independent review attempt.
+
+## Blocking findings
+
+1. **The disposable HOME proof does not cover existing daemon state.** CI run [36255547260](https://github.com/elmakus/pi-unraid/actions/runs/36255547260) seeded its HOME manifest before daemon initialization. The manifest covered only `.paseo/config.json` and the run sentinel. The runtime then added about 370 entries, including `.paseo/daemon-keypair.json`; the verifier treats them as allowed additions. Removing an added keypair still yields `ok=true`. No browser/session state was seeded and the Relay setting remained false. Thus a rollback could lose pairing/browser/session state while the end-to-end preservation check remains GREEN. The Card requires valid persistent HOME/Relay/browser/session state to survive routine rollback. Correct by seeding and checking representative real daemon state after initialization, including pairing identity and stable session/browser state, then rerun the disposable scenarios.
+2. **The transaction's HOME drift guard can miss restricted daemon files.** `fingerprint_home()` walks HOME from the host and silently skips permission errors. The CI record's host-side fingerprint remained unchanged with only 9 visible entries, while the runtime-identity inventory grew from 2 to 372 entries. A restricted daemon-owned file can be added or altered without changing the transaction fingerprint, so promotion and rollback guards can pass with unobserved HOME drift. A local unprivileged reproduction of the same logic confirmed this behavior on a mode-0700 directory. Correct by reading the fingerprint under the runtime identity with a read-only mount, or by failing closed on unreadable entries, and rerun CI.
+
+## Checks that passed and bounds
+
+The immutable result and four predecessor blobs matched their exact bindings. The 223-test claim matched the 15 workflow-listed suites; the staged suites passed locally. Phase ordering, frozen candidate binding, fail-closed preflight, temporary smoke gate, promotion and post-smoke records, injected failure recovery, image retention, production-scope refusal, and distinct update/reconcile/doctor paths were substantively implemented and contract-tested. The CI end-to-end proof used a same-image active/new/rollback fixture, so distinct-image switching was covered by unit tests rather than that run. Docker proof was on the hosted disposable runner, not Tower production.
