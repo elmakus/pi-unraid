@@ -2,8 +2,8 @@
 
 Date: `2026-09-24`
 Scope ID: `paseo-gui-runtime`
-Revision: `R2`
-Status: `promoted`
+Revision: `R3`
+Status: `ready_for_definition`
 
 ## Problem / goal
 
@@ -729,3 +729,38 @@ Research findings may refine implementation details. If they expose a genuinely 
 - Current-workstream format note: this exploratory workstream still uses the older YAML-era locator/state shape and has not yet been normalized to the current `project_workflow_v2@main` TOML lifecycle records; formal router lifecycle promotion must use the current workflow/recovery contract rather than inferring state from this Markdown alone.
 
 > This file remains provenance/exploratory history rather than downstream authority. Exact scope `paseo-gui-runtime@2` was explicitly promoted by the user; canonical Definition authority is now carried by the workstream's `DEFINITION.toml`, requirements and accepted decisions.
+
+
+## R3 amendment — local-first build/rollback path
+
+Date: `2026-09-26`
+Revision subject: `paseo-gui-runtime@3`
+Status: `ready_for_definition`
+
+This amendment records the user's explicit product decision after reviewing the current M05-T02A result, the accepted R1 requirements, ADR-PGR-004 and the blocked M05-T02B live-fact obligation.
+
+### Accepted direction
+
+- The current deployment path is **local-first on Tower**.
+- The dedicated persistent Buildx/BuildKit builder/cache on Tower remains the primary and required build path.
+- The Paseo+Pi child image is retained locally with immutable image identity/provenance; production cutover and rollback use local immutable known-good images.
+- Keep at least the current production image plus a bounded set of prior known-good local images; exact retention count/prune detail remains downstream implementation detail.
+- The official exact `ghcr.io/getpaseo/paseo@<digest>` base remains the upstream image source.
+- A **private project GHCR child-image registry, registry-backed cache and self-hosted GitHub runner are not required for the current deployment path**. They are deferred optional enhancements/recovery accelerators and require separate justification before introduction.
+- Loss of all local Docker/BuildKit state is recoverable by rebuilding from canonical Git + frozen candidate/provenance rather than requiring a private child-image registry.
+- Existing M05-T02A GREEN evidence remains valid and is not reopened by this change.
+- The old M05-T02B direction that required live private-GHCR/runner facts must not be materialized under superseded product intent.
+
+### Counterfactual challenge
+
+Keeping private GHCR would provide an off-host copy of a ready child image and a secondary remote BuildKit cache, which can reduce recovery time after total local Docker/cache loss. Against that benefit, this single-Tower deployment would carry additional registry credentials, package permissions, runner/registry configuration and another operational dependency. The accepted requirements already make private GHCR/self-hosted-runner publication a SHOULD and registry-backed cache a MAY, while persistent local BuildKit, immutable identity, staged promotion, rollback and cold/warm cache acceptance remain MUST-level outcomes.
+
+The local-first direction therefore preserves the required safety/reproducibility outcomes while removing a nonessential dependency from the initial deployment. The explicit residual tradeoff is slower disaster recovery after complete loss of local image/cache state because a rebuild is required.
+
+### Final challenge / completion audit
+
+Result: **GREEN**.
+
+No further material user/product choice is identified for this amendment. The remaining work is Definition/Planning formalization and downstream Tower fact gathering for the local persistent-builder/cache/rollback acceptance surface.
+
+Exact Definition promotion authorization for `paseo-gui-runtime@3` is still pending; this amendment does not self-promote.
