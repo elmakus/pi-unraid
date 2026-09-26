@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M05-T01"
+attempt = "R02"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "40ad9529f7f3bb05a27caa306d21a3cdc83c5bcd"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T01-R02.md"
+blob = "7b3855238c59f35f2cd2af05a0d1456db34832db"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "The independent R01 reviewing context did not materially produce or repair the corrected M05-T01 result or implementation and is reserved for a full R02 recheck against the new exact subject."
