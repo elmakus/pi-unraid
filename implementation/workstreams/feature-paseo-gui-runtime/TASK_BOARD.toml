@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 90
+revision = 92
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -391,13 +391,17 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T03.md"
 
 [cards.result]
 class = "result"
-path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T03.md"
-commit = "a6f6ff41ddc8d45e5744d8f89203e923a467ca9d"
-blob = "0b28adbe107c839b3f3f9a45618d12c9d9d36ebc"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T03-R02.md"
+commit = "550c5f76cca783e43eb44b0bdbf82c7fe889bff6"
+blob = "b526cf4717ea6d353fc6d23f082b1c726e7f55ed"
 
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T03-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T03-R02.toml"
 
 [[jit_triggers]]
 id = "after-M05-T03-materialize-M06-T01"
