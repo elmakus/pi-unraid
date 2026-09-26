@@ -298,8 +298,57 @@ class CoordinatedResolverTests(unittest.TestCase):
             self.assertNotIn(secret,r.stdout); self.assertNotIn(secret,r.stderr)
         r=self.invoke("--fixture",str(FIXTURE),"--check"); self.assertEqual(r.returncode,0,r.stderr)
         lowered=r.stdout.lower()
-        for forbidden in ('"password"','"authorization"','"access_token"','"private_key"','"secret"'):
+        for forbidden in ('"password"','"authorization"','"access_token"','"private_key"','"secret"','"token"'):
             self.assertNotIn(forbidden,lowered)
+
+    def test_token_field_rejected_without_leak(self):
+        secret="tok-live-value-45678"
+        with tempfile.TemporaryDirectory() as td:
+            td=Path(td)
+            facts=self.base_facts(); facts["components"]["pi"]["token"]=secret
+            facts_path=self.write(td,facts,"tok.json")
+            r=self.invoke("--fixture",str(facts_path),"--check")
+            self.assertNotEqual(r.returncode,0); self.assertEqual(r.stdout,"")
+            self.assertIn("unexpected field",r.stderr)
+            self.assertNotIn(secret,r.stdout); self.assertNotIn(secret,r.stderr)
+            staged=td/"staged.json"
+            r=self.invoke("--fixture",str(facts_path),"--output",str(staged))
+            self.assertNotEqual(r.returncode,0); self.assertFalse(staged.exists())
+            self.assertNotIn(secret,r.stderr)
+            valid=self.invoke("--fixture",str(FIXTURE),"--check"); self.assertEqual(valid.returncode,0,valid.stderr)
+            tampered=json.loads(valid.stdout)
+            tampered["components"]["pi"]["token"]=secret
+            tampered.pop("candidate_id")
+            tampered["candidate_id"]="sha256:"+hashlib.sha256(json.dumps(tampered,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+            poisoned=td/"poisoned.json"; poisoned.write_text(json.dumps(tampered))
+            for flag in ("--validate","--readback"):
+                v=self.invoke(flag,str(poisoned))
+                self.assertNotEqual(v.returncode,0,flag); self.assertEqual(v.stdout,"",flag)
+                self.assertIn("unexpected field",v.stderr,flag)
+                self.assertNotIn(secret,v.stdout,flag); self.assertNotIn(secret,v.stderr,flag)
+
+    def test_unknown_fields_rejected_by_schema(self):
+        cases=[]
+        facts=self.base_facts(); facts["components"]["paseo"]["artifact"]["extra"]="x"; cases.append(facts)
+        facts=self.base_facts(); facts["components"]["node"]["token"]="x"; cases.append(facts)
+        facts=self.base_facts(); facts["components"]["pi"]["npm"]["token"]="x"; cases.append(facts)
+        for broken in cases:
+            with tempfile.TemporaryDirectory() as td:
+                r=self.invoke("--fixture",str(self.write(td,broken)),"--check")
+                self.assertNotEqual(r.returncode,0); self.assertEqual(r.stdout,"")
+                self.assertIn("unexpected field",r.stderr)
+        with tempfile.TemporaryDirectory() as td:
+            valid=self.invoke("--fixture",str(FIXTURE),"--check"); self.assertEqual(valid.returncode,0,valid.stderr)
+            for mutate in (lambda c: c.update(top_extra=1),
+                            lambda c: c["policy"].update(policy_extra=1),
+                            lambda c: c["components"]["pi_mcp_adapter"].update(adapter_extra=1)):
+                tampered=json.loads(valid.stdout); mutate(tampered)
+                tampered.pop("candidate_id")
+                tampered["candidate_id"]="sha256:"+hashlib.sha256(json.dumps(tampered,sort_keys=True,separators=(",",":")).encode()).hexdigest()
+                p=Path(td)/"tampered.json"; p.write_text(json.dumps(tampered))
+                v=self.invoke("--validate",str(p))
+                self.assertNotEqual(v.returncode,0); self.assertEqual(v.stdout,"")
+                self.assertIn("unexpected field",v.stderr)
 
     def test_changed_capability_set_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
@@ -361,6 +410,39 @@ class CoordinatedResolverTests(unittest.TestCase):
             r=self.invoke("--fixture",str(FIXTURE),"--output",str(inv))
             self.assertNotEqual(r.returncode,0); self.assertIn("resolver input",r.stderr)
         self.assertEqual(hashlib.sha256(accepted.read_bytes()).hexdigest(),digest)
+
+    def test_alternate_inventory_cannot_redirect_write_guard(self):
+        accepted=ROOT/"config"/"paseo-candidate.json"
+        before=accepted.read_bytes()
+        with tempfile.TemporaryDirectory() as td:
+            td=Path(td)
+            definition=json.loads((ROOT/"config"/"environment-capabilities.json").read_text())
+            definition["candidate_source"]="staging-alias.json"
+            alt=self.write(td,definition,"alt-inventory.json")
+            for spelling in (str(accepted),"config/paseo-candidate.json"):
+                r=self.invoke("--fixture",str(FIXTURE),"--inventory",str(alt),"--output",spelling)
+                self.assertNotEqual(r.returncode,0,spelling)
+                self.assertIn("accepted candidate",r.stderr,spelling)
+                self.assertEqual(accepted.read_bytes(),before,spelling)
+            r=self.invoke("--fixture",str(FIXTURE),"--inventory",str(alt),
+                          "--output",str(ROOT/"config"/"environment-capabilities.json"))
+            self.assertNotEqual(r.returncode,0); self.assertIn("canonical inventory",r.stderr)
+            staged=td/"staged.json"
+            r=self.invoke("--fixture",str(FIXTURE),"--inventory",str(alt),"--output",str(staged))
+            self.assertEqual(r.returncode,0,r.stderr); self.assertTrue(staged.is_file())
+        self.assertEqual(accepted.read_bytes(),before)
+
+    def test_canonical_inventory_unavailable_fails_closed(self):
+        definition=json.loads((ROOT/"config"/"environment-capabilities.json").read_text())
+        with tempfile.TemporaryDirectory() as td:
+            out=Path(td)/"staged.json"
+            with mock.patch.object(resolver,"DEFAULT_INVENTORY",Path(td)/"missing.json"):
+                with self.assertRaisesRegex(resolver.ResolutionError,"canonical inventory"):
+                    resolver.guard_output_path(out,definition,[])
+            bad=Path(td)/"bad.json"; bad.write_text("{not json")
+            with mock.patch.object(resolver,"DEFAULT_INVENTORY",bad):
+                with self.assertRaisesRegex(resolver.ResolutionError,"canonical inventory"):
+                    resolver.guard_output_path(out,definition,[])
 
     def test_default_output_is_read_only_stdout(self):
         accepted=ROOT/"config"/"paseo-candidate.json"

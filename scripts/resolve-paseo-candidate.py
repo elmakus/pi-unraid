@@ -28,6 +28,29 @@ EXPECTED_SOURCE_REPO={"paseo":"getpaseo/paseo","pi":"earendil-works/pi","playwri
     "docker_cli":"docker/cli","docker_compose":"docker/compose"}
 EXPECTED_NPM_PACKAGE={"pi":"@earendil-works/pi-coding-agent","playwright":"playwright","specpi":"specpi","pi_mcp_adapter":"pi-mcp-adapter"}
 BINARY_PATTERNS={"github_cli":r"gh_{version}_linux_amd64\.tar\.gz","docker_compose":r"docker-compose-linux-x86_64"}
+TOP_LEVEL_KEYS={"schema_version","policy","components","candidate_id"}
+POLICY_KEYS={"channel","build_must_not_reresolve","compatibility_exceptions","generic_base_tooling","generic_base_tooling_identity"}
+COMPONENT_KEYS={
+ "paseo":{"version","source","artifact","stable_line"},
+ "node":{"version","minimum_for_pi","delivery","immutable_parent","stable_line"},
+ "pi":{"version","npm","source","stable_line"},
+ "playwright":{"version","npm","source","chromium","stable_line"},
+ "specpi":{"version","npm","source","live_compatibility_smoke_required","stable_line"},
+ "pi_mcp_adapter":{"version","npm","source","declared_pi_ai_peer","live_compatibility_smoke_required","stable_line"},
+ "github_cli":{"version","source","artifact","stable_line"},
+ "docker_cli":{"version","source","stable_line_source","artifact_identity","stable_line"},
+ "docker_compose":{"version","source","artifact","stable_line"}}
+SOURCE_KEYS={"repository","tag","commit"}
+NPM_KEYS={"package","integrity","shasum"}
+PASEO_ARTIFACT_KEYS={"image","digest","reference","linux_amd64_manifest","config_digest","node_version"}
+BINARY_ARTIFACT_KEYS={"name","digest","size"}
+CHROMIUM_KEYS={"revision","browser_version"}
+STABLE_LINE_SOURCE_KEYS={"repository","tag"}
+ARTIFACT_IDENTITY_KEYS={"status","digest","reason"}
+STABLE_LINE_KEYS={"channel","source","rationale"}
+EXCEPTION_KEYS={"component","pinned_version","scope","rationale","authority","recheck"}
+AUTHORITY_KEYS={"record","digest"}
+RECHECK_KEYS={"status","observed_latest","facts_digest"}
 GENERIC_BASE_TOOLING=["bash","git","network-tools","build-tools","python3"]
 GENERIC_BASE_TOOLING_IDENTITY="owned by the exact Paseo child-image package graph; not independent floating version lines"
 NODE_FLOOR=(22,19,0)
@@ -504,6 +527,32 @@ def resolve_live(definition=None, approved=None):
             raise ResolutionError(f"approved compatibility exception for {comp} cannot be resolved live")
     return assemble_candidate(components, [], observed, approved, definition)
 
+def check_allowed(mapping, allowed, where):
+    if not isinstance(mapping,dict): raise ResolutionError(f"{where} must be an object")
+    extra=sorted(set(mapping)-allowed)
+    if extra: raise ResolutionError(f"{where} has unexpected field(s): {','.join(extra)}")
+
+def check_candidate_schema(c):
+    check_allowed(c,TOP_LEVEL_KEYS,"candidate")
+    check_allowed(c.get("policy",{}),POLICY_KEYS,"candidate policy")
+    comps=c.get("components",{})
+    for n in sorted(comps):
+        comp=comps[n]
+        check_allowed(comp,COMPONENT_KEYS[n],f"{n} component")
+        if "source" in comp: check_allowed(comp["source"],SOURCE_KEYS,f"{n} source")
+        if "npm" in comp: check_allowed(comp["npm"],NPM_KEYS,f"{n} npm")
+        if "artifact" in comp:
+            check_allowed(comp["artifact"],PASEO_ARTIFACT_KEYS if n=="paseo" else BINARY_ARTIFACT_KEYS,f"{n} artifact")
+        if "chromium" in comp: check_allowed(comp["chromium"],CHROMIUM_KEYS,f"{n} chromium")
+        if "stable_line_source" in comp: check_allowed(comp["stable_line_source"],STABLE_LINE_SOURCE_KEYS,f"{n} stable-line source")
+        if "artifact_identity" in comp: check_allowed(comp["artifact_identity"],ARTIFACT_IDENTITY_KEYS,f"{n} artifact identity")
+        if "stable_line" in comp: check_allowed(comp["stable_line"],STABLE_LINE_KEYS,f"{n} stable line")
+    for e in c.get("policy",{}).get("compatibility_exceptions",[]):
+        if not isinstance(e,dict): raise ResolutionError("compatibility exception records must be objects")
+        check_allowed(e,EXCEPTION_KEYS,"compatibility exception")
+        if "authority" in e: check_allowed(e["authority"],AUTHORITY_KEYS,"compatibility exception authority")
+        if "recheck" in e: check_allowed(e["recheck"],RECHECK_KEYS,"compatibility exception recheck")
+
 def validate(c, definition=None):
     if definition is None:
         try: definition=load_json_file(DEFAULT_INVENTORY)
@@ -511,6 +560,7 @@ def validate(c, definition=None):
     comps=c.get("components",{})
     if c.get("schema_version")!=1: raise ResolutionError("unsupported candidate schema")
     check_capability_set(comps, definition)
+    check_candidate_schema(c)
     policy=c.get("policy",{})
     if policy.get("channel")!="latest-stable": raise ResolutionError("candidate channel must remain latest-stable")
     if policy.get("build_must_not_reresolve") is not True: raise ResolutionError("candidate must forbid build-time latest re-resolution")
@@ -583,7 +633,7 @@ def validate(c, definition=None):
     expected="sha256:"+hashlib.sha256(json.dumps(tmp,sort_keys=True,separators=(",",":")).encode()).hexdigest()
     if claimed!=expected: raise ResolutionError("candidate_id mismatch")
     low=json.dumps(c,sort_keys=True).lower()
-    for key in ('"password"','"authorization"','"access_token"','"private_key"','"secret"'):
+    for key in ('"password"','"authorization"','"access_token"','"private_key"','"secret"','"token"'):
         if key in low: raise ResolutionError(f"secret-bearing field forbidden: {key}")
 
 def atomic_write(path,c):
@@ -606,13 +656,20 @@ def accepted_candidate_path(definition):
         raise ResolutionError("inventory candidate_source escapes the repository root")
     return target
 
+def canonical_definition():
+    try: return load_json_file(DEFAULT_INVENTORY)
+    except ResolutionError as e: raise ResolutionError(f"canonical inventory is unavailable: {e}") from e
+
 def guard_output_path(output, definition, inputs):
     resolved=Path(output).resolve()
-    if resolved==accepted_candidate_path(definition):
+    canonical=accepted_candidate_path(canonical_definition())
+    if resolved==canonical or resolved==accepted_candidate_path(definition):
         raise ResolutionError("refuses to overwrite the accepted candidate; staged output must use a separate path and promotion is owned by the staged update path")
     for role, other in inputs:
         if other is not None and Path(other).resolve()==resolved:
             raise ResolutionError(f"refuses to overwrite resolver input {role}")
+    if resolved==DEFAULT_INVENTORY.resolve():
+        raise ResolutionError("refuses to overwrite the canonical inventory")
     return Path(output)
 
 def main():
@@ -636,7 +693,7 @@ def main():
             out=guard_output_path(a.output, definition, [("fixture",a.fixture),("inventory",a.inventory),("approved-exceptions",a.approved_exceptions)])
             atomic_write(out,c); print(c["candidate_id"])
         return 0
-    except (ResolutionError,KeyError,TypeError,ValueError,OSError) as e:
+    except (ResolutionError,KeyError,TypeError,ValueError,OSError,AttributeError) as e:
         print(f"candidate resolution failed: {e}",file=os.sys.stderr); return 2
 
 if __name__=="__main__": raise SystemExit(main())
