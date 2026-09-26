@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 85
+revision = 86
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -359,7 +359,7 @@ condition = "The exact GREEN local Buildx/cache foundation result plus current T
 
 [[cards]]
 id = "M05-T02B"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
@@ -378,5 +378,5 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T02B-R0
 [[jit_triggers]]
 id = "after-M05-T02B-materialize-M05-T03"
 after_card = "M05-T02B"
-state = "waiting"
+state = "satisfied"
 condition = "The exact GREEN persistent Tower builder/cache/retention result is required before staged promotion/cutover/rollback can bind the real local immutable-image and rollback-anchor surface."
