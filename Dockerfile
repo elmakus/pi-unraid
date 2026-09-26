@@ -52,15 +52,22 @@ RUN set -eux; \
     git lfs install --system; \
     command -v Xvfb
 
+# Each independently-versioned component keeps its own layer, ordered
+# slowest-first: the Playwright/Chromium browser layer is reused across
+# Pi-only bumps instead of being reinstalled with it.
 RUN set -eux; \
     npm install -g --ignore-scripts \
-      "@earendil-works/pi-coding-agent@${PI_UNRAID_PI_VERSION}" \
       "playwright@${PI_UNRAID_PLAYWRIGHT_VERSION}"; \
-    test "$(pi --version)" = "${PI_UNRAID_PI_VERSION}"; \
     test "$(playwright --version)" = "Version ${PI_UNRAID_PLAYWRIGHT_VERSION}"; \
     install -d -m 0755 "${PLAYWRIGHT_BROWSERS_PATH}"; \
     playwright install --with-deps chromium; \
     chmod -R a+rX "${PLAYWRIGHT_BROWSERS_PATH}"; \
+    npm cache clean --force
+
+RUN set -eux; \
+    npm install -g --ignore-scripts \
+      "@earendil-works/pi-coding-agent@${PI_UNRAID_PI_VERSION}"; \
+    test "$(pi --version)" = "${PI_UNRAID_PI_VERSION}"; \
     npm cache clean --force
 
 RUN set -eux; \

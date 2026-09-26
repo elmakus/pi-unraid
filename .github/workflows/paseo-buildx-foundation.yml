@@ -1,0 +1,173 @@
+name: Paseo Buildx foundation (cold/warm cache evidence)
+
+on:
+  push:
+    branches:
+      - feat/paseo-gui-runtime
+    paths:
+      - Dockerfile
+      - .dockerignore
+      - compose.yaml
+      - config/paseo-candidate.json
+      - config/environment-capabilities.json
+      - config/pi-agent/**
+      - scripts/paseo_buildx.py
+      - scripts/smoke_paseo_image.py
+      - scripts/verify-compose-foundation.sh
+      - scripts/verify-pi-instruction-plane.sh
+      - scripts/verify-pi-global-capabilities.sh
+      - scripts/configure-paseo-runtime.sh
+      - scripts/configure-pi-instruction-plane.sh
+      - scripts/configure-pi-global-capabilities.sh
+      - scripts/pi_instruction_plane.py
+      - scripts/pi_global_capabilities.py
+      - scripts/paseo-relay-access.sh
+      - scripts/configure_unraid_graphql_credential.py
+      - scripts/unraid_graphql_host_control.py
+      - scripts/unraid_host_safety_guard.py
+      - scripts/unraid_ssh_fallback.py
+      - scripts/unraid_host_control_router.py
+      - scripts/unraid_host_control_doctor.py
+      - scripts/environment_capability_inventory.py
+      - scripts/environment_capability_control.py
+      - tests/test_paseo_buildx_contract.py
+      - tests/test_paseo_candidate_resolver.py
+      - tests/test_paseo_child_image_contract.py
+      - tests/test_paseo_runtime_contract.py
+      - tests/test_paseo_relay_auth_contract.py
+      - tests/test_pi_instruction_plane_contract.py
+      - tests/test_pi_global_capabilities_contract.py
+      - tests/test_unraid_graphql_host_control_contract.py
+      - tests/test_unraid_host_control_guard_contract.py
+      - tests/test_unraid_host_control_doctor_contract.py
+      - tests/test_environment_capability_inventory_contract.py
+      - tests/test_environment_capability_control_contract.py
+      - .github/workflows/paseo-buildx-foundation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  buildx-cold-warm-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      PI_UNRAID_BUILDX_BUILDER: pi-unraid-paseo
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Configure persistent Buildx state location
+        run: |
+          STATE_DIR="$HOME/.local/share/pi-unraid/buildx"
+          mkdir -p "$STATE_DIR"
+          echo "DOCKER_CONFIG=$STATE_DIR" >> "$GITHUB_ENV"
+          echo "PI_UNRAID_BUILDX_STATE_DIR=$STATE_DIR" >> "$GITHUB_ENV"
+      - name: Verify exact predecessor bindings
+        run: |
+          test "$(git rev-parse 40ad9529f7f3bb05a27caa306d21a3cdc83c5bcd:implementation/workstreams/feature-paseo-gui-runtime/results/M05-T01-R02.md)" = "7b3855238c59f35f2cd2af05a0d1456db34832db"
+          test "$(git rev-parse bbc862c37c0da81a08a91876499cfe865be958ab:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md)" = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
+      - name: Contract tests including Buildx foundation
+        run: |
+          python3 -m unittest tests/test_paseo_buildx_contract.py -v
+          python3 -m unittest tests/test_paseo_candidate_resolver.py -v
+          python3 -m unittest tests/test_paseo_child_image_contract.py -v
+          python3 -m unittest tests/test_paseo_runtime_contract.py -v
+          python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
+          python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
+          python3 -m unittest tests/test_pi_global_capabilities_contract.py -v
+          python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_doctor_contract.py -v
+          python3 -m unittest tests/test_environment_capability_inventory_contract.py -v
+          python3 -m unittest tests/test_environment_capability_control_contract.py -v
+      - name: Cold Buildx build on a fresh dedicated builder
+        run: |
+          python3 scripts/paseo_buildx.py build \
+            --record /tmp/cold-record.json \
+            --metadata /tmp/cold-metadata.json \
+            --progress plain 2>&1 | tee /tmp/cold-build.log
+          python3 -c "import json;r=json.load(open('/tmp/cold-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is False,r['builder'];print('cold tag:',r['tag']);print('cold image:',r['image']['id'])"
+      - name: Warm identical rebuild reuses builder and cache
+        run: |
+          python3 scripts/paseo_buildx.py build \
+            --record /tmp/warm-same-record.json \
+            --metadata /tmp/warm-same-metadata.json \
+            --progress plain 2>&1 | tee /tmp/warm-same-build.log
+          python3 -c "import json;r=json.load(open('/tmp/warm-same-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is True,r['builder'];print('warm-same image:',r['image']['id'])"
+          test "$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['image']['id'])")" = "$(python3 -c "import json;print(json.load(open('/tmp/warm-same-record.json'))['image']['id'])")"
+          grep -c CACHED /tmp/warm-same-build.log
+          test "$(grep -c CACHED /tmp/warm-same-build.log)" -ge 4
+      - name: Warm bounded-change rebuild shows minimal invalidation
+        run: |
+          rm -rf /tmp/warm-context && mkdir -p /tmp/warm-context
+          cp -a Dockerfile .dockerignore /tmp/warm-context/
+          printf '\nLABEL io.pi-unraid.warm-probe="m05-t02a"\n' >> /tmp/warm-context/Dockerfile
+          python3 scripts/paseo_buildx.py build \
+            --context /tmp/warm-context \
+            --tag pi-unraid:paseo-warm-probe \
+            --record /tmp/warm-change-record.json \
+            --metadata /tmp/warm-change-metadata.json \
+            --progress plain 2>&1 | tee /tmp/warm-change-build.log
+          python3 -c "import json;r=json.load(open('/tmp/warm-change-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is True,r['builder'];print('warm-change image:',r['image']['id'])"
+          test "$(grep -c CACHED /tmp/warm-change-build.log)" -ge 4
+          test "$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['image']['id'])")" != "$(python3 -c "import json;print(json.load(open('/tmp/warm-change-record.json'))['image']['id'])")"
+      - name: Bounded post-success prune retains warm cache and images
+        run: |
+          docker buildx du --builder pi-unraid-paseo --verbose | tee /tmp/buildx-du-before.txt
+          test -s /tmp/buildx-du-before.txt
+          python3 scripts/paseo_buildx.py prune --keep-storage 8GB | tee /tmp/prune.json
+          python3 -c "import json;d=json.load(open('/tmp/prune.json'));assert d['keep_storage']=='8GB',d;assert d['builder']=='pi-unraid-paseo',d"
+          docker buildx du --builder pi-unraid-paseo --verbose | tee /tmp/buildx-du-after.txt
+          test -s /tmp/buildx-du-after.txt
+          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
+          docker image inspect "$COLD_TAG" --format '{{.Id}}'
+          test "$(docker image inspect "$COLD_TAG" --format '{{ index .Config.Labels "io.pi-unraid.candidate-id" }}')" = "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69"
+      - name: Disposable image and provenance smoke on cold image
+        run: |
+          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
+          python3 scripts/smoke_paseo_image.py "$COLD_TAG" config/paseo-candidate.json
+      - name: Disposable persistence and ownership smoke
+        run: |
+          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
+          bash scripts/verify-compose-foundation.sh "$COLD_TAG"
+      - name: Disposable Pi instruction-plane smoke
+        run: |
+          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
+          bash scripts/verify-pi-instruction-plane.sh "$COLD_TAG"
+      - name: Disposable Pi global-capability smoke
+        run: |
+          COLD_TAG="$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['tag'])")"
+          bash scripts/verify-pi-global-capabilities.sh "$COLD_TAG"
+      - name: Show machine-readable cold/warm timing comparison
+        run: |
+          python3 -c "
+          import json
+          for name in ('cold', 'warm-same', 'warm-change'):
+              r = json.load(open(f'/tmp/{name}-record.json'))
+              phases = {k: (v['status'], v['duration_ms']) for k, v in r['phases'].items()}
+              print(name, 'tag=' + r['tag'], 'image=' + str(r['image']['id']))
+              print(name, 'phases=' + json.dumps(phases, sort_keys=True))
+          "
+      - name: Upload Buildx evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-buildx-evidence
+          path: |
+            /tmp/cold-record.json
+            /tmp/cold-metadata.json
+            /tmp/cold-build.log
+            /tmp/warm-same-record.json
+            /tmp/warm-same-metadata.json
+            /tmp/warm-same-build.log
+            /tmp/warm-change-record.json
+            /tmp/warm-change-metadata.json
+            /tmp/warm-change-build.log
+            /tmp/buildx-du-before.txt
+            /tmp/buildx-du-after.txt
+            /tmp/prune.json
