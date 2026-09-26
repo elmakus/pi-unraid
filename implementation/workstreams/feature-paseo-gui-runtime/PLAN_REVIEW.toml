@@ -2,8 +2,8 @@ workstream_id = "feature-paseo-gui-runtime"
 plan_revision = "P3"
 planning_cycle = 3
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "red"
+evidence_path = "planning/reviews/PASEO_GUI_RUNTIME_P3_R01.md"
 
 [subject]
 class = "git_blob"
