@@ -181,5 +181,3 @@ class ScopeGuardTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-[executed on device: Tower (256a948c-39fa-427e-874b-d2662172d16a)]
