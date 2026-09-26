@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 92
+revision = 93
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -383,7 +383,7 @@ condition = "The exact GREEN persistent Tower builder/cache/retention result is 
 
 [[cards]]
 id = "M05-T03"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
