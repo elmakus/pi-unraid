@@ -25,7 +25,9 @@ cat >"$fixture/home/.pi/agent/settings.json" <<'JSON'
 }
 JSON
 printf '%s\n' '{"providerState":"unchanged"}' >"$fixture/home/.pi/agent/provider-state.json"
-chown -R "$uid:$gid" "$fixture/home"
+docker run --rm --user 0:0 --entrypoint chown \
+  -v "$fixture:/fixture" \
+  "$image" -R "$uid:$gid" /fixture/home >/dev/null
 
 bash "$repo_root/scripts/configure-pi-instruction-plane.sh" \
   apply "$image" "$fixture/home" "$uid" "$gid" >/dev/null
