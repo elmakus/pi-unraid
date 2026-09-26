@@ -1,30 +1,30 @@
 workstream_id = "feature-paseo-gui-runtime"
-state = "active"
+state = "consumed"
 origin_role = "execution_prep"
 origin_subject = "M05-T02B|live-ghcr-runner-tower-facts"
 return_target = "execution_prep:M05-T02B"
-return_reconciliation = "pending"
-return_result = ""
-finding = "M05-T02A R02 is GREEN and the M05-T02B JIT trigger is satisfied. Local Buildx acceptance is proven on exact SHA d4523248b8025d65649d4b734e58e89a894e03d9 by CI run 36238131162. Read-only GitHub runner inventory reports zero registered self-hosted runners. Private GHCR package state and Tower Docker/Buildx, builder/cache path, storage and registry reachability remain unobserved."
-limitations = "Current gh authentication lacks read:packages (package API 403). This workstation has no SSH configuration or UNRAID_GRAPHQL_ENDPOINT; hostname tower does not resolve. No Tower connection or private-package mutation was attempted. A resolvable Tower target and configured non-interactive read-only access are needed before stable M05-T02B acceptance can be bound."
-conflicts = "None in the evidence available so far; live project/runtime facts remain pending."
+return_reconciliation = "applied"
+return_result = "implementation/workstreams/feature-paseo-gui-runtime/BRAINSTORM.toml@7acf641c79d047a5ba7b83d78f768c814411fa0c:8f4735579fcda9b4ce47978d7e4625e0959e95f8"
+finding = "The prior M05-T02B live GHCR/runner/Tower fact obligation was reconciled without materializing the old Card. The user explicitly selected a local-first Tower build/rollback path and removed private project GHCR plus a self-hosted GitHub runner from the required current deployment path. This is a product/global-intent change, so Execution Prep must not continue under the superseded M05-T02B acceptance direction; the exact replacement scope is Brainstorming revision paseo-gui-runtime@3."
+limitations = "No conclusion was reached about private GHCR package state or live Tower registry reachability, because those facts ceased to be required for the superseded current-path design. Tower-local builder/cache/storage facts remain necessary later, after revised Definition and Planning authority exists."
+conflicts = "None. The incomplete live-fact research is superseded by explicit user product authority; it does not claim that GHCR is technically unavailable or invalid, only that it is no longer required in the current deployment path."
 
 [[sources]]
 class = "official_upstream"
-status = "pending"
-weight = "highest for current GitHub Actions/GHCR and Unraid API behavior needed by the Card"
+status = "not_relevant"
+weight = "No upstream fact can override the explicit product decision to remove private project GHCR/self-hosted-runner publication from the required current path."
 
 [[sources]]
 class = "project_runtime"
-status = "pending"
-weight = "highest for actual Tower runner, builder, storage, registry and credential readback"
+status = "unavailable"
+weight = "Live Tower facts were unavailable in this context; only Tower-local facts that remain relevant to the revised local-first design will be gathered after revised authority is promoted."
 
 [[sources]]
 class = "tracker_discussion"
 status = "not_relevant"
-weight = "supporting only; no issue or discussion fact can replace live Tower/GHCR readback"
+weight = "Tracker discussion cannot replace or override the user's explicit product decision."
 
 [[sources]]
 class = "practitioner_community"
 status = "not_relevant"
-weight = "supporting only; community guidance cannot bind this project's live acceptance"
+weight = "Community preference cannot replace or override the user's explicit product decision."
