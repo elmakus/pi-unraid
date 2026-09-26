@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import contextlib
 import importlib.util
+import io
 import json
 import re
 import subprocess
@@ -322,6 +324,65 @@ class RpcWorkspaceContractTests(unittest.TestCase):
         refused = run_harness("paseo-spawn", "--scope", "production", "--image", "example:tag")
         self.assertNotEqual(refused.returncode, 0)
         self.assertIn("refusing non-disposable scope", refused.stderr)
+
+    def test_secret_redactor_masks_trust_anchors(self) -> None:
+        offer = "connect https://app.paseo.sh/#offer=abc123DEF456 end"
+        self.assertNotIn("abc123DEF456", FLOW.redact_secrets(offer))
+        self.assertIn("offer=<redacted>", FLOW.redact_secrets(offer))
+        bearer = "Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.payload"
+        redacted = FLOW.redact_secrets(bearer)
+        self.assertNotIn("eyJhbGciOiJIUzI1NiJ9", redacted)
+        self.assertIn("Bearer <redacted>", redacted)
+        assignment = "db password=hunter2 active"
+        redacted = FLOW.redact_secrets(assignment)
+        self.assertNotIn("hunter2", redacted)
+        self.assertIn("password=<redacted>", redacted)
+
+    def test_secret_redactor_preserves_benign_text(self) -> None:
+        text = "pi 0.87.1 available; relay disabled; 2 mounts"
+        self.assertEqual(FLOW.redact_secrets(text), text)
+
+    def test_run_output_gate_classification_wired(self) -> None:
+        self.assertIn("classify_spawn_blocker(run_out)", HARNESS)
+
+    def test_main_emits_report_on_unexpected_exception(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "spawn.json"
+            with mock.patch.object(FLOW, "paseo_spawn_probe",
+                                   side_effect=RuntimeError("boom")):
+                with self.assertRaises(RuntimeError):
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        FLOW.main(["paseo-spawn", "--scope", "disposable",
+                                   "--image", "img:tag", "--report", str(report)])
+            payload = json.loads(report.read_text())
+        self.assertEqual(payload["outcome"], "failed")
+        self.assertIn("boom", payload["error"])
+
+    def test_main_emits_report_on_system_exit(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "spawn.json"
+            with mock.patch.object(FLOW, "paseo_spawn_probe",
+                                   side_effect=SystemExit("no child")):
+                with self.assertRaises(SystemExit):
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        FLOW.main(["paseo-spawn", "--scope", "disposable",
+                                   "--image", "img:tag", "--report", str(report)])
+            payload = json.loads(report.read_text())
+        self.assertEqual(payload["outcome"], "failed")
+
+    def test_failure_report_write_failure_does_not_mask_error(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "missing-dir" / "spawn.json"
+            with mock.patch.object(FLOW, "paseo_spawn_probe",
+                                   side_effect=RuntimeError("original")):
+                with self.assertRaises(RuntimeError, msg="original must propagate, not OSError"):
+                    FLOW.main(["paseo-spawn", "--scope", "disposable",
+                               "--image", "img:tag", "--report", str(report)])
+
+    def test_spawn_probe_collects_diagnostics(self) -> None:
+        for marker in ("collect_spawn_diagnostics", "daemon.log", "paseo ls",
+                       "docker logs", "ps -ef", "sessions", "--tail"):
+            self.assertIn(marker, HARNESS, marker)
 
     def test_harness_is_secret_safe(self) -> None:
         self.assertIsNone(FLOW.SECRET_VALUE_PATTERN.search(HARNESS))

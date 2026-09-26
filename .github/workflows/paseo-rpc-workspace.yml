@@ -187,4 +187,5 @@ jobs:
             /tmp/m06-t01-readback.json
             /tmp/m06-t01-flow.json
             /tmp/m06-t01-spawn.json
+            /tmp/m06-t01-spawn-out.json
             /tmp/m06-t01-production-out.txt

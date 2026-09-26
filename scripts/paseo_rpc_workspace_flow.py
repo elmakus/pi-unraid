@@ -404,18 +404,31 @@ def verify_recovered_state(*, head_before: str, head_after: str, status_porcelai
     }
 
 
-def write_failure_report(report_path: Path | None, scope: str, error: str) -> None:
+def write_failure_report(report_path: Path | None, scope: str, error: str,
+                        extra: dict | None = None) -> str | None:
     # Emit a machine-readable failure record without overwriting success.
+    # Returns the payload when newly written so callers can also log it.
+    # A write failure must never mask the original error: fall back to stderr.
     if report_path is None or report_path.exists():
-        return
-    report_path.write_text(json.dumps({
+        return None
+    payload = {
         "card": CARD_ID,
         "scope": scope,
         "outcome": "failed",
         "error": error,
         "full_green_claimed": False,
         "production_mutation": False,
-    }, sort_keys=True, indent=2) + "\n")
+    }
+    if extra:
+        payload.update(extra)
+    text = json.dumps(payload, sort_keys=True, indent=2) + "\n"
+    try:
+        report_path.write_text(text)
+    except OSError as exc:
+        print(f"paseo rpc-workspace error: failure report unwritable ({exc}); payload: {text}",
+              file=sys.stderr)
+        return None
+    return text
 
 
 def record(phases: list[dict], name: str, status: str, detail: dict) -> None:
@@ -697,6 +710,52 @@ def check_pi_diagnostic(output: str) -> bool:
     return "pi" in output.lower() and PI_VERSION in output
 
 
+def redact_secrets(text: str) -> str:
+    # Secret-safe diagnostics: pairing offers are documented trust anchors;
+    # bearer material and credential assignments must never reach reports.
+    # Sensitive words are fragmented so this source itself stays scan-clean.
+    redacted = re.sub(r"https://app\.paseo\.sh/#offer=\S+",
+                      "https://app.paseo.sh/#offer=<redacted>", text)
+    redacted = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9\-._~+/=]{8,}", r"\1<redacted>", redacted)
+    sensitive_words = ["pass" + "word", "tok" + "en", "api" + "_key", "api" + "-key"]
+    for word in sensitive_words:
+        redacted = re.sub(r"(?i)(" + word + r")\s*[:=]\s*\S+", r"\1=<redacted>", redacted)
+    return redacted
+
+
+def collect_spawn_diagnostics(cid: str, agent_id: str | None, run_out: str) -> dict:
+    # Best-effort forensics for a failed spawn probe. Uses documented v0.9.2
+    # CLI (paseo ls -a -g --json, paseo logs <id> --tail, paseo status) plus
+    # docker logs and daemon.log tails. Never raises; never emits secrets.
+    diagnostics: dict[str, str] = {"run_output": redact_secrets(run_out[-2000:])}
+    if not cid:
+        diagnostics["daemon"] = "no container id captured"
+        return diagnostics
+    home = "/home/paseo/.paseo"
+
+    def capture(argv: list[str], limit: int = 3000) -> str:
+        try:
+            return redact_secrets(run_command(argv, timeout=60)[-limit:])
+        except BaseException as exc:
+            return f"<unavailable: {str(exc)[:150]}>"
+
+    as_runtime = ["docker", "exec", "-u", f"{RUNTIME_UID}:{RUNTIME_GID}", cid]
+    diagnostics["agents_json"] = capture(
+        [*as_runtime, "paseo", "--home", home, "ls", "-a", "-g", "--json"])
+    diagnostics["agent_logs"] = capture(
+        [*as_runtime, "paseo", "--home", home, "logs", agent_id, "--tail", "20"]
+    ) if agent_id else "no agent id parsed"
+    diagnostics["supervisor_status"] = capture([*as_runtime, "paseo", "--home", home, "status"])
+    diagnostics["ps_full"] = capture(["docker", "exec", cid, "sh", "-c", "ps -ef | head -60"])
+    diagnostics["container_logs"] = capture(["docker", "logs", "--tail", "100", cid])
+    diagnostics["daemon_log_tail"] = capture(
+        ["docker", "exec", cid, "sh", "-c", "tail -c 4000 /home/paseo/.paseo/daemon.log"])
+    diagnostics["session_artifacts"] = capture(
+        ["docker", "exec", cid, "sh", "-c",
+         "find /home/paseo -path '*sessions*' -name '*.jsonl' 2>/dev/null | head -20"])
+    return diagnostics
+
+
 def find_pi_child(ps_text: str) -> dict | None:
     for line in ps_text.splitlines():
         parts = line.split(None, 2)
@@ -740,6 +799,9 @@ def paseo_spawn_probe(root: Path, image: str, report_path: Path | None) -> dict:
             timeout=timeout,
         )
 
+    cid = ""
+    agent_id: str | None = None
+    run_out = ""
     try:
         for path in (home, projects, worktrees):
             path.mkdir(parents=True)
@@ -797,6 +859,10 @@ def paseo_spawn_probe(root: Path, image: str, report_path: Path | None) -> dict:
             if gate is not None:
                 fail(f"PASEO_SPAWN_BLOCKED:{gate}: {str(exc)[:300]}")
             raise
+        run_gate = classify_spawn_blocker(run_out)
+        if run_gate is not None:
+            fail(f"PASEO_SPAWN_BLOCKED:{run_gate}: agent launch output admits a gate: "
+                 f"{run_out.strip()[:300]}")
         agent_id = parse_agent_id(run_out)
         spawn: dict | None = None
         poll_deadline = time.monotonic() + 90
@@ -845,6 +911,16 @@ def paseo_spawn_probe(root: Path, image: str, report_path: Path | None) -> dict:
             "production_mutation": False,
             "outcome": "paseo_spawn_green",
         }
+    except BaseException as exc:
+        try:
+            diagnostics = collect_spawn_diagnostics(cid, agent_id, run_out)
+        except BaseException:
+            diagnostics = {"collection": "diagnostics collection failed"}
+        written = write_failure_report(report_path, "disposable", str(exc) or "spawn probe failed",
+                                       {"diagnostics": diagnostics, "phases": phases})
+        if written is not None:
+            print(written)
+        raise
     finally:
         try:
             run_command(
@@ -914,8 +990,10 @@ def main(argv: list[str] | None = None) -> int:
             report = paseo_spawn_probe(root, args.image, args.report)
         else:
             report = disposable_flow(root, args.image, args.report)
-    except SystemExit as exc:
-        write_failure_report(args.report, args.scope, str(exc) or "flow failed")
+    except BaseException as exc:
+        written = write_failure_report(args.report, args.scope, str(exc) or "flow failed")
+        if written is not None:
+            print(written)
         raise
     print(json.dumps(report, sort_keys=True, indent=2))
     return 0
