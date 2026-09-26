@@ -95,7 +95,11 @@ assert d["action"]=="apply" and d["changed"] is False and d["in_sync"]
 '
 
 adapter="$fixture/home/.pi/agent/npm/node_modules/pi-mcp-adapter"
-mv "$adapter" "$adapter.hold"
+docker run --rm --user "$uid:$gid" --entrypoint mv \
+  -v "$fixture:/fixture" \
+  "$image" \
+  /fixture/home/.pi/agent/npm/node_modules/pi-mcp-adapter \
+  /fixture/home/.pi/agent/npm/node_modules/pi-mcp-adapter.hold
 settings_hash="$(sha256sum "$fixture/home/.pi/agent/settings.json" | awk '{print $1}')"
 set +e
 missing_json="$(bash "$repo_root/scripts/configure-pi-global-capabilities.sh" \
@@ -111,7 +115,11 @@ d=json.load(sys.stdin)
 assert d["packages"]["pi_mcp_adapter"]["state"]=="RED"
 assert d["packages"]["pi_mcp_adapter"]["reason"]=="package_missing_or_invalid"
 '
-mv "$adapter.hold" "$adapter"
+docker run --rm --user "$uid:$gid" --entrypoint mv \
+  -v "$fixture:/fixture" \
+  "$image" \
+  /fixture/home/.pi/agent/npm/node_modules/pi-mcp-adapter.hold \
+  /fixture/home/.pi/agent/npm/node_modules/pi-mcp-adapter
 
 rollback_json="$(bash "$repo_root/scripts/configure-pi-global-capabilities.sh" \
   rollback "$image" "$fixture/home" "$uid" "$gid")"
