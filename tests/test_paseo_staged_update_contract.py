@@ -463,6 +463,186 @@ class AnchorHomeTests(unittest.TestCase):
             self.assertFalse(owned.exists())
 
 
+class TempCleanupRepairTests(unittest.TestCase):
+    """Permission-safe cleanup of transaction-owned temp trees.
+
+    Temporary fixtures are chowned to the runtime uid/gid and containers
+    running as that identity create restricted modes inside them, so the
+    invoking user cannot always remove the tree from the host (CI runner
+    vs uid99-owned ``home/.local/state``). Cleanup must then fall back to
+    one bounded root-owned container removal of exactly the validated
+    ``tmp-*`` leaf, and any leftover must fail closed with evidence.
+    """
+
+    def test_blocked_host_removal_falls_back_to_bounded_container_rm(self):
+        import shutil as real_shutil
+
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "state"
+            root.mkdir()
+            owned = root / "tmp-owned"
+            (owned / "home" / ".local" / "state").mkdir(parents=True)
+            (owned / "home" / ".local" / "state" / "session").write_text("x")
+            calls = []
+
+            def container_rm(argv, env=None, timeout=120):
+                calls.append(list(argv))
+                leaf = argv[-1].removeprefix("/cleanup-state/")
+                self.assertNotIn("/", leaf)
+                real_shutil.rmtree(root.resolve() / leaf)
+                return Completed(0, "", "")
+
+            real_rmtree = real_shutil.rmtree
+            attempts = []
+
+            def ci_like_rmtree(target, ignore_errors=False, **kwargs):
+                attempts.append(str(target))
+                if len(attempts) == 1:
+                    raise PermissionError(
+                        "[Errno 13] Permission denied: 'home/.local/state'")
+                return real_rmtree(target, ignore_errors=ignore_errors, **kwargs)
+
+            with mock.patch.object(staged.shutil, "rmtree",
+                                   side_effect=ci_like_rmtree):
+                staged.remove_temp_tree(root, owned, run_fn=container_rm,
+                                        image_tag=NEW_TAG, env={})
+            self.assertFalse(owned.exists())
+            self.assertEqual(len(calls), 1)
+            self.assertEqual(
+                calls[0],
+                ["docker", "run", "--rm", "--user", "0:0", "--entrypoint", "rm",
+                 "-v", f"{root.resolve()}:/cleanup-state", NEW_TAG,
+                 "-rf", "/cleanup-state/tmp-owned"])
+            self.assertNotIn("sh", calls[0])
+            self.assertNotIn("-c", calls[0])
+
+    def test_container_repair_is_never_used_for_foreign_paths(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "state"
+            root.mkdir()
+            home = make_home(Path(td))
+            calls = []
+
+            def must_not_run(argv, env=None, timeout=120):
+                calls.append(list(argv))
+                return Completed(0, "", "")
+
+            for foreign in (home, root / "active.json", root):
+                with self.subTest(foreign=str(foreign)), \
+                        self.assertRaises(staged.StagedUpdateError):
+                    staged.remove_temp_tree(root, foreign, run_fn=must_not_run,
+                                            image_tag=NEW_TAG, env={})
+            self.assertEqual(calls, [])
+
+    def test_container_repair_failure_fails_closed_with_litter_path(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "state"
+            root.mkdir()
+            owned = root / "tmp-owned"
+            owned.mkdir()
+            (owned / "stuck").write_text("x")
+
+            def failing_rm(argv, env=None, timeout=120):
+                return Completed(1, "", "ondaemon: cannot remove")
+
+            def blocked_rmtree(target, ignore_errors=False, **kwargs):
+                raise PermissionError("[Errno 13] Permission denied")
+
+            with mock.patch.object(staged.shutil, "rmtree",
+                                   side_effect=blocked_rmtree):
+                with self.assertRaises(staged.StagedUpdateError) as ctx:
+                    staged.remove_temp_tree(root, owned, run_fn=failing_rm,
+                                            image_tag=NEW_TAG, env={})
+            self.assertIn(str(owned.resolve()), str(ctx.exception))
+            self.assertIn("litter", str(ctx.exception))
+            self.assertTrue(owned.exists())
+
+    def test_blocked_host_removal_without_runner_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "state"
+            root.mkdir()
+            owned = root / "tmp-owned"
+            owned.mkdir()
+
+            def blocked_rmtree(target, ignore_errors=False, **kwargs):
+                raise PermissionError("[Errno 13] Permission denied")
+
+            with mock.patch.object(staged.shutil, "rmtree",
+                                   side_effect=blocked_rmtree):
+                with self.assertRaises(staged.StagedUpdateError) as ctx:
+                    staged.remove_temp_tree(root, owned)
+            self.assertIn("litter", str(ctx.exception))
+
+    def test_absent_temp_tree_is_idempotent(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "state"
+            root.mkdir()
+            calls = []
+
+            def must_not_run(argv, env=None, timeout=120):
+                calls.append(list(argv))
+                return Completed(0, "", "")
+
+            staged.remove_temp_tree(root, root / "tmp-already-gone",
+                                    run_fn=must_not_run, image_tag=NEW_TAG,
+                                    env={})
+            self.assertEqual(calls, [])
+
+    def test_cleanup_failure_is_recorded_not_crash(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            fake = FakeDocker()
+            home = staged_env(td_path, fake)
+            before = snapshot_tree(home)
+            active_before = (td_path / "state" / "active.json").read_text()
+            args = update_args(td_path)
+            with build_mocks(), \
+                    mock.patch.object(staged, "_run", side_effect=fake), \
+                    mock.patch.object(sys, "stdout", io.StringIO()), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), \
+                    mock.patch.object(
+                        staged, "remove_temp_tree",
+                        side_effect=staged.StagedUpdateError(
+                            "temporary cleanup failed for /tmp/litter")):
+                rc = staged.cmd_update(args)
+            self.assertEqual(rc, 1)
+            record = json.loads((td_path / "record.json").read_text())
+            self.assertEqual(record["outcome"], "failed")
+            self.assertEqual(record["recovery"]["decision"], "no_mutation")
+            self.assertEqual(record["recovery"]["trigger"], "temp_smoke")
+            self.assertEqual(record["phases"]["temp_smoke"]["status"], "failed")
+            self.assertIn("cleanup",
+                          record["phases"]["temp_smoke"]["detail"]["error"])
+            self.assertEqual(
+                (td_path / "state" / "active.json").read_text(), active_before)
+            self.assertEqual(snapshot_tree(home), before)
+            self.assertNotIn(staged.STAGED_ALIAS, fake.aliases)
+
+    def test_body_and_cleanup_failures_are_both_reported(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            fake = FakeDocker()
+            staged_env(td_path, fake)
+            args = update_args(td_path)
+            with build_mocks(), \
+                    mock.patch.object(staged, "_run", side_effect=fake), \
+                    mock.patch.object(sys, "stdout", io.StringIO()), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), \
+                    mock.patch.object(
+                        staged, "compose_up",
+                        side_effect=staged.StagedUpdateError("compose up broke")), \
+                    mock.patch.object(
+                        staged, "remove_temp_tree",
+                        side_effect=staged.StagedUpdateError("repair broke")):
+                rc = staged.cmd_update(args)
+            self.assertEqual(rc, 1)
+            record = json.loads((td_path / "record.json").read_text())
+            self.assertEqual(record["recovery"]["trigger"], "temp_smoke")
+            error = record["phases"]["temp_smoke"]["detail"]["error"]
+            self.assertIn("compose up broke", error)
+            self.assertIn("repair broke", error)
+
+
 class PreflightTests(unittest.TestCase):
     def config(self, td: Path, fake: FakeDocker, **overrides):
         home = staged_env(Path(td), fake)

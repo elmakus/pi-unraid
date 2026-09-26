@@ -516,8 +516,21 @@ def runtime_probes(run_fn, container_id: str, image_id: str, candidate_id: str,
     return probes
 
 
-def remove_temp_tree(state_root: Path, path: Path) -> None:
-    """Remove only a transaction-owned temp tree under the state root."""
+def remove_temp_tree(state_root: Path, path: Path, run_fn=None,
+                     image_tag: str | None = None,
+                     env: dict[str, str] | None = None) -> None:
+    """Remove only a transaction-owned temp tree under the state root.
+
+    Host removal runs first. Temporary fixtures are chowned to the runtime
+    uid/gid and containers running as that identity create restricted
+    modes inside them, so an invoking user that owns neither the files nor
+    the directories cannot remove the tree from the host. When host
+    removal is blocked and a runner is available, one bounded root-owned
+    container removes exactly the validated ``tmp-*`` leaf under the
+    validated state root, with no shell interpolation. Anything left
+    behind fails closed with the litter path; foreign paths are never
+    mounted or removed, and cleanup failures are never suppressed.
+    """
     root = state_root.resolve()
     target = path.resolve()
     try:
@@ -526,7 +539,41 @@ def remove_temp_tree(state_root: Path, path: Path) -> None:
         raise StagedUpdateError(f"refusing to remove outside the state root: {path}") from exc
     if target == root or not target.name.startswith("tmp-"):
         raise StagedUpdateError(f"refusing to remove a non-temporary path: {path}")
-    shutil.rmtree(target, ignore_errors=False)
+    if not target.exists() and not target.is_symlink():
+        return
+    try:
+        shutil.rmtree(target, ignore_errors=False)
+        return
+    except OSError as host_exc:
+        if not target.exists() and not target.is_symlink():
+            return
+        if run_fn is None or image_tag is None:
+            raise StagedUpdateError(
+                f"temporary cleanup failed for {target}: {host_exc}; "
+                "leftover disposable litter remains under the state root"
+            ) from host_exc
+        last_host_error = host_exc
+    leaf = target.name
+    proc = run_fn(
+        ["docker", "run", "--rm", "--user", "0:0", "--entrypoint", "rm",
+         "-v", f"{root}:/cleanup-state", image_tag,
+         "-rf", f"/cleanup-state/{leaf}"],
+        env if env is not None else {}, 180,
+    )
+    if proc.returncode != 0:
+        raise StagedUpdateError(
+            f"temporary cleanup failed for {target}: {last_host_error}; "
+            f"container repair also failed: {_tail(proc.stderr or proc.stdout)}; "
+            "leftover disposable litter remains under the state root"
+        ) from last_host_error
+    if target.exists() or target.is_symlink():
+        try:
+            shutil.rmtree(target, ignore_errors=False)
+        except OSError as retry_exc:
+            raise StagedUpdateError(
+                f"temporary cleanup failed for {target}: {retry_exc}; "
+                "leftover disposable litter remains under the state root"
+            ) from retry_exc
 
 
 # ---------------------------------------------------------------------------
@@ -727,7 +774,16 @@ def phase_temp_smoke(cfg: dict, run_fn, env: dict[str, str]) -> dict:
         suite = (buildx.load_build_record(
             Path(cfg["build_record_path"])).get("phases", {}).get("test", {}).get("detail", {}))
     finally:
-        remove_temp_tree(cfg["state_root"], tmp_root)
+        in_flight = sys.exception()
+        try:
+            remove_temp_tree(cfg["state_root"], tmp_root, run_fn=run_fn,
+                             image_tag=cfg["image_tag"], env=env)
+        except StagedUpdateError as cleanup_exc:
+            if in_flight is None:
+                raise
+            raise StagedUpdateError(
+                f"{in_flight}; temporary cleanup also failed: {cleanup_exc}"
+            ) from in_flight
     after = fingerprint_home(cfg["home_host"])
     if after["digest"] != cfg["home_fingerprint"]["digest"]:
         raise StagedUpdateError("persistent HOME changed during temporary smoke")
