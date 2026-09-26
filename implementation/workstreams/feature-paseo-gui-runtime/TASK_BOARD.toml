@@ -1,9 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 84
-
-[research_obligation]
-class = "research"
-path = "implementation/workstreams/feature-paseo-gui-runtime/RESEARCH.toml"
+revision = 85
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
