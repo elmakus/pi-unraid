@@ -82,6 +82,8 @@ LEGACY_TOKENS = (
 )
 TAG_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*:[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$")
 CANDIDATE_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+FROM_RE = re.compile(r"^FROM\s+(.*)$", re.IGNORECASE)
+RESERVED_BUILDER_NAMES = frozenset({"default"})
 EXIT_VALIDATION = 2
 EXIT_BUILD = 1
 
@@ -98,6 +100,59 @@ def _load_resolver():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def validate_builder_name(builder: str) -> str:
+    """Reject shared/reserved builder namespaces; return the validated name."""
+    name = (builder or "").strip()
+    if (
+        not name
+        or name == RUNTIME_SERVICE_NAME
+        or "workstation" in name.lower()
+        or name.lower() in RESERVED_BUILDER_NAMES
+    ):
+        raise BuildxError(f"builder name is not an isolated namespace: {builder!r}")
+    return name
+
+
+def effective_from_images(dockerfile_text: str) -> list[str]:
+    """Return effective FROM image references, ignoring comments/directives.
+
+    Only real Dockerfile instructions count: full-line comments (including
+    parser directives such as ``# syntax=...``) and blank lines are skipped,
+    line continuations are joined, and the match is case-insensitive with
+    optional leading whitespace. ``--platform``-style flags and an optional
+    ``AS <stage>`` suffix are stripped so only the image token is returned.
+    """
+    logical: list[str] = []
+    pending = ""
+    for raw in (dockerfile_text or "").splitlines():
+        stripped = raw.rstrip()
+        if stripped.endswith("\\"):
+            pending += stripped[:-1] + " "
+            continue
+        pending += raw
+        logical.append(pending)
+        pending = ""
+    if pending.strip():
+        logical.append(pending)
+    images: list[str] = []
+    for line in logical:
+        text = line.strip()
+        if not text or text.startswith("#"):
+            continue
+        match = FROM_RE.match(text)
+        if not match:
+            continue
+        image = None
+        for token in match.group(1).split():
+            if token.startswith("--"):
+                continue
+            image = token
+            break
+        if image:
+            images.append(image)
+    return images
 
 
 def image_tag(candidate_id: str, repo: str = IMAGE_REPO_DEFAULT) -> str:
@@ -134,8 +189,12 @@ def verify_build_inputs(candidate: dict, dockerfile_text: str, context_dir: Path
     candidate_id = candidate["candidate_id"]
     paseo = candidate["components"]["paseo"]
     reference = paseo["artifact"]["reference"]
-    if f"FROM {reference}" not in dockerfile_text:
-        raise BuildxError("Dockerfile FROM does not match the frozen Paseo reference")
+    from_images = effective_from_images(dockerfile_text)
+    if not from_images:
+        raise BuildxError("Dockerfile has no effective FROM instruction")
+    for image in from_images:
+        if image != reference:
+            raise BuildxError("Dockerfile FROM does not match the frozen Paseo reference")
 
     expected_env = {
         "PI_UNRAID_CANDIDATE_ID": candidate_id,
@@ -244,8 +303,7 @@ def ensure_builder(
     run_fn, builder: str, state_dir: Path, env: dict[str, str]
 ) -> dict:
     """Create-or-reuse the dedicated named builder; never mutates the default."""
-    if not builder or builder == RUNTIME_SERVICE_NAME or "workstation" in builder.lower():
-        raise BuildxError(f"builder name is not an isolated namespace: {builder!r}")
+    builder = validate_builder_name(builder)
     state_dir.mkdir(parents=True, exist_ok=True)
     probe = run_fn(["docker", "buildx", "inspect", builder], env, 60)
     if probe.returncode == 0:
@@ -464,6 +522,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     begin = time.monotonic()
     try:
         builder_info = ensure_builder(run_fn, builder, state_dir, env)
+        builder = builder_info["name"]
         recorder.record("builder_ensure", "ok", int((time.monotonic() - begin) * 1000), builder_info)
     except (BuildxError, subprocess.TimeoutExpired) as exc:
         recorder.record("builder_ensure", "failed", int((time.monotonic() - begin) * 1000),
@@ -604,8 +663,10 @@ def cmd_prune(args: argparse.Namespace) -> int:
     builder = args.builder or os.environ.get(ENV_BUILDER, BUILDER_NAME_DEFAULT)
     state_dir = Path(args.state_dir or os.environ.get(ENV_STATE_DIR, str(STATE_DIR_DEFAULT)))
     keep_storage = args.keep_storage or os.environ.get(ENV_KEEP_STORAGE, KEEP_STORAGE_DEFAULT)
-    if builder == RUNTIME_SERVICE_NAME or "workstation" in builder.lower():
-        print(f"bounded prune refused: not an isolated namespace: {builder!r}", file=sys.stderr)
+    try:
+        builder = validate_builder_name(builder)
+    except BuildxError as exc:
+        print(f"bounded prune refused: {exc}", file=sys.stderr)
         return EXIT_VALIDATION
     try:
         check_keep_storage(keep_storage)

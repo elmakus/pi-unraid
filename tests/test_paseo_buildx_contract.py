@@ -6,6 +6,7 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -135,6 +136,40 @@ class NamespaceTests(unittest.TestCase):
                 with self.assertRaises(buildx.BuildxError, msg=bad):
                     buildx.ensure_builder(lambda a, e, t: Completed(0), bad, Path(td), {})
 
+    def test_shared_default_builder_rejected_by_single_validator(self):
+        for bad in ("default", "Default", "DEFAULT", " default "):
+            with self.assertRaises(buildx.BuildxError, msg=bad):
+                buildx.validate_builder_name(bad)
+            with tempfile.TemporaryDirectory() as td:
+                with self.assertRaises(buildx.BuildxError, msg=bad):
+                    buildx.ensure_builder(lambda a, e, t: Completed(0), bad, Path(td), {})
+        self.assertEqual(buildx.validate_builder_name("pi-unraid-paseo"), "pi-unraid-paseo")
+
+    def test_build_rejects_default_builder_via_flag_and_env(self):
+        for extra, env in ((["--builder", "default"], {}),
+                           ([], {buildx.ENV_BUILDER: "default"})):
+            with self.subTest(extra=extra, env=env):
+                calls: list[list[str]] = []
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    parser = buildx.build_parser()
+                    args = parser.parse_args([
+                        "build", "--context", str(ROOT),
+                        "--record", str(tdp / "record.json"),
+                        "--state-dir", str(tdp / "state"), *extra,
+                    ])
+                    with mock.patch.dict(os.environ, env, clear=False), \
+                            mock.patch.object(
+                                buildx, "_run",
+                                side_effect=lambda a, e, t: (calls.append(a),
+                                                            Completed(0, "ok"))[1]):
+                        rc = buildx.cmd_build(args)
+                    self.assertEqual(rc, buildx.EXIT_BUILD)
+                    self.assertEqual(calls, [])
+                    record = json.loads((tdp / "record.json").read_text())
+                    self.assertEqual(record["phases"]["builder_ensure"]["status"], "failed")
+                    self.assertEqual(record["phases"]["build"]["status"], "skipped")
+
 
 class IdentityTests(unittest.TestCase):
     def test_immutable_tag_derives_only_from_candidate(self):
@@ -181,6 +216,78 @@ class FailClosedTests(unittest.TestCase):
                 buildx.verify_build_inputs(CANDIDATE, "FROM scratch\n", tdp)
             with self.assertRaises(buildx.BuildxError):
                 buildx.verify_build_inputs(CANDIDATE, DOCKERFILE, tdp / "absent-context")
+
+    def test_wrong_effective_from_digest_fails_closed(self):
+        reference = CANDIDATE["components"]["paseo"]["artifact"]["reference"]
+        wrong = "ghcr.io/getpaseo/paseo@sha256:" + "0" * 64
+        poisoned = DOCKERFILE.replace(reference, wrong)
+        self.assertIn(wrong, poisoned)
+        with self.assertRaises(buildx.BuildxError):
+            buildx.verify_build_inputs(CANDIDATE, poisoned, ROOT)
+        calls: list[list[str]] = []
+        with tempfile.TemporaryDirectory() as td:
+            tdp = Path(td)
+            (tdp / "Dockerfile").write_text(poisoned)
+            parser = buildx.build_parser()
+            args = parser.parse_args([
+                "build", "--context", str(tdp),
+                "--record", str(tdp / "record.json"),
+                "--state-dir", str(tdp / "state"),
+            ])
+            with mock.patch.object(
+                    buildx, "_run",
+                    side_effect=lambda a, e, t: (calls.append(a), Completed(0, "ok"))[1]):
+                rc = buildx.cmd_build(args)
+            self.assertEqual(rc, buildx.EXIT_VALIDATION)
+            self.assertEqual(calls, [])
+            record = json.loads((tdp / "record.json").read_text())
+            self.assertEqual(record["phases"]["resolution_readback"]["status"], "failed")
+
+    def test_expected_from_only_in_comment_fails_closed(self):
+        reference = CANDIDATE["components"]["paseo"]["artifact"]["reference"]
+        wrong = "ghcr.io/getpaseo/paseo@sha256:" + "f" * 64
+        poisoned = DOCKERFILE.replace(reference, wrong)
+        for alias in (f"\n# FROM {reference}\n",
+                      f"\n#FROM {reference}\n",
+                      f"\n   # FROM {reference} AS base\n"):
+            with self.subTest(alias=alias.strip()):
+                text = poisoned + alias
+                self.assertIn(f"FROM {reference}", text)
+                with self.assertRaises(buildx.BuildxError):
+                    buildx.verify_build_inputs(CANDIDATE, text, ROOT)
+                calls: list[list[str]] = []
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    (tdp / "Dockerfile").write_text(text)
+                    parser = buildx.build_parser()
+                    args = parser.parse_args([
+                        "build", "--context", str(tdp),
+                        "--record", str(tdp / "record.json"),
+                        "--state-dir", str(tdp / "state"),
+                    ])
+                    with mock.patch.object(
+                            buildx, "_run",
+                            side_effect=lambda a, e, t: (calls.append(a),
+                                                        Completed(0, "ok"))[1]):
+                        rc = buildx.cmd_build(args)
+                    self.assertEqual(rc, buildx.EXIT_VALIDATION)
+                    self.assertEqual(calls, [])
+
+    def test_effective_from_parsing_accepts_flags_alias_and_case(self):
+        reference = CANDIDATE["components"]["paseo"]["artifact"]["reference"]
+        variants = [
+            f"FROM {reference}\n",
+            f"FROM {reference} AS base\n",
+            f"FROM --platform=linux/amd64 {reference}\n",
+            f"  from {reference} as base\n",
+        ]
+        for text in variants:
+            with self.subTest(text=text.strip()):
+                self.assertEqual(buildx.effective_from_images(text), [reference])
+        self.assertEqual(buildx.effective_from_images(
+            f"# FROM {reference}\nFROM scratch\n"), ["scratch"])
+        self.assertEqual(buildx.effective_from_images(
+            "# syntax=docker/dockerfile:1\n"), [])
 
     def test_build_failure_never_reaches_prune(self):
         calls: list[list[str]] = []
@@ -578,6 +685,26 @@ class GatedTestPruneFlowTests(unittest.TestCase):
             self.assertEqual(rc, buildx.EXIT_VALIDATION)
             self.assertEqual(calls, [])
             self.assertEqual(path.read_bytes(), before)
+
+    def test_prune_rejects_default_builder_via_flag_and_env(self):
+        for extra, env in ((["--builder", "default"], {}),
+                           ([], {buildx.ENV_BUILDER: "default"})):
+            with self.subTest(extra=extra, env=env):
+                with tempfile.TemporaryDirectory() as td:
+                    tdp = Path(td)
+                    path = self.write_record(tdp, test_status="ok")
+                    before = path.read_bytes()
+                    calls: list[list[str]] = []
+                    parser = buildx.build_parser()
+                    args = parser.parse_args(["prune", "--record", str(path), *extra])
+                    with mock.patch.dict(os.environ, env, clear=False), \
+                            mock.patch.object(
+                                buildx, "_run",
+                                side_effect=lambda a, e, t: calls.append(a)):
+                        rc = buildx.cmd_prune(args)
+                    self.assertEqual(rc, buildx.EXIT_VALIDATION)
+                    self.assertEqual(calls, [])
+                    self.assertEqual(path.read_bytes(), before)
 
     def test_prune_measures_phase_and_preserves_record(self):
         calls: list[list[str]] = []
