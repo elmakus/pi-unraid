@@ -12,11 +12,14 @@ on:
       - config/pi-agent/**
       - scripts/configure-paseo-runtime.sh
       - scripts/configure-pi-instruction-plane.sh
+      - scripts/configure-pi-global-capabilities.sh
       - scripts/pi_instruction_plane.py
+      - scripts/pi_global_capabilities.py
       - scripts/paseo-relay-access.sh
       - scripts/smoke_paseo_image.py
       - scripts/verify-compose-foundation.sh
       - scripts/verify-pi-instruction-plane.sh
+      - scripts/verify-pi-global-capabilities.sh
       - scripts/configure_unraid_graphql_credential.py
       - scripts/unraid_graphql_host_control.py
       - scripts/unraid_host_safety_guard.py
@@ -30,6 +33,7 @@ on:
       - tests/test_paseo_runtime_contract.py
       - tests/test_paseo_relay_auth_contract.py
       - tests/test_pi_instruction_plane_contract.py
+      - tests/test_pi_global_capabilities_contract.py
       - tests/test_unraid_graphql_host_control_contract.py
       - tests/test_unraid_host_control_guard_contract.py
       - tests/test_unraid_host_control_doctor_contract.py
@@ -66,6 +70,7 @@ jobs:
           test "$(git rev-parse 16e5a14f1f0357b8af40fa23602c6d6c1da24724:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T01.md)" = "1b157d85116b5a9dffab7df7766f62cc8a288f3e"
           test "$(git rev-parse 97e7833edaa55d54b35336a07c46bf261795fc46:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T02.md)" = "a5c8a0c3a84b5c7f6da3d147896ee60995860800"
           test "$(git rev-parse affd83590ec534ed144b9048a2b9075434761f27:implementation/workstreams/feature-paseo-gui-runtime/results/M04-T01.md)" = "5173447ec3ab8775450a9defbf193aede63ca290"
+          test "$(git rev-parse e9a412557bfbe927a64b1f7ba0d892f5f059e08a:implementation/workstreams/feature-paseo-gui-runtime/results/M04-T02.md)" = "c6adc8514548b701c3aa959df9f5a6f4ff581a9d"
       - name: Candidate image and runtime contract tests
         run: |
           python3 -m unittest tests/test_paseo_candidate_resolver.py -v
@@ -73,6 +78,7 @@ jobs:
           python3 -m unittest tests/test_paseo_runtime_contract.py -v
           python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
           python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
+          python3 -m unittest tests/test_pi_global_capabilities_contract.py -v
           python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
           python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
           python3 -m unittest tests/test_unraid_host_control_doctor_contract.py -v
@@ -88,6 +94,8 @@ jobs:
         run: bash scripts/verify-compose-foundation.sh pi-unraid:paseo-foundation
       - name: Disposable Pi instruction-plane smoke
         run: bash scripts/verify-pi-instruction-plane.sh pi-unraid:paseo-foundation
+      - name: Disposable Pi global-capability smoke
+        run: bash scripts/verify-pi-global-capabilities.sh pi-unraid:paseo-foundation
       - name: Inspect immutable foundation metadata
         run: |
           test "$(docker image inspect pi-unraid:paseo-foundation --format '{{ index .Config.Labels "io.pi-unraid.candidate-id" }}')" = "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69"

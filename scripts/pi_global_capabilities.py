@@ -18,6 +18,7 @@ SETTINGS_REL = AGENT_REL / "settings.json"
 NPM_REL = AGENT_REL / "npm"
 STATE_REL = Path(".pi-unraid/global-capabilities")
 SNAPSHOT_NAME = "snapshot.json"
+COMPATIBILITY_NAME = "compatibility.json"
 ALLOWED_PACKAGE_KEYS = {"source", "autoload", "extensions", "skills", "prompts", "themes"}
 PINNED_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 
@@ -241,6 +242,54 @@ def _declaration_state(settings: dict, key: str, expected_source: str) -> dict:
     return {"state": "mismatch", "source_fingerprint": _fingerprint(source or "")}
 
 
+def _compatibility_path(home: Path) -> Path:
+    return home / STATE_REL / COMPATIBILITY_NAME
+
+
+def _compatibility_payload(
+    candidate_id: str,
+    desired: dict[str, dict],
+    runtime_pi_version: str,
+) -> dict:
+    return {
+        "schema_version": 1,
+        "candidate_id": candidate_id,
+        "runtime_pi_version": runtime_pi_version,
+        "packages": {
+            key: {
+                "version": desired[key]["version"],
+                "source": desired[key]["source"],
+            }
+            for key in sorted(MANAGED)
+        },
+        "smoke": {
+            "provider_free_rpc": True,
+            "specpi_scope_inactive": True,
+            "specpi_improvement_wishlist": True,
+            "mcp_command_surface": True,
+        },
+    }
+
+
+def _compatibility_readback(
+    home: Path,
+    candidate_id: str,
+    desired: dict[str, dict],
+    runtime_pi_version: str,
+) -> dict:
+    path = _compatibility_path(home)
+    if not path.is_file():
+        return {"state": "RED", "verified": False, "reason": "compatibility_smoke_missing"}
+    try:
+        payload = _load_json(path)
+    except CapabilityDeliveryError:
+        return {"state": "RED", "verified": False, "reason": "compatibility_marker_invalid"}
+    expected = _compatibility_payload(candidate_id, desired, runtime_pi_version)
+    if payload != expected:
+        return {"state": "RED", "verified": False, "reason": "compatibility_marker_stale"}
+    return {"state": "GREEN", "verified": True, "reason": "none"}
+
+
 def build_status(
     home: Path,
     candidate_id: str,
@@ -254,6 +303,9 @@ def build_status(
     observations: dict[str, dict] = {}
     states: list[str] = []
     pi_exact = runtime_pi_version == expected_pi_version
+    compatibility = _compatibility_readback(
+        home, candidate_id, desired, runtime_pi_version
+    )
 
     for key in sorted(MANAGED):
         want = desired[key]
@@ -264,8 +316,9 @@ def build_status(
             and installed["lock_version"] == want["version"]
         )
         integrity_exact = installed["lock_integrity"] == want["integrity"]
-        exact = declaration["state"] == "exact" and version_exact and integrity_exact
-        state = "GREEN" if exact else "RED"
+        installed_exact = declaration["state"] == "exact" and version_exact and integrity_exact
+        accepted = installed_exact and compatibility["state"] == "GREEN"
+        state = "GREEN" if accepted else "RED"
         reason = "none"
         if declaration["state"] != "exact":
             reason = f"declaration_{declaration['state']}"
@@ -275,9 +328,12 @@ def build_status(
             reason = "version_mismatch"
         elif not integrity_exact:
             reason = "integrity_mismatch"
+        elif compatibility["state"] != "GREEN":
+            reason = compatibility["reason"]
 
         item = {
             "state": state,
+            "installed_exact": installed_exact,
             "reason": reason,
             "desired_version": want["version"],
             "declaration": declaration,
@@ -292,7 +348,7 @@ def build_status(
         states.append(state)
         observations[key] = (
             {"present": True, "version": want["version"], "location": want["location"]}
-            if exact
+            if accepted
             else {"present": False}
         )
 
@@ -329,6 +385,7 @@ def build_status(
         },
         "specpi_scope_policy": "inactive_in_fresh_session",
         "snapshot_available": snapshot_path.is_file(),
+        "compatibility": compatibility,
         "summary": f"{overall}: pi_global_capabilities managed={len(packages)}",
     }
 
@@ -423,6 +480,92 @@ def _runtime_pi_version(home: Path) -> str:
     return proc.stdout.strip()
 
 
+def run_compatibility_smoke(
+    home: Path,
+    candidate_id: str,
+    desired: dict[str, dict],
+    expected_pi: str,
+) -> None:
+    env = _pi_env(home)
+    env["PI_OFFLINE"] = "1"
+    request_id = "pi-unraid-global-capabilities"
+    try:
+        proc = subprocess.run(
+            ["pi", "--mode", "rpc", "--no-session", "--offline"],
+            cwd=str(home),
+            env=env,
+            input=json.dumps({"id": request_id, "type": "get_commands"}) + "\n",
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            timeout=30,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise CapabilityDeliveryError("Pi compatibility smoke timed out") from exc
+    if proc.returncode != 0:
+        raise CapabilityDeliveryError("Pi compatibility smoke failed")
+
+    events = []
+    try:
+        events = [json.loads(line) for line in proc.stdout.splitlines() if line.strip()]
+    except json.JSONDecodeError as exc:
+        raise CapabilityDeliveryError("Pi compatibility smoke returned invalid RPC output") from exc
+    if any(item.get("type") == "extension_error" for item in events if isinstance(item, dict)):
+        raise CapabilityDeliveryError("Pi compatibility smoke reported an extension error")
+
+    responses = [
+        item
+        for item in events
+        if isinstance(item, dict)
+        and item.get("id") == request_id
+        and item.get("type") == "response"
+        and item.get("command") == "get_commands"
+        and item.get("success") is True
+    ]
+    if len(responses) != 1:
+        raise CapabilityDeliveryError("Pi compatibility smoke did not return command discovery")
+    commands = responses[0].get("data", {}).get("commands", [])
+    if not isinstance(commands, list):
+        raise CapabilityDeliveryError("Pi compatibility smoke command discovery is malformed")
+
+    expected_sources = {
+        "scope": desired["specpi"]["source"],
+        "wishlist": desired["specpi"]["source"],
+        "harness-improvement": desired["specpi"]["source"],
+        "mcp": desired["pi_mcp_adapter"]["source"],
+        "pi-mcp": desired["pi_mcp_adapter"]["source"],
+        "mcp-auth": desired["pi_mcp_adapter"]["source"],
+    }
+    discovered = {
+        item.get("name"): item.get("sourceInfo", {}).get("source")
+        for item in commands
+        if isinstance(item, dict)
+    }
+    if any(discovered.get(name) != source for name, source in expected_sources.items()):
+        raise CapabilityDeliveryError("Pi compatibility smoke command surface mismatch")
+
+    scope_events = [
+        item
+        for item in events
+        if isinstance(item, dict)
+        and item.get("type") == "extension_ui_request"
+        and item.get("method") == "setStatus"
+        and item.get("statusKey") == "specpi-scope"
+    ]
+    if not scope_events or any(item.get("statusText") for item in scope_events):
+        raise CapabilityDeliveryError("SpecPi scope is not inactive in the fresh compatibility session")
+
+    runtime_pi = _runtime_pi_version(home)
+    if runtime_pi != expected_pi:
+        raise CapabilityDeliveryError("Pi runtime changed during compatibility smoke")
+    payload = _compatibility_payload(candidate_id, desired, runtime_pi)
+    path = _compatibility_path(home)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(path.parent, 0o700)
+    _atomic_json(path, payload, mode=0o600)
+
+
 def apply(home: Path, candidate_id: str, desired: dict[str, dict], expected_pi: str) -> dict:
     runtime_pi = _runtime_pi_version(home)
     before = build_status(
@@ -438,9 +581,22 @@ def apply(home: Path, candidate_id: str, desired: dict[str, dict], expected_pi: 
         return {"action": "apply", "changed": False, **before}
 
     write_snapshot(home, candidate_id)
-    for key in sorted(MANAGED):
-        if before["packages"][key]["state"] != "GREEN":
-            _run_pi(home, "install", desired[key]["source"])
+    _compatibility_path(home).unlink(missing_ok=True)
+    try:
+        for key in sorted(MANAGED):
+            if not before["packages"][key]["installed_exact"]:
+                _run_pi(home, "install", desired[key]["source"])
+        run_compatibility_smoke(home, candidate_id, desired, expected_pi)
+    except CapabilityDeliveryError as exc:
+        try:
+            rollback(home, candidate_id, desired, expected_pi)
+        except CapabilityDeliveryError as rollback_exc:
+            raise CapabilityDeliveryError(
+                "Pi global capability apply failed and rollback did not complete"
+            ) from rollback_exc
+        raise CapabilityDeliveryError(
+            "Pi global capability apply failed; prior managed state restored"
+        ) from exc
 
     after = build_status(
         home,
@@ -477,6 +633,7 @@ def _merge_prior_managed(settings: dict, snapshot: dict) -> dict:
 
 def rollback(home: Path, candidate_id: str, desired: dict[str, dict], expected_pi: str) -> dict:
     snapshot = _load_snapshot(home, candidate_id)
+    _compatibility_path(home).unlink(missing_ok=True)
     current = _settings(home)
     declared = {item["key"]: item for item in _managed_entries(current)}
     for key in sorted(MANAGED):

@@ -7,11 +7,15 @@ LABEL org.opencontainers.image.title="pi-unraid Paseo child image" \
       io.pi-unraid.candidate-id="sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69" \
       io.pi-unraid.paseo-version="0.9.2" \
       io.pi-unraid.pi-version="0.87.1" \
+      io.pi-unraid.specpi-version="0.34.0" \
+      io.pi-unraid.pi-mcp-adapter-version="2.37.0" \
       io.pi-unraid.playwright-version="1.63.0"
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PI_UNRAID_CANDIDATE_ID="sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69" \
     PI_UNRAID_PI_VERSION="0.87.1" \
+    PI_UNRAID_SPECPI_VERSION="0.34.0" \
+    PI_UNRAID_PI_MCP_ADAPTER_VERSION="2.37.0" \
     PI_UNRAID_PLAYWRIGHT_VERSION="1.63.0" \
     PI_UNRAID_GH_VERSION="2.101.0" \
     PI_UNRAID_DOCKER_CLI_VERSION="29.8.1" \
