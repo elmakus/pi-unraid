@@ -99,7 +99,7 @@ class CoordinatedResolverTests(unittest.TestCase):
         board=(ROOT/"implementation"/"workstreams"/"feature-paseo-gui-runtime"/"TASK_BOARD.toml").read_text()
         self.assertIn("fb6195831d047ede2f359146b69ede2690e84ef3",board)
         self.assertIn("e31658fda900d748010bedc6caa0bb3aacf8c430",board)
-        blob=subprocess.run(["git","rev-parse","fb6195831d047ede2f359146b69ede2690e84ef3:implementation/workstreams/feature-paseo-gui-runtime/results/M04-T03.md"],
+        blob=subprocess.run(["git","hash-object","implementation/workstreams/feature-paseo-gui-runtime/results/M04-T03.md"],
                             cwd=ROOT,text=True,capture_output=True)
         self.assertEqual(blob.returncode,0,blob.stderr)
         self.assertEqual(blob.stdout.strip(),"e31658fda900d748010bedc6caa0bb3aacf8c430")
