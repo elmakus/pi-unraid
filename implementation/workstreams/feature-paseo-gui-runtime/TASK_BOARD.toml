@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 94
+revision = 95
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -406,5 +406,13 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T03-R02
 [[jit_triggers]]
 id = "after-M05-T03-materialize-M06-T01"
 after_card = "M05-T03"
-state = "satisfied"
-condition = "The exact GREEN staged-update/rollback result is needed before integrated non-production Pi RPC and project/workspace acceptance can bind the completed M05 environment transaction and immutable candidate."
+state = "consumed"
+condition = "The exact GREEN M05-T03 staged-update/rollback result (P4 M06-T01: planning/PASEO_GUI_RUNTIME_P4.md sections 2.1/3/4/5/6/7, no user presence, technical GREEN only) was consumed to bind non-production Pi RPC and project/workspace scope from the completed M05 environment transaction and immutable candidate; predecessor M05-T03 is DONE so downstream M06-T01 is now materialized."
+
+[[cards]]
+id = "M06-T01"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M06-T01.md"
