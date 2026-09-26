@@ -2,14 +2,17 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts" / "paseo_rpc_workspace_flow.py"
+WORKFLOW = (ROOT / ".github" / "workflows" / "paseo-rpc-workspace.yml").read_text()
 SPEC = importlib.util.spec_from_file_location("paseo_rpc_workspace_flow", SCRIPT)
 FLOW = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(FLOW)
@@ -157,6 +160,51 @@ class RpcWorkspaceContractTests(unittest.TestCase):
         argv = mocked.call_args.args[0]
         self.assertLess(argv.index("img:tag"), argv.index("pi"))
         self.assertEqual(argv[:3], ["docker", "run", "--rm"])
+
+    def test_fixture_chown_covers_nested_content(self) -> None:
+        # CI run 36265204193 RED: host-created fixture .git stayed
+        # runner-owned after a non-recursive chown, so container git failed
+        # with dubious ownership. The transfer must be recursive.
+        with mock.patch.object(FLOW, "run_command", return_value="") as mocked:
+            FLOW.chown_fixture("img:tag", Path("/tmp/fixture"))
+        argv = mocked.call_args.args[0]
+        self.assertIn("-R", argv)
+        self.assertIn("99:100", argv)
+        for target in ("/fixture/home", "/fixture/projects", "/fixture/worktrees"):
+            self.assertIn(target, argv)
+
+    def test_flow_uses_recursive_fixture_chown(self) -> None:
+        self.assertIn("chown_fixture(image, fixture)", HARNESS)
+
+    def test_nested_ownership_probe_covers_workspace_mounts(self) -> None:
+        snippet = FLOW.nested_ownership_snippet()
+        for mount in ("/home/paseo", "/projects", "/worktrees"):
+            self.assertIn(mount, snippet)
+        self.assertIn("-not -user 99", snippet)
+        self.assertIn("-not -group 100", snippet)
+        self.assertIn("foreign=", snippet)
+        self.assertIn("check_nested_ownership(image, home, projects, worktrees)", HARNESS)
+
+    def test_flow_failure_emits_machine_readable_report(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "flow.json"
+            FLOW.write_failure_report(report, "disposable", "boom")
+            payload = json.loads(report.read_text())
+        self.assertEqual(payload["outcome"], "failed")
+        self.assertEqual(payload["card"], "M06-T01")
+        self.assertIs(payload["full_green_claimed"], False)
+        with tempfile.TemporaryDirectory() as tmp:
+            report = Path(tmp) / "flow.json"
+            report.write_text('{"outcome": "integrated_flow_green"}')
+            FLOW.write_failure_report(report, "disposable", "boom")
+            self.assertIn("integrated_flow_green", report.read_text())
+
+    def test_piped_workflow_steps_preserve_command_failure(self) -> None:
+        blocks = re.split(r"(?m)^      - name: ", WORKFLOW)
+        piped = [block for block in blocks if "| tee" in block]
+        self.assertGreaterEqual(len(piped), 3)
+        for block in piped:
+            self.assertIn("set -o pipefail", block)
 
     def test_harness_is_secret_safe(self) -> None:
         self.assertIsNone(FLOW.SECRET_VALUE_PATTERN.search(HARNESS))

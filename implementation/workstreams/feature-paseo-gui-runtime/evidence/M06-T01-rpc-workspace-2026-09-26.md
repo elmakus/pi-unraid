@@ -5,9 +5,9 @@
 - Frozen candidate: `sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69` (Paseo 0.9.2, Pi 0.87.1, base `ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136`).
 - P4 authority blob `3c0949e50b41100630b8e57f7dc51472e183f49c` at `f87ec5df4215af06302765bad615a6be69a295ef` revalidated unchanged.
 - Exact predecessor blobs revalidated via `git rev-parse`: M05-T03-R02 `b526cf47`, M02-T01 `e5075d47`, M02-T03 `0d13d7fe` (all match Card bindings and HEAD).
-- Local contract suite: 16 suites / 255 tests GREEN via `python3 -m unittest` (15 pre-existing suites 243 tests plus new `test_paseo_rpc_workspace_contract.py` 12 tests).
+- Local contract suite: 16 suites / 260 tests GREEN via `python3 -m unittest` (15 pre-existing suites 243 tests plus `test_paseo_rpc_workspace_contract.py` 17 tests incl. 5 ownership/visibility regressions).
 - Static readback: `python3 scripts/paseo_rpc_workspace_flow.py readback` verdict `technical_green_ha_outstanding`, zero violations, `full_green_claimed: false`.
-- Disposable Docker flow: implemented in the harness and wired in `.github/workflows/paseo-rpc-workspace.yml`; not executed locally (no Docker in this workstation, same constraint as M05-T03). First live execution happens in CI on Main's push.
+- Disposable Docker flow: first CI execution RED at run 36265204193 (dubious-ownership, see repair section below); repair implemented locally, re-run pending Main's push. No Docker in this workstation.
 - No production alias/HOME mutation, no legacy Pi change, no Tower mutation, no reboot/engine restart, no credentials/OAuth/phone/GraphQL-mutation/UX proof attempted.
 
 ## Changed files
@@ -38,6 +38,14 @@
 ## CI-host portability
 
 The workflow reuses the proven M05-T03 runner shape (`ubuntu-latest`, setup-python 3.13, `paseo_buildx.py build/test`, `docker run --rm` disposable fixtures, root-chown cleanup). The harness is stdlib-only. Fixture git operations use local `-c` identity (no global mutation). No Tower, registry, or runner prerequisites beyond the base image pull already required by M05-T03.
+
+## CI run 36265204193 RED and repair (worker contribution, uncommitted)
+
+- Run: https://github.com/elmakus/pi-unraid/actions/runs/36265204193 on implementation commit `f97f69fd36047521d6e0346d0db78291eafd1f13`. Contract suite, static readback, and frozen-candidate build passed; disposable flow failed at the recovery-phase container git call: `fatal: detected dubious ownership in repository at '/projects/m06-t01-fixture'` (exit 128).
+- Root cause: the host creates the fixture git repository as the runner UID, then the harness transferred only the top-level fixture directories to 99:100 (non-recursive `chown`). Nested `.git` stayed runner-owned, so container git as 99:100 refused it. Earlier phases (fixture, configure, RPC on-demand x2, workspace readback before, session loss) passed in CI.
+- Repair (this change, not yet CI-executed): `chown_fixture` helper applies recursive transfer of home/projects/worktrees to 99:100, so container git works with zero trust exceptions; no `safe.directory` workaround, no global git config writes, no production ownership or image-input changes. `workspace_readback` now also runs a nested-ownership live probe (`find` for paths outside 99:100) that fails loudly on any recurrence. Fixture cleanup chown is recursive as well.
+- Fail-visibility repair: `set -o pipefail` added to the three piped workflow steps (build, readback, flow) so the original command failure stops the step; the harness now emits a machine-readable `outcome: failed` report on flow errors (never overwriting success), collected by the existing always-upload artifact. This removes the secondary missing-report exception seen in the RED run.
+- Regression tests: 5 new hermetic tests (recursive chown argv incl. `-R`, call-site wiring, nested-probe coverage, failure-report emission/no-overwrite, piped-step pipefail). Focused suite 17/17 GREEN locally; full local suite re-run below. CI GREEN is not claimed; re-run happens on Main's push of the exact new SHA.
 
 ## Residual risks
 

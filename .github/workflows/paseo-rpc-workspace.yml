@@ -84,6 +84,7 @@ jobs:
           python3 -m unittest tests/test_paseo_staged_home_evidence_contract.py -v
       - name: Static machine-readable readback
         run: |
+          set -o pipefail
           python3 scripts/paseo_rpc_workspace_flow.py readback \
             --report /tmp/m06-t01-readback.json | tee /tmp/m06-t01-readback-out.json
           python3 - <<'EOF'
@@ -99,6 +100,7 @@ jobs:
           EOF
       - name: Build frozen candidate image for the disposable flow
         run: |
+          set -o pipefail
           python3 scripts/paseo_buildx.py build \
             --record /tmp/seed-record.json \
             --metadata /tmp/seed-metadata.json \
@@ -107,6 +109,7 @@ jobs:
           python3 -c "import json;r=json.load(open('/tmp/seed-record.json'));print('seed tag:',r['tag']);print('seed image:',r['image']['id'])"
       - name: Disposable integrated RPC workspace flow with session-loss recovery
         run: |
+          set -o pipefail
           TAG="$(python3 -c "import json;print(json.load(open('/tmp/seed-record.json'))['tag'])")"
           echo "SEED_TAG=$TAG" >> "$GITHUB_ENV"
           python3 scripts/paseo_rpc_workspace_flow.py flow \

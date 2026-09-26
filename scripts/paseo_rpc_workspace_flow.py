@@ -322,6 +322,40 @@ def docker_run(image: str, run_args: list[str], command: list[str],
                        timeout=timeout, input_text=input_text)
 
 
+def chown_fixture(image: str, fixture: Path) -> str:
+    # Recursive: host-created nested content (notably the fixture .git)
+    # must transfer to the runtime identity, otherwise container git fails
+    # with dubious ownership. No safe.directory workaround is used.
+    return run_command(["docker", "run", "--rm", "--user", "0:0", "--entrypoint", "chown",
+                        "-v", f"{fixture}:/fixture", image, "-R",
+                        f"{RUNTIME_UID}:{RUNTIME_GID}",
+                        "/fixture/home", "/fixture/projects", "/fixture/worktrees"])
+
+
+def nested_ownership_snippet() -> str:
+    # Live guard: any nested path outside the runtime identity fails the
+    # readback. Appended to the workspace readback probe script.
+    return (
+        f"printf 'foreign=%s\\n' \"$(find /home/paseo /projects /worktrees "
+        f"\\( -not -user {RUNTIME_UID} -o -not -group {RUNTIME_GID} \\) -print "
+        "2>/dev/null | head -5 | tr '\\n' ';')\"; "
+    )
+
+
+def write_failure_report(report_path: Path | None, scope: str, error: str) -> None:
+    # Emit a machine-readable failure record without overwriting success.
+    if report_path is None or report_path.exists():
+        return
+    report_path.write_text(json.dumps({
+        "card": CARD_ID,
+        "scope": scope,
+        "outcome": "failed",
+        "error": error,
+        "full_green_claimed": False,
+        "production_mutation": False,
+    }, sort_keys=True, indent=2) + "\n")
+
+
 def record(phases: list[dict], name: str, status: str, detail: dict) -> None:
     phases.append({"name": name, "status": status, "detail": detail})
 
@@ -349,10 +383,7 @@ def disposable_flow(root: Path, image: str, report_path: Path | None) -> dict:
                      "commit", "-q", "--allow-empty", "-m", "durable fixture"])
         head_before = run_command(["git", "-C", str(repo), "rev-parse", "HEAD"]).strip()
         record(phases, "fixture", "ok", {"root": str(fixture), "durable_head": head_before})
-        run_command(["docker", "run", "--rm", "--user", "0:0", "--entrypoint", "chown",
-                     "-v", f"{fixture}:/fixture", image,
-                     f"{RUNTIME_UID}:{RUNTIME_GID}",
-                     "/fixture/home", "/fixture/projects", "/fixture/worktrees"])
+        chown_fixture(image, fixture)
         run_command(["bash", str(root / "scripts" / "configure-paseo-runtime.sh"),
                      image, str(home), str(worktrees), str(RUNTIME_UID), str(RUNTIME_GID)])
         apply_out = run_command(["bash", str(root / "scripts" / "configure-pi-instruction-plane.sh"),
@@ -461,7 +492,7 @@ def disposable_flow(root: Path, image: str, report_path: Path | None) -> dict:
     finally:
         try:
             run_command(["docker", "run", "--rm", "--user", "0:0", "--entrypoint", "chown",
-                         "-v", f"{fixture}:/fixture", image,
+                         "-v", f"{fixture}:/fixture", image, "-R",
                          f"{os.getuid()}:{os.getgid()}", "/fixture"], timeout=180)
         except SystemExit:
             pass
@@ -487,6 +518,17 @@ def validate_rpc_response(raw: str, probe_id: str) -> bool:
     if not match or match[0].get("success") is not True:
         fail(f"RPC probe {probe_id} unsuccessful: {raw.strip()[:400]}")
     return True
+
+
+def check_nested_ownership(image: str, home: Path, projects: Path, worktrees: Path) -> None:
+    out = docker_run(
+        image, ["--user", f"{RUNTIME_UID}:{RUNTIME_GID}",
+                "-v", f"{home}:/home/paseo", "-v", f"{projects}:/projects",
+                "-v", f"{worktrees}:/worktrees", "--shm-size=1gb"],
+        ["sh", "-c", "set -eu; " + nested_ownership_snippet()])
+    for line in out.splitlines():
+        if line.startswith("foreign=") and line[len("foreign="):]:
+            fail(f"foreign-owned nested content: {line[len('foreign='):]!r}")
 
 
 def workspace_readback(image: str, home: Path, projects: Path, worktrees: Path) -> dict:
@@ -533,6 +575,7 @@ def workspace_readback(image: str, home: Path, projects: Path, worktrees: Path) 
     for key, observed in host_stats.items():
         if observed != f"{RUNTIME_UID}:{RUNTIME_GID}":
             fail(f"host-visible ownership mismatch on {key}: {observed}")
+    check_nested_ownership(image, home, projects, worktrees)
     return {
         "runtime_uid_gid": uid,
         "non_root": True,
@@ -541,6 +584,7 @@ def workspace_readback(image: str, home: Path, projects: Path, worktrees: Path) 
         "host_ownership": host_stats,
         "worktrees_root": values.get("worktrees_root"),
         "workspace_mounts": mounts,
+        "nested_ownership_ok": True,
     }
 
 
@@ -563,7 +607,11 @@ def main(argv: list[str] | None = None) -> int:
         print(text)
         return 0 if report["verdict"] != "red" else 1
     guard_disposable_scope(args.scope, Path(tempfile.gettempdir()))
-    report = disposable_flow(root, args.image, args.report)
+    try:
+        report = disposable_flow(root, args.image, args.report)
+    except SystemExit as exc:
+        write_failure_report(args.report, args.scope, str(exc) or "flow failed")
+        raise
     print(json.dumps(report, sort_keys=True, indent=2))
     return 0
 
