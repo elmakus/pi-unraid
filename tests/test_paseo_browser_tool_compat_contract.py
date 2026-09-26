@@ -395,6 +395,12 @@ class BrowserToolCompatContractTests(unittest.TestCase):
                 FLOW.docker_run_browser("image", [], ["node"], what="probe")
         self.assertIn("secret-like value", str(ctx.exception))
 
+    def test_fixture_mode_set_before_ownership_transfer(self) -> None:
+        flow_source = HARNESS[HARNESS.index("def disposable_flow"):HARNESS.index("def main(")]
+        prepare_at = flow_source.index("prepare_browser_dirs(profile, downloads)")
+        chown_at = flow_source.index('chown_fixture(image, fixture, "home", "profile", "downloads")')
+        self.assertLess(prepare_at, chown_at)
+
     def test_failure_report_carries_phases_completed(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             report_path = Path(tmp) / "failure.json"

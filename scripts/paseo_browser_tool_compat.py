@@ -829,10 +829,12 @@ def disposable_flow(root: Path, image: str, report_path: Path | None) -> dict:
         downloads = fixture / "downloads"
         for path in (home, profile, downloads):
             path.mkdir(parents=True)
-        record(phases, "fixture", "ok", {"root": str(fixture)})
-        chown_fixture(image, fixture, "home", "profile", "downloads")
-        prepare_browser_dirs(profile, downloads)
         try:
+            record(phases, "fixture", "ok", {"root": str(fixture)})
+            # Mode before ownership: once the fixture belongs to the
+            # runtime identity the host user can no longer chmod it.
+            prepare_browser_dirs(profile, downloads)
+            chown_fixture(image, fixture, "home", "profile", "downloads")
             image_detail = phase_image_labels(image)
             record(phases, "image_labels", "ok", image_detail)
             # Browser legs run before the extension leg so the profile-isolation
