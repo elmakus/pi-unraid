@@ -3,7 +3,7 @@ source_scope_subject = "paseo-gui-runtime@3"
 revision = "R2"
 state = "green"
 completeness_audit = "green"
-premium_a = "due"
+premium_a = "satisfied"
 decisions = [
   { class = "authority", path = "decisions/ADR_PGR_001_RUNTIME_SUBSTRATE.md" },
   { class = "authority", path = "decisions/ADR_PGR_002_AUTHORITY_BOUNDARIES.md" },
