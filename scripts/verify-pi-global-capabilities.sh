@@ -5,6 +5,7 @@ repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 image="${1:-pi-unraid:paseo-foundation}"
 tmpbase="${TMPDIR:-/tmp}"
 fixture="$(mktemp -d "$tmpbase/pi-unraid-m04-t03.XXXXXX")"
+chmod 0755 "$fixture"
 uid="${PASEO_TEST_UID:-99}"
 gid="${PASEO_TEST_GID:-100}"
 
