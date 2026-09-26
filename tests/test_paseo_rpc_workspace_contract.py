@@ -206,6 +206,123 @@ class RpcWorkspaceContractTests(unittest.TestCase):
         for block in piped:
             self.assertIn("set -o pipefail", block)
 
+    def test_recovery_verifier_accepts_exact_durable_state(self) -> None:
+        detail = FLOW.verify_recovered_state(
+            head_before="abc123",
+            head_after="abc123",
+            status_porcelain="",
+            state_json_text=FLOW.fixture_state_text(),
+            project_text=FLOW.fixture_project_text(),
+            sessions_absent=True,
+        )
+        self.assertEqual(detail["project"], "m06-t01-fixture-project")
+        self.assertEqual(detail["selection_method"], "explicit")
+        self.assertIn("TASK_BOARD.toml", detail["board"]["path"])
+        self.assertIs(detail["sessions_absent"], True)
+
+    def test_recovery_verifier_rejects_session_presence(self) -> None:
+        with self.assertRaises(SystemExit):
+            FLOW.verify_recovered_state(
+                head_before="abc123",
+                head_after="abc123",
+                status_porcelain="",
+                state_json_text=FLOW.fixture_state_text(),
+                project_text=FLOW.fixture_project_text(),
+                sessions_absent=False,
+            )
+
+    def test_recovery_verifier_rejects_head_mismatch(self) -> None:
+        with self.assertRaises(SystemExit):
+            FLOW.verify_recovered_state(
+                head_before="abc123",
+                head_after="def456",
+                status_porcelain="",
+                state_json_text=FLOW.fixture_state_text(),
+                project_text=FLOW.fixture_project_text(),
+                sessions_absent=True,
+            )
+
+    def test_recovery_verifier_rejects_dirty_worktree(self) -> None:
+        with self.assertRaises(SystemExit):
+            FLOW.verify_recovered_state(
+                head_before="abc123",
+                head_after="abc123",
+                status_porcelain="?? PROJECT.md",
+                state_json_text=FLOW.fixture_state_text(),
+                project_text=FLOW.fixture_project_text(),
+                sessions_absent=True,
+            )
+
+    def test_recovery_verifier_rejects_absent_or_corrupt_state(self) -> None:
+        for bad_state in ("", "not json", '{"project": "wrong-project"}',
+                          json.dumps({"project": "m06-t01-fixture-project"})):
+            with self.assertRaises(SystemExit, msg=bad_state[:30]):
+                FLOW.verify_recovered_state(
+                    head_before="abc123",
+                    head_after="abc123",
+                    status_porcelain="",
+                    state_json_text=bad_state,
+                    project_text=FLOW.fixture_project_text(),
+                    sessions_absent=True,
+                )
+        with self.assertRaises(SystemExit):
+            FLOW.verify_recovered_state(
+                head_before="abc123",
+                head_after="abc123",
+                status_porcelain="",
+                state_json_text=FLOW.fixture_state_text(),
+                project_text="unrelated text",
+                sessions_absent=True,
+            )
+
+    def test_fixture_commit_is_contentful_canonical_state(self) -> None:
+        # Recovery reads from the Git object store via argv ["show",
+        # "HEAD:<path>"], never a joined shell string.
+        self.assertIn('"show", "HEAD:canonical-state.json"', HARNESS)
+        self.assertIn('"show", "HEAD:PROJECT.md"', HARNESS)
+        self.assertNotIn("--allow-empty", HARNESS)
+        self.assertIn("verify_recovered_state", HARNESS)
+
+    def test_pi_child_parser_finds_paseo_spawned_rpc(self) -> None:
+        ps_text = (
+            "1 0 node /app/server.js\n"
+            "42 1 pi --mode rpc --session abc\n"
+            "99 42 sh -c ps\n"
+        )
+        hit = FLOW.find_pi_child(ps_text)
+        self.assertIsNotNone(hit)
+        self.assertEqual(hit["pid"], "42")
+        self.assertEqual(hit["ppid"], "1")
+        self.assertIn("pi --mode rpc", hit["args"])
+        self.assertIsNone(FLOW.find_pi_child("1 0 node /app/server.js\n"))
+        # The grep self-match residue must never count as a spawn.
+        self.assertIsNone(FLOW.find_pi_child("7 6 grep [p]i --mode rpc\n"))
+
+    def test_spawn_blocker_classifier(self) -> None:
+        self.assertEqual(FLOW.classify_spawn_blocker("Error: RELAY_DISABLED"), "relay_disabled")
+        self.assertEqual(FLOW.classify_spawn_blocker("not onboarded"), "onboarding")
+        for text in ("401 unauthorized", "provider login required",
+                     "missing api key", "forbidden"):
+            self.assertEqual(FLOW.classify_spawn_blocker(text), "auth", text)
+        self.assertIsNone(FLOW.classify_spawn_blocker("spawn ok"))
+        self.assertIsNone(FLOW.classify_spawn_blocker(""))
+
+    def test_pi_diagnostic_check_requires_frozen_version(self) -> None:
+        self.assertTrue(FLOW.check_pi_diagnostic('{"provider": "pi", "version": "0.87.1"}'))
+        self.assertFalse(FLOW.check_pi_diagnostic('{"provider": "pi"}'))
+        self.assertFalse(FLOW.check_pi_diagnostic(""))
+
+    def test_paseo_spawn_uses_documented_cli_path(self) -> None:
+        self.assertIn("provider diagnostic pi", HARNESS)
+        self.assertIn('"run", "--provider", "pi"', HARNESS)
+        self.assertIn("paseo_spawn_probe", HARNESS)
+        self.assertIn("PASEO_SPAWN_BLOCKED", HARNESS)
+
+    def test_paseo_spawn_refuses_production_scope(self) -> None:
+        refused = run_harness("paseo-spawn", "--scope", "production", "--image", "example:tag")
+        self.assertNotEqual(refused.returncode, 0)
+        self.assertIn("refusing non-disposable scope", refused.stderr)
+
     def test_harness_is_secret_safe(self) -> None:
         self.assertIsNone(FLOW.SECRET_VALUE_PATTERN.search(HARNESS))
         for forbidden in (

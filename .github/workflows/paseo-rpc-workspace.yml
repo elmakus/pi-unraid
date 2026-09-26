@@ -128,8 +128,37 @@ jobs:
                        'workspace_readback_before', 'session_loss', 'recovery',
                        'workspace_readback_after'):
               assert phases.get(name) == 'ok', (name, phases)
+          recovery = [p['detail'] for p in r['phases'] if p['name'] == 'recovery'][0]
+          assert recovery['decision'] == 'recovered_from_durable_git_no_replay', recovery
+          assert recovery['worktree_clean'] is True, recovery
+          assert recovery['project'] == 'm06-t01-fixture-project', recovery
+          assert recovery['selection_method'] == 'explicit', recovery
+          assert recovery['sessions_absent'] is True, recovery
+          assert 'TASK_BOARD.toml' in recovery['board']['path'], recovery
           print('flow outcome:', r['outcome'])
           print('image:', r['image']['id'])
+          EOF
+      - name: Paseo-driven Pi spawn probe on disposable daemon
+        run: |
+          set -o pipefail
+          python3 scripts/paseo_rpc_workspace_flow.py paseo-spawn \
+            --scope disposable --image "$SEED_TAG" \
+            --report /tmp/m06-t01-spawn.json | tee /tmp/m06-t01-spawn-out.json
+          python3 - <<'EOF'
+          import json
+          r = json.load(open('/tmp/m06-t01-spawn.json'))
+          assert r['card'] == 'M06-T01', r['card']
+          assert r['scope'] == 'disposable', r['scope']
+          assert r['outcome'] == 'paseo_spawn_green', r['outcome']
+          assert r['full_green_claimed'] is False
+          assert r['production_mutation'] is False
+          phases = {p['name']: p['status'] for p in r['phases']}
+          for name in ('fixture', 'daemon_up', 'diagnostic', 'spawn_observed'):
+              assert phases.get(name) == 'ok', (name, phases)
+          assert r['spawn']['observed'] is True, r['spawn']
+          assert r['spawn']['ppid'] != r['spawn']['pid'], r['spawn']
+          print('spawn outcome:', r['outcome'])
+          print('pi pid/ppid:', r['spawn']['pid'], r['spawn']['ppid'], r['spawn']['ppid_comm'])
           EOF
       - name: Fail-closed guards refuse production scope
         run: |
@@ -157,4 +186,5 @@ jobs:
             /tmp/seed-test.log
             /tmp/m06-t01-readback.json
             /tmp/m06-t01-flow.json
+            /tmp/m06-t01-spawn.json
             /tmp/m06-t01-production-out.txt
