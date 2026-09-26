@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import io
 import json
 import re
 import subprocess
@@ -241,7 +242,32 @@ class FailClosedTests(unittest.TestCase):
 
 
 class TimingsAndPruneTests(unittest.TestCase):
-    def run_mock_build(self, extra_args, build_stdout="done"):
+    WARM_PROGRESS = (
+        "#1 [internal] load build definition from Dockerfile\n"
+        "#1 DONE 0.0s\n"
+        "#2 [internal] load metadata for ghcr.io/getpaseo/paseo\n"
+        "#2 DONE 0.0s\n"
+        "#3 [1/8] FROM ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136\n"
+        "#3 CACHED\n"
+        "#4 [2/8] RUN set -eux; apt-get update; apt-get install -y --no-install-recommends build-essential\n"
+        "#4 CACHED\n"
+        "#5 [3/8] RUN set -eux; npm install -g --ignore-scripts playwright@1.63.0\n"
+        "#5 CACHED\n"
+        "#6 [4/8] RUN set -eux; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.87.1\n"
+        "#6 CACHED\n"
+        "#7 [5/8] RUN set -eux; curl -fsSL https://github.com/cli/cli/releases/download/v2.101.0/gh.tar.gz\n"
+        "#7 CACHED\n"
+        "#8 [6/8] RUN set -eux; curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz\n"
+        "#8 CACHED\n"
+        "#9 [7/8] RUN set -eux; curl -fsSL https://github.com/docker/compose/releases/download/v5.5.1/docker-compose\n"
+        "#9 CACHED\n"
+        "#10 [8/8] WORKDIR /workspace\n"
+        "#10 CACHED\n"
+        "#11 exporting to image\n"
+        "#11 DONE 0.4s\n"
+    )
+
+    def run_mock_build(self, extra_args, build_stdout="done", build_stderr=""):
         calls: list[list[str]] = []
 
         def runner(argv, env, timeout):
@@ -249,7 +275,7 @@ class TimingsAndPruneTests(unittest.TestCase):
             if argv[:3] == ["docker", "buildx", "inspect"]:
                 return Completed(0, "ok")
             if argv[:3] == ["docker", "buildx", "build"]:
-                return Completed(0, build_stdout)
+                return Completed(0, build_stdout, build_stderr)
             if argv[:3] == ["docker", "image", "inspect"]:
                 return Completed(0, json.dumps([{
                     "Id": "sha256:" + "b" * 64,
@@ -294,6 +320,33 @@ class TimingsAndPruneTests(unittest.TestCase):
         self.assertEqual(record["candidate"]["candidate_id"], CANDIDATE["candidate_id"])
         self.assertEqual(record["image"]["id"], "sha256:" + "b" * 64)
         self.assertTrue(record["tag"].startswith("pi-unraid:paseo-"))
+
+    def test_cached_steps_counted_from_full_progress(self):
+        self.assertEqual(buildx.count_cached_steps(self.WARM_PROGRESS), 8)
+        self.assertEqual(buildx.count_cached_steps(""), 0)
+        self.assertEqual(buildx.count_cached_steps(None or ""), 0)
+        lookalikes = (
+            "reading CACHED lists...\n"
+            "  #4 CACHED with leading spaces\n"
+            "step CACHED done\n"
+        )
+        self.assertEqual(buildx.count_cached_steps(lookalikes), 0)
+
+    def test_build_record_carries_cached_steps(self):
+        rc, record, _ = self.run_mock_build([], build_stdout="", build_stderr=self.WARM_PROGRESS)
+        self.assertEqual(rc, 0)
+        self.assertEqual(record["phases"]["build"]["detail"]["cached_steps"], 8)
+
+    def test_build_echo_keeps_stderr_progress(self):
+        # Regression: plain progress (including #N CACHED) is written to
+        # stderr; echoing stdout alone drops the cache evidence from the log.
+        proc = Completed(0, "", self.WARM_PROGRESS)
+        buf = io.StringIO()
+        with mock.patch.object(sys, "stdout", buf):
+            buildx.print_build_output(proc)
+        echoed = buf.getvalue()
+        for step in ("#3 CACHED", "#4 CACHED", "#10 CACHED"):
+            self.assertIn(step, echoed)
 
     def test_prune_is_bounded_scoped_and_ordered_after_build(self):
         rc, record, calls = self.run_mock_build(["--with-prune"])

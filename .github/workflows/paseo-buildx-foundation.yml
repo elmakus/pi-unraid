@@ -98,7 +98,7 @@ jobs:
             --record /tmp/warm-same-record.json \
             --metadata /tmp/warm-same-metadata.json \
             --progress plain 2>&1 | tee /tmp/warm-same-build.log
-          python3 -c "import json;r=json.load(open('/tmp/warm-same-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is True,r['builder'];print('warm-same image:',r['image']['id'])"
+          python3 -c "import json;r=json.load(open('/tmp/warm-same-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is True,r['builder'];assert r['phases']['build']['detail']['cached_steps']>=4,r['phases']['build'];print('warm-same image:',r['image']['id']);print('warm-same cached steps:',r['phases']['build']['detail']['cached_steps'])"
           test "$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['image']['id'])")" = "$(python3 -c "import json;print(json.load(open('/tmp/warm-same-record.json'))['image']['id'])")"
           grep -c CACHED /tmp/warm-same-build.log
           test "$(grep -c CACHED /tmp/warm-same-build.log)" -ge 4
@@ -113,7 +113,7 @@ jobs:
             --record /tmp/warm-change-record.json \
             --metadata /tmp/warm-change-metadata.json \
             --progress plain 2>&1 | tee /tmp/warm-change-build.log
-          python3 -c "import json;r=json.load(open('/tmp/warm-change-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is True,r['builder'];print('warm-change image:',r['image']['id'])"
+          python3 -c "import json;r=json.load(open('/tmp/warm-change-record.json'));assert r['phases']['build']['status']=='ok',r;assert r['builder']['reused'] is True,r['builder'];assert r['phases']['build']['detail']['cached_steps']>=4,r['phases']['build'];print('warm-change image:',r['image']['id']);print('warm-change cached steps:',r['phases']['build']['detail']['cached_steps'])"
           test "$(grep -c CACHED /tmp/warm-change-build.log)" -ge 4
           test "$(python3 -c "import json;print(json.load(open('/tmp/cold-record.json'))['image']['id'])")" != "$(python3 -c "import json;print(json.load(open('/tmp/warm-change-record.json'))['image']['id'])")"
       - name: Bounded post-success prune retains warm cache and images
@@ -150,7 +150,8 @@ jobs:
           for name in ('cold', 'warm-same', 'warm-change'):
               r = json.load(open(f'/tmp/{name}-record.json'))
               phases = {k: (v['status'], v['duration_ms']) for k, v in r['phases'].items()}
-              print(name, 'tag=' + r['tag'], 'image=' + str(r['image']['id']))
+              print(name, 'tag=' + r['tag'], 'image=' + str(r['image']['id']),
+                    'cached_steps=' + str(r['phases']['build']['detail'].get('cached_steps')))
               print(name, 'phases=' + json.dumps(phases, sort_keys=True))
           "
       - name: Upload Buildx evidence

@@ -191,6 +191,26 @@ def _tail(text: str, limit: int = 2000) -> str:
     return text[-limit:] if len(text) > limit else text
 
 
+def count_cached_steps(progress_text: str) -> int:
+    """Count BuildKit plain-progress cached steps (``#N CACHED`` lines)."""
+    return len(re.findall(r"(?m)^#\d+ CACHED\b", progress_text or ""))
+
+
+def print_build_output(proc) -> None:
+    """Echo buildx output so the tee'd log keeps the BuildKit progress.
+
+    Plain progress (including ``#N CACHED`` lines) is written to stderr;
+    printing stdout alone would silently drop the cache evidence.
+    """
+    sys.stdout.write("--- buildx stdout (tail) ---\n")
+    sys.stdout.write(_tail(proc.stdout or "(empty)\n", 4000))
+    if not (proc.stdout or "").endswith("\n"):
+        sys.stdout.write("\n")
+    sys.stdout.write("--- buildx stderr (progress) ---\n")
+    sys.stdout.write(proc.stderr or "(empty)\n")
+    sys.stdout.flush()
+
+
 def _utcnow() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat()
 
@@ -399,7 +419,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     build_argv.append(str(context_dir))
     try:
         proc = run_fn(build_argv, env, args.build_timeout)
-        print(proc.stdout[-4000:] if proc.stdout else "")
+        print_build_output(proc)
         if proc.returncode != 0:
             raise BuildxError(
                 f"build failed (rc={proc.returncode}): {_tail(proc.stderr or proc.stdout)}"
@@ -414,6 +434,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             "image_id": image["id"],
             "image_digests": image["digests"],
             "metadata_digest": read_metadata_digest(metadata_file),
+            "cached_steps": count_cached_steps(proc.stderr),
         })
     except (BuildxError, subprocess.TimeoutExpired) as exc:
         recorder.record("build", "failed", int((time.monotonic() - begin) * 1000),
