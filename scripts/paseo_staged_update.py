@@ -365,9 +365,9 @@ def read_live_container(run_fn, project: str, env: dict[str, str]) -> dict | Non
     }
 
 
-def check_home_live(run_fn, home: Path, tag: str, uid: str, gid: str,
-                    env: dict[str, str]) -> dict:
-    """Prove the HOME anchor is present and writable; read no HOME content."""
+def check_home_marker_live(run_fn, home: Path, tag: str, uid: str, gid: str,
+                           env: dict[str, str]) -> dict:
+    """Read-only marker proof through the runtime identity, never host traversal."""
     if not home.is_dir():
         raise StagedUpdateError(f"HOME anchor is not a directory: {home}")
     marker = run_fn(
@@ -381,6 +381,13 @@ def check_home_live(run_fn, home: Path, tag: str, uid: str, gid: str,
             f"HOME anchor lacks a runtime-readable marker {HOME_MARKER}: "
             f"{_tail(marker.stderr or marker.stdout)}"
         )
+    return {"path": str(home), "marker": HOME_MARKER, "readable": True}
+
+
+def check_home_live(run_fn, home: Path, tag: str, uid: str, gid: str,
+                    env: dict[str, str]) -> dict:
+    """Prove the HOME anchor is present and writable; read no HOME content."""
+    marker = check_home_marker_live(run_fn, home, tag, uid, gid, env)
     probe = run_fn(
         ["docker", "run", "--rm", "--user", f"{uid}:{gid}",
          "-v", f"{home}:/home/paseo", tag,
@@ -392,7 +399,7 @@ def check_home_live(run_fn, home: Path, tag: str, uid: str, gid: str,
             f"HOME anchor is not writable through the runtime image: "
             f"{_tail(probe.stderr or probe.stdout)}"
         )
-    return {"path": str(home), "marker": HOME_MARKER, "writable": True}
+    return {**marker, "writable": True}
 
 
 def retention_protects(retention_file: Path, tags: list[str]) -> dict:
@@ -622,7 +629,8 @@ def phase_build(cfg: dict) -> dict:
 
 
 def phase_fast_checks(cfg: dict, run_fn, env: dict[str, str], build: dict) -> dict:
-    """Bind the built image to the frozen candidate and protect it."""
+    """Bind/test the built image to the frozen candidate, then protect it."""
+    record_path = Path(build["record_path"])
     record = build["record"]
     tag = record.get("tag")
     if tag != cfg["image_tag"]:
@@ -632,10 +640,20 @@ def phase_fast_checks(cfg: dict, run_fn, env: dict[str, str], build: dict) -> di
         raise StagedUpdateError("live image id does not match the build record")
     if live["candidate_label"] != cfg["candidate_id"]:
         raise StagedUpdateError("live candidate label does not match the frozen candidate")
+    test_rc = buildx.main(
+        ["test", "--record", str(record_path),
+         "--smoke-timeout", str(cfg["smoke_timeout"])])
+    if test_rc != 0:
+        raise StagedUpdateError(f"candidate fast smoke/test failed (rc={test_rc})")
+    try:
+        record = buildx.load_build_record(record_path)
+    except buildx.BuildxError as exc:
+        raise StagedUpdateError(f"tested build record is unreadable: {exc}") from exc
+    build["record"] = record
     profile = {"state_dir": Path(cfg["buildx_state_dir"]),
                "retention_file": Path(cfg["retention_file"])}
     try:
-        retention = tower.retain_record(profile, Path(build["record_path"]), cfg["retain"])
+        retention = tower.retain_record(profile, record_path, cfg["retain"])
     except tower.TowerBuildError as exc:
         raise StagedUpdateError(f"retention of the new image failed: {exc}") from exc
     protected = {item.get("tag") for item in retention.get("entries", []) if item.get("tag")}
@@ -706,8 +724,8 @@ def phase_temp_smoke(cfg: dict, run_fn, env: dict[str, str]) -> dict:
                 cfg["pi_version"], tmp_env)
         finally:
             compose_down(run_fn, tmp_project, [COMPOSE_FILE, tmp_override], tmp_env)
-        suite = buildx.run_smoke_suite(
-            cfg["image_tag"], str(cfg["candidate_path"]), cfg["smoke_timeout"])
+        suite = (buildx.load_build_record(
+            Path(cfg["build_record_path"])).get("phases", {}).get("test", {}).get("detail", {}))
     finally:
         remove_temp_tree(cfg["state_root"], tmp_root)
     after = fingerprint_home(cfg["home_host"])
@@ -983,6 +1001,7 @@ def cmd_update(args: argparse.Namespace) -> int:
     recorder.record("build", "ok", int((time.monotonic() - begin) * 1000),
                     {k: build[k] for k in ("expected", "observed")})
     cfg["image_id"] = build["observed"]["image_id"]
+    cfg["build_record_path"] = build["record_path"]
     summary["image_id"] = cfg["image_id"]
 
     # Phase 3: fast checks.
@@ -1179,9 +1198,13 @@ def cmd_readback(args: argparse.Namespace) -> int:
     except StagedUpdateError as exc:
         mismatches.append(f"active runtime readback failed: {exc}")
     home = Path(args.home_host)
-    live["home"] = fingerprint_home(home)
-    if not home.is_dir() or not (home / HOME_MARKER).is_file():
-        mismatches.append("HOME anchor marker is absent")
+    try:
+        marker = check_home_marker_live(
+            _run, home, active["image_tag"], args.uid, args.gid, env)
+        live["home"] = {**marker, "fingerprint": fingerprint_home(home)}
+    except StagedUpdateError as exc:
+        live["home"] = {"path": str(home)}
+        mismatches.append(f"HOME anchor marker readback failed: {exc}")
     try:
         live["retention"] = retention_protects(
             Path(args.tower_root) / "retention.json",

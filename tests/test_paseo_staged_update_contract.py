@@ -258,6 +258,14 @@ def staged_env(td: Path, fake: FakeDocker, project="pi-unraid-staged-active"):
 def build_mocks(fake_tag=NEW_TAG, fake_id=NEW_IMAGE_ID, build_rc=0):
     def fake_main(argv):
         record_path = Path(argv[argv.index("--record") + 1])
+        if argv[0] == "test":
+            record = json.loads(record_path.read_text())
+            record.setdefault("phases", {})["test"] = {
+                "status": "ok", "duration_ms": 2,
+                "detail": {"smokes": [{"name": "fake-fast-smoke", "status": "ok"}]},
+            }
+            record_path.write_text(json.dumps(record))
+            return 0
         record = {
             "schema_version": 1,
             "command": "build",
@@ -499,6 +507,23 @@ class PreflightTests(unittest.TestCase):
             self.assertEqual(calls[0][:2], ["docker", "run"])
             self.assertIn(f"{home}:/home/paseo:ro", calls[0])
             self.assertIn(f"test -f /home/paseo/{staged.HOME_MARKER}", calls[0])
+
+    def test_home_marker_readback_is_non_mutating(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = Path(td) / "home"
+            home.mkdir()
+            calls = []
+
+            def readable(argv, env=None, timeout=120):
+                calls.append(list(argv))
+                return Completed(0, "", "")
+
+            detail = staged.check_home_marker_live(
+                readable, home, NEW_TAG, "99", "100", {})
+            self.assertTrue(detail["readable"])
+            self.assertEqual(len(calls), 1)
+            self.assertIn(f"{home}:/home/paseo:ro", calls[0])
+            self.assertNotIn(staged.WRITE_PROBE, " ".join(calls[0]))
 
     def test_preflight_rejects_live_image_mismatch(self):
         with tempfile.TemporaryDirectory() as td:
