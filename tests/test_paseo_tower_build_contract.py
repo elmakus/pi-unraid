@@ -136,6 +136,60 @@ class RetentionTests(unittest.TestCase):
             self.assertEqual(calls, [["docker", "image", "rm", "pi-unraid:paseo-old"]])
 
 
+class LocalCacheBoundTests(unittest.TestCase):
+    def profile(self, td):
+        boundary = Path(td) / "appdata" / "pi-unraid"
+        return tower.resolve_profile(boundary / "buildx", boundary, "pi-unraid-paseo")
+
+    def write_cache(self, profile, layer_size=32, include_orphan=True):
+        cache = Path(profile["cache_dir"])
+        blobs = cache / "blobs" / "sha256"
+        blobs.mkdir(parents=True)
+        manifest_digest = "a" * 64
+        layer_digest = "b" * 64
+        orphan_digest = "c" * 64
+        (cache / "index.json").write_text(json.dumps({
+            "schemaVersion": 2,
+            "manifests": [{"digest": "sha256:" + manifest_digest}],
+        }))
+        (blobs / manifest_digest).write_text(json.dumps({
+            "schemaVersion": 2,
+            "layers": [{"digest": "sha256:" + layer_digest}],
+        }))
+        (blobs / layer_digest).write_bytes(b"x" * layer_size)
+        if include_orphan:
+            (blobs / orphan_digest).write_bytes(b"stale")
+        return cache, manifest_digest, layer_digest, orphan_digest
+
+    def test_storage_bound_parser(self):
+        self.assertEqual(tower.parse_storage_bytes("8GB"), 8 * 1024**3)
+        self.assertEqual(tower.parse_storage_bytes("1.5MB"), int(1.5 * 1024**2))
+        with self.assertRaises(tower.TowerBuildError):
+            tower.parse_storage_bytes("all")
+
+    def test_compaction_prunes_only_unreachable_blobs(self):
+        with tempfile.TemporaryDirectory() as td:
+            profile = self.profile(td)
+            cache, manifest, layer, orphan = self.write_cache(profile)
+            result = tower.compact_local_cache(profile, "1MB")
+            self.assertEqual(result["removed_blobs"], 1)
+            self.assertFalse(result["cleared_over_bound"])
+            self.assertTrue((cache / "blobs" / "sha256" / manifest).exists())
+            self.assertTrue((cache / "blobs" / "sha256" / layer).exists())
+            self.assertFalse((cache / "blobs" / "sha256" / orphan).exists())
+            self.assertTrue(Path(profile["cache_policy_file"]).is_file())
+
+    def test_over_bound_portable_cache_is_cleared_post_success(self):
+        with tempfile.TemporaryDirectory() as td:
+            profile = self.profile(td)
+            cache, _, _, _ = self.write_cache(profile, layer_size=4096, include_orphan=False)
+            result = tower.compact_local_cache(profile, "1KB")
+            self.assertTrue(result["cleared_over_bound"])
+            self.assertEqual(result["bytes_after"], 0)
+            self.assertTrue(cache.is_dir())
+            self.assertEqual(list(cache.iterdir()), [])
+
+
 class BuildFlowTests(unittest.TestCase):
     def profile(self, td):
         return tower.resolve_profile(Path(td) / "appdata" / "buildx", Path(td), "pi-unraid-paseo")
@@ -149,6 +203,7 @@ class BuildFlowTests(unittest.TestCase):
             "with_prune": False,
             "build_label": [],
             "retain": 3,
+            "cache_max": "8GB",
             "prune_images": False,
         })()
 
