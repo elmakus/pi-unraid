@@ -3,7 +3,7 @@
 Date: `2026-09-24`
 Scope ID: `paseo-gui-runtime`
 Revision: `R3`
-Status: `ready_for_definition`
+Status: `promoted`
 
 ## Problem / goal
 
@@ -763,4 +763,4 @@ Result: **GREEN**.
 
 No further material user/product choice is identified for this amendment. The remaining work is Definition/Planning formalization and downstream Tower fact gathering for the local persistent-builder/cache/rollback acceptance surface.
 
-Exact Definition promotion authorization for `paseo-gui-runtime@3` is still pending; this amendment does not self-promote.
+Exact Definition promotion authorization for `paseo-gui-runtime@3` was explicitly granted by the user on `2026-09-26`; this amendment is promoted.
