@@ -87,12 +87,31 @@ class FakeDocker:
         if argv[:2] == ["docker", "exec"]:
             return self._exec(argv[2], argv[3:])
         if argv[:2] == ["docker", "run"]:
-            return Completed(0, "", "")
+            return self._run(argv)
         if argv[:2] == ["docker", "compose"]:
             return self._compose(argv)
         if argv[:1] == ["bash"]:
             return Completed(0, "", "")
         return Completed(1, "", f"unexpected argv: {argv}")
+
+    def _run(self, argv):
+        # Runtime-identity HOME fingerprint: inventory the bound host path
+        # through the same collector the production container runs, without
+        # reading file contents. Other docker-run probes succeed empty.
+        if "python3" in argv and "-c" in argv:
+            home = None
+            for index, token in enumerate(argv):
+                if token == "-v" and index + 1 < len(argv):
+                    home = argv[index + 1].split(":", 1)[0]
+                    break
+            if home is None:
+                return Completed(1, "", "fingerprint run lacks a HOME bind")
+            try:
+                data = staged.collect_home_meta(Path(home))
+            except OSError as exc:
+                return Completed(1, "", f"fingerprint walk failed: {exc}")
+            return Completed(0, json.dumps(data, sort_keys=True), "")
+        return Completed(0, "", "")
 
     def _image_inspect(self, tag):
         entry = self.images.get(tag)
@@ -1008,7 +1027,11 @@ class RecoveryMatrixTests(unittest.TestCase):
             "rollback_file": td / "state" / "rollback.json",
             "retention_file": td / "tower" / "retention.json",
             "home_host": home,
-            "home_fingerprint": staged.fingerprint_home(home),
+            "home_fingerprint": staged.fingerprint_home_runtime(
+                fake, home, PRIOR_TAG, "99", "100", {}),
+            "image_tag": PRIOR_TAG,
+            "uid": "99",
+            "gid": "100",
         }
 
     def test_unambiguous_when_prior_coherent(self):
@@ -1155,6 +1178,29 @@ class InitReadbackTests(unittest.TestCase):
             self.assertEqual((td_path / "state" / "active.json").read_text(), before)
 
 
+def make_post_init_home(root: Path, relay_enabled=True) -> Path:
+    home = root / "home"
+    (home / ".paseo").mkdir(parents=True)
+    (home / ".paseo" / "config.json").write_text(json.dumps(
+        {"daemon": {"relay": {"enabled": relay_enabled}},
+         "worktrees": {"root": "/worktrees"}}))
+    (home / ".paseo" / "daemon-keypair.json").write_text("secret-bearing-fixture")
+    (home / ".paseo" / "server-id").write_text("server-id-fixture")
+    (home / ".pi" / "agent" / "sessions" / "staged-representative").mkdir(parents=True)
+    (home / ".pi" / "agent" / "sessions" / "staged-representative"
+     / "session.jsonl").write_text('{"id":"staged-session"}\n')
+    (home / ".paseo" / "browser-automation-profile").mkdir(parents=True)
+    (home / ".paseo" / "browser-automation-profile" / "staged-marker.json").write_text(
+        json.dumps({"profile": "staged-automation"}))
+    (home / ".paseo" / "daemon.log").write_text("boot\n")
+    (home / ".paseo" / "paseo.pid").write_text("123\n")
+    (home / ".paseo" / "models" / "local-speech").mkdir(parents=True)
+    (home / ".paseo" / "models" / "local-speech" / "weights.bin").write_text("weights")
+    (home / ".paseo" / "runtime" / "opencode").mkdir(parents=True)
+    (home / ".paseo" / "runtime" / "opencode" / "chunk.mjs").write_text("chunk")
+    return home
+
+
 class HomePreservationTests(unittest.TestCase):
     def test_no_destructive_home_path_in_module(self):
         self.assertNotIn("restore_home", MODULE_SOURCE)
@@ -1187,6 +1233,236 @@ class HomePreservationTests(unittest.TestCase):
                     mock.patch.dict(os.environ, {staged.FORCE_POST_SMOKE_FAIL_ENV: "1"}):
                 self.assertEqual(staged.cmd_update(args2), 1)
             self.assertEqual(snapshot_tree(home), before)
+
+
+class RuntimeFingerprintTests(unittest.TestCase):
+    def test_collector_source_is_standalone_and_identical(self):
+        import inspect as real_inspect
+
+        with tempfile.TemporaryDirectory() as td:
+            home = make_home(Path(td))
+            namespace: dict = {}
+            exec(real_inspect.getsource(staged.collect_home_meta), namespace)  # noqa: S102
+            self.assertEqual(namespace["collect_home_meta"](home),
+                             staged.collect_home_meta(home))
+            source = staged.home_meta_collector_source()
+            self.assertIn("def collect_home_meta", source)
+            self.assertIn("collect_home_meta('/home/paseo')", source)
+
+    def test_runtime_fingerprint_uses_read_only_mount_and_runtime_identity(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_home(Path(td))
+            calls: list[list[str]] = []
+
+            def capture(argv, env=None, timeout=120):
+                calls.append(list(argv))
+                data = staged.collect_home_meta(home)
+                return Completed(0, json.dumps(data, sort_keys=True), "")
+
+            result = staged.fingerprint_home_runtime(
+                capture, home, NEW_TAG, "99", "100", {})
+            self.assertEqual(len(calls), 1)
+            argv = calls[0]
+            self.assertEqual(argv[:4], ["docker", "run", "--rm", "--user"])
+            self.assertIn("99:100", argv)
+            self.assertIn(f"{home}:/home/paseo:ro", argv)
+            self.assertIn("python3", argv)
+            self.assertGreater(result["protected_entries"], 0)
+            self.assertNotIn("secret-bearing-fixture", json.dumps(result))
+
+    def test_host_fingerprint_fails_closed_on_restricted_stat(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_home(Path(td))
+            before = staged.fingerprint_home(home)
+            real_lstat = os.lstat
+
+            def denied(path, *args, **kwargs):
+                if os.fspath(path).endswith("daemon-keypair.json"):
+                    raise PermissionError("restricted daemon file")
+                return real_lstat(path, *args, **kwargs)
+
+            with mock.patch.object(os, "lstat", side_effect=denied):
+                with self.assertRaises(staged.StagedUpdateError):
+                    staged.fingerprint_home(home)
+            # Sanity: without the restriction the same HOME fingerprints fine.
+            again = staged.fingerprint_home(home)
+            self.assertEqual(before["digest"], again["digest"])
+
+    def test_host_fingerprint_fails_closed_on_walk_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_home(Path(td))
+            with mock.patch.object(os, "walk",
+                                   side_effect=PermissionError("0700 dir")):
+                with self.assertRaises(staged.StagedUpdateError):
+                    staged.fingerprint_home(home)
+
+    def test_restricted_file_deletion_is_observed_by_runtime_guard(self):
+        # Regression for R01 finding 2: a daemon-owned file invisible to a
+        # host walk that suppresses errors must still block the guard when
+        # observed through the runtime identity.
+        with tempfile.TemporaryDirectory() as td:
+            home = make_post_init_home(Path(td))
+            restricted = home / ".paseo" / "restricted-0700"
+            restricted.mkdir()
+            (restricted / "secret").write_text("daemon-owned")
+            try:
+                os.chmod(restricted, 0o700)
+                os.chmod(restricted / "secret", 0o600)
+            except OSError:
+                pass
+            fake = FakeDocker()
+            expected = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            self.assertIn(".paseo/restricted-0700/secret",
+                          expected["inventory"])
+            (restricted / "secret").unlink()
+            observed = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            with self.assertRaises(staged.StagedUpdateError) as ctx:
+                staged.assert_home_preserved(
+                    expected, observed, "persistent HOME changed")
+            self.assertIn("restricted-0700", str(ctx.exception))
+            diff = staged.diff_home_fingerprints(expected, observed)
+            self.assertIn(".paseo/restricted-0700/secret", diff["missing"])
+
+    def test_runtime_transport_or_shape_failure_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_home(Path(td))
+
+            def failing(argv, env=None, timeout=120):
+                return Completed(1, "", "docker unavailable")
+
+            with self.assertRaises(staged.StagedUpdateError):
+                staged.fingerprint_home_runtime(
+                    failing, home, NEW_TAG, "99", "100", {})
+
+            def bad_json(argv, env=None, timeout=120):
+                return Completed(0, "not-json", "")
+
+            with self.assertRaises(staged.StagedUpdateError):
+                staged.fingerprint_home_runtime(
+                    bad_json, home, NEW_TAG, "99", "100", {})
+
+    def test_truncated_inventory_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_home(Path(td))
+
+            def truncated(argv, env=None, timeout=120):
+                return Completed(0, json.dumps(
+                    {"entries": {"a": {"kind": "file", "size": 1,
+                                      "mtime_ns": 1}},
+                     "truncated": True}), "")
+
+            with self.assertRaises(staged.StagedUpdateError):
+                staged.fingerprint_home_runtime(
+                    truncated, home, NEW_TAG, "99", "100", {})
+
+
+class ProtectedVolatileGuardTests(unittest.TestCase):
+    def test_volatile_paths_are_classified(self):
+        for path in (".paseo/daemon.log", ".paseo/paseo.pid",
+                     ".paseo/models/local-speech/weights.bin",
+                     ".paseo/runtime/opencode/chunk.mjs"):
+            self.assertTrue(staged.is_volatile_home_path(path), path)
+        for path in (".paseo/config.json", ".paseo/daemon-keypair.json",
+                     ".paseo/server-id",
+                     ".pi/agent/sessions/staged-representative/session.jsonl",
+                     ".paseo/browser-automation-profile/staged-marker.json"):
+            self.assertFalse(staged.is_volatile_home_path(path), path)
+
+    def test_volatile_writes_do_not_change_protected_digest(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_post_init_home(Path(td))
+            fake = FakeDocker()
+            before = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            (home / ".paseo" / "daemon.log").write_text("boot\nappended\n")
+            (home / ".paseo" / "paseo.pid").write_text("999\n")
+            (home / ".paseo" / "models" / "local-speech"
+             / "extra.bin").write_text("extra")
+            (home / ".paseo" / "runtime" / "opencode"
+             / "next.mjs").write_text("next")
+            after = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            self.assertEqual(before["digest"], after["digest"])
+            staged.assert_home_preserved(
+                before, after, "persistent HOME changed")
+
+    def test_protected_deletion_or_alteration_blocks_guard(self):
+        targets = [
+            ".paseo/daemon-keypair.json",
+            ".paseo/server-id",
+            ".pi/agent/sessions/staged-representative/session.jsonl",
+            ".paseo/browser-automation-profile/staged-marker.json",
+        ]
+        for target in targets:
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as td:
+                home = make_post_init_home(Path(td))
+                fake = FakeDocker()
+                before = staged.fingerprint_home_runtime(
+                    fake, home, NEW_TAG, "99", "100", {})
+                (home / target).unlink()
+                after = staged.fingerprint_home_runtime(
+                    fake, home, NEW_TAG, "99", "100", {})
+                self.assertNotEqual(before["digest"], after["digest"])
+                with self.assertRaises(staged.StagedUpdateError):
+                    staged.assert_home_preserved(
+                        before, after, "persistent HOME changed")
+                diff = staged.diff_home_fingerprints(before, after)
+                self.assertIn(target, diff["missing"])
+        with tempfile.TemporaryDirectory() as td:
+            home = make_post_init_home(Path(td))
+            fake = FakeDocker()
+            before = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            (home / ".paseo" / "daemon-keypair.json").write_text("rotated-bytes")
+            after = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            with self.assertRaises(staged.StagedUpdateError):
+                staged.assert_home_preserved(before, after, "persistent HOME changed")
+            self.assertIn(".paseo/daemon-keypair.json",
+                          staged.diff_home_fingerprints(before, after)["altered"])
+
+    def test_relay_flip_changes_protected_state(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_post_init_home(Path(td), relay_enabled=True)
+            fake = FakeDocker()
+            before = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            (home / ".paseo" / "config.json").write_text(json.dumps(
+                {"daemon": {"relay": {"enabled": False}}}))
+            after = staged.fingerprint_home_runtime(
+                fake, home, NEW_TAG, "99", "100", {})
+            self.assertNotEqual(before["digest"], after["digest"])
+            with self.assertRaises(staged.StagedUpdateError):
+                staged.assert_home_preserved(before, after, "persistent HOME changed")
+
+    def test_rollback_guard_tolerates_volatile_but_blocks_protected(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            fake = FakeDocker()
+            home = staged_env(td_path, fake)
+            (home / ".paseo" / "daemon.log").write_text("boot\n")
+            (home / ".paseo" / "models").mkdir(exist_ok=True)
+            (home / ".paseo" / "models" / "w").write_text("w")
+            cfg = {
+                "rollback_file": td_path / "state" / "rollback.json",
+                "retention_file": td_path / "tower" / "retention.json",
+                "home_host": home,
+                "home_fingerprint": staged.fingerprint_home_runtime(
+                    fake, home, PRIOR_TAG, "99", "100", {}),
+                "image_tag": PRIOR_TAG,
+                "uid": "99",
+                "gid": "100",
+            }
+            (home / ".paseo" / "daemon.log").write_text("boot\nmore\n")
+            (home / ".paseo" / "models" / "extra").write_text("extra")
+            safe, reason = staged.rollback_unambiguous(cfg, fake, {})
+            self.assertTrue(safe, reason)
+            (home / ".paseo" / "daemon-keypair.json").unlink()
+            safe, reason = staged.rollback_unambiguous(cfg, fake, {})
+            self.assertFalse(safe)
+            self.assertIn("HOME", reason)
 
 
 if __name__ == "__main__":

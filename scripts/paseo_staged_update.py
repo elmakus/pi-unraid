@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import datetime
 import importlib.util
+import inspect
 import json
 import os
 import shutil
@@ -57,6 +58,35 @@ PRODUCTION_HOME = Path("/mnt/user/appdata/pi-unraid/paseo-home")
 PRODUCTION_DEPLOYMENT_STATE = Path("/mnt/user/appdata/pi-unraid/deployment-state")
 HOME_MARKER = ".paseo/config.json"
 MAX_HOME_ENTRIES = 20000
+# Volatile daemon state excluded from the protected HOME digest. Logs, pid
+# files, ephemeral runtime caches and model downloads may change during a
+# healthy transaction; everything else (pairing identity, server id,
+# config/Relay, sentinel, session/browser markers) is protected and any
+# external protected change blocks promotion and rollback. Identical to the
+# classification in paseo_staged_home_evidence.py.
+VOLATILE_HOME_EXACT = frozenset({
+    ".paseo/daemon.log",
+    ".paseo/paseo.pid",
+})
+VOLATILE_HOME_PREFIXES = (
+    ".paseo/models/",
+    ".paseo/runtime/",
+    ".paseo/logs/",
+    ".paseo/cache/",
+    ".paseo/tmp/",
+)
+
+
+def is_volatile_home_path(rel: str) -> bool:
+    """Return True for volatile daemon state excluded from HOME guards."""
+    if rel in VOLATILE_HOME_EXACT:
+        return True
+    for prefix in VOLATILE_HOME_PREFIXES:
+        if rel.startswith(prefix):
+            return True
+    if rel.startswith(".paseo/") and rel.endswith(".log"):
+        return True
+    return False
 
 FORCE_TEMP_SMOKE_FAIL_ENV = "PI_UNRAID_STAGED_FORCE_TEMP_SMOKE_FAIL"
 FORCE_POST_SMOKE_FAIL_ENV = "PI_UNRAID_STAGED_FORCE_POST_SMOKE_FAIL"
@@ -235,46 +265,213 @@ def verify_frozen_binding(candidate: dict, dockerfile_text: str, context_dir: Pa
 # Anchors, HOME fingerprint and live readback
 # ---------------------------------------------------------------------------
 
+def collect_home_meta(root) -> dict:
+    """Inventory HOME metadata without reading file contents.
+
+    Self-contained (stdlib only, no module globals) so this exact source
+    also runs inside the runtime container via ``python3 -c``. Only
+    relative names, kinds, sizes and mtimes are returned; file bytes never
+    leave the collector. Any walk or stat failure raises instead of being
+    skipped, so permission-restricted daemon state can never be silently
+    invisible. Directory mtimes are recorded as zero so a transient
+    create/delete cycle is not drift.
+    """
+    import os
+
+    root = os.fspath(root)
+    entries = {}
+    truncated = False
+    count = 0
+
+    def walk_error(exc):
+        raise exc
+
+    if not os.path.isdir(root):
+        return {"entries": entries, "truncated": False}
+    for dirpath, dirnames, filenames in os.walk(root, onerror=walk_error):
+        dirnames.sort()
+        for name in list(dirnames):
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, root)
+            stat = os.lstat(path)
+            if os.path.islink(path):
+                entries[rel] = {"kind": "symlink", "size": stat.st_size,
+                                "mtime_ns": stat.st_mtime_ns}
+                dirnames.remove(name)
+            else:
+                entries[rel + "/"] = {"kind": "dir", "size": 0, "mtime_ns": 0}
+            count += 1
+            if count >= 20000:
+                truncated = True
+                break
+        if truncated:
+            break
+        for name in sorted(filenames):
+            path = os.path.join(dirpath, name)
+            rel = os.path.relpath(path, root)
+            stat = os.lstat(path)
+            kind = "symlink" if os.path.islink(path) else "file"
+            entries[rel] = {"kind": kind, "size": stat.st_size,
+                            "mtime_ns": stat.st_mtime_ns}
+            count += 1
+            if count >= 20000:
+                truncated = True
+                break
+        if truncated:
+            break
+    return {"entries": entries, "truncated": truncated}
+
+
+def home_meta_collector_source() -> str:
+    """Render the in-container metadata collector for ``python3 -c``."""
+    return (
+        inspect.getsource(collect_home_meta)
+        + "\nimport json, sys\n"
+        + "sys.stdout.write(json.dumps(collect_home_meta('/home/paseo'), sort_keys=True))\n"
+    )
+
+
+def _protected_digest(entries: dict) -> tuple[str, dict, int, int]:
+    """Digest protected HOME entries; volatile daemon state is excluded."""
+    import hashlib
+
+    protected = {key: value for key, value in (entries or {}).items()
+                 if not is_volatile_home_path(key)}
+    ordered = sorted(
+        [[key, (value or {}).get("kind"), (value or {}).get("size"),
+          (value or {}).get("mtime_ns")] for key, value in protected.items()]
+    )
+    digest = "sha256:" + hashlib.sha256(
+        json.dumps(ordered, sort_keys=True, separators=(",", ":")).encode()
+    ).hexdigest()
+    return digest, protected, len(protected), len(entries or {}) - len(protected)
+
+
 def fingerprint_home(home: Path) -> dict:
     """Fingerprint HOME file state without reading file contents.
 
-    Only file relative names, sizes and mtimes feed the digest, so
-    secret-bearing HOME state never enters the transaction record.
-    Directory mtimes are deliberately excluded: a transient create/delete
-    cycle that restores an identical file set (directory-mtime noise)
-    is not drift, while any file added, removed, resized or retouched
-    changes the digest. Combined with the transaction's non-mutating
-    HOME checks, a digest change across a phase boundary therefore means
-    external drift, and the transaction fails closed instead of
-    promoting or restoring over it.
+    Only protected relative names, kinds, sizes and mtimes feed the
+    digest, so secret-bearing HOME state never enters the transaction
+    record and volatile daemon writes (logs, pid, runtime cache, model
+    downloads) cannot block a healthy run. Directory mtimes are
+    deliberately excluded: a transient create/delete cycle that restores
+    an identical file set (directory-mtime noise) is not drift, while
+    any protected file added, removed, resized or retouched changes the
+    digest. Any walk or stat failure raises instead of being skipped, so
+    permission-restricted state fails closed instead of being invisible.
     """
-    entries: list[list] = []
-    truncated = False
-    if home.is_dir():
-        for item in sorted(home.rglob("*")):
-            try:
-                rel = item.relative_to(home).as_posix()
-                if item.is_symlink() or item.is_file():
-                    stat = item.stat()
-                    entries.append([rel, stat.st_size, stat.st_mtime_ns])
-                elif item.is_dir():
-                    entries.append([rel + "/", 0, 0])
-            except OSError:
-                continue
-            if len(entries) >= MAX_HOME_ENTRIES:
-                truncated = True
-                break
-    import hashlib
-
-    digest = "sha256:" + hashlib.sha256(
-        json.dumps(entries, sort_keys=True, separators=(",", ":")).encode()
-    ).hexdigest()
+    try:
+        data = collect_home_meta(home)
+    except OSError as exc:
+        raise StagedUpdateError(f"HOME fingerprint failed for {home}: {exc}") from exc
+    entries = data.get("entries") or {}
+    truncated = bool(data.get("truncated"))
+    digest, protected, protected_count, volatile_count = _protected_digest(entries)
+    if truncated:
+        raise StagedUpdateError(
+            f"HOME fingerprint for {home} is truncated; refusing to guard an incomplete view"
+        )
     return {
         "path": str(home),
         "entries": len(entries),
+        "protected_entries": protected_count,
+        "volatile_entries": volatile_count,
         "truncated": truncated,
         "digest": digest,
+        "inventory": protected,
     }
+
+
+def fingerprint_home_runtime(run_fn, home: Path, tag: str, uid: str, gid: str,
+                             env: dict[str, str]) -> dict:
+    """Fingerprint HOME through the runtime identity, read-only.
+
+    The host user cannot reliably see runtime-owned daemon files (mode
+    0700/0600 under the runtime uid/gid), so phase guards must observe
+    HOME through the same runtime identity that owns it, on a read-only
+    mount, without reading file contents. Any transport, JSON or walk
+    failure raises; errors are never suppressed.
+    """
+    if not home.is_dir():
+        raise StagedUpdateError(f"HOME anchor is not a directory: {home}")
+    proc = run_fn(
+        ["docker", "run", "--rm", "--user", f"{uid}:{gid}",
+         "-v", f"{home}:/home/paseo:ro", tag,
+         "python3", "-c", home_meta_collector_source()],
+        env, 180,
+    )
+    if proc.returncode != 0:
+        raise StagedUpdateError(
+            f"runtime HOME fingerprint failed (rc={proc.returncode}): "
+            f"{_tail(proc.stderr or proc.stdout)}"
+        )
+    try:
+        data = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        raise StagedUpdateError(
+            "runtime HOME fingerprint returned unreadable JSON") from exc
+    if not isinstance(data, dict) or not isinstance(data.get("entries"), dict):
+        raise StagedUpdateError("runtime HOME fingerprint has an unexpected shape")
+    entries = data.get("entries") or {}
+    for key, value in entries.items():
+        if not isinstance(value, dict) or "mtime_ns" not in value:
+            raise StagedUpdateError(
+                f"runtime HOME fingerprint entry is malformed: {key}")
+    if data.get("truncated"):
+        raise StagedUpdateError(
+            f"runtime HOME fingerprint for {home} is truncated; "
+            "refusing to guard an incomplete view"
+        )
+    digest, protected, protected_count, volatile_count = _protected_digest(entries)
+    return {
+        "path": str(home),
+        "entries": len(entries),
+        "protected_entries": protected_count,
+        "volatile_entries": volatile_count,
+        "truncated": False,
+        "digest": digest,
+        "inventory": protected,
+    }
+
+
+def diff_home_fingerprints(expected: dict, observed: dict) -> dict:
+    """Diff protected HOME inventories; volatile state is already excluded."""
+    before = (expected or {}).get("inventory") or {}
+    after = (observed or {}).get("inventory") or {}
+    missing = sorted(set(before) - set(after))
+    added = sorted(set(after) - set(before))
+    altered = sorted(key for key in set(before) & set(after)
+                     if before[key] != after[key])
+    return {"missing": missing, "altered": altered, "added": added}
+
+
+def assert_home_preserved(expected: dict, observed: dict, context: str) -> None:
+    """Fail closed when protected HOME state changed across a boundary."""
+    if (expected or {}).get("truncated") or (observed or {}).get("truncated"):
+        raise StagedUpdateError(
+            f"{context}: HOME inventory is truncated; refusing to promote over "
+            "an incomplete view"
+        )
+    if (expected or {}).get("digest") == (observed or {}).get("digest"):
+        return
+    diff = diff_home_fingerprints(expected, observed)
+    raise StagedUpdateError(
+        f"{context}: missing={diff['missing'][:5]} altered={diff['altered'][:5]} "
+        f"added={diff['added'][:5]}"
+    )
+
+
+def _runtime_fingerprint_tag(cfg: dict) -> str:
+    """Select the runtime image for HOME observation without changing binding."""
+    for key in ("image_tag", "fingerprint_tag"):
+        tag = cfg.get(key)
+        if tag:
+            return str(tag)
+    for anchor_key in ("active_anchor", "rollback_anchor"):
+        anchor = cfg.get(anchor_key) or {}
+        if anchor.get("image_tag"):
+            return str(anchor["image_tag"])
+    raise StagedUpdateError("HOME guard lacks a runtime image identity")
 
 
 def load_anchor(path: Path, role: str) -> dict:
@@ -621,7 +818,8 @@ def phase_preflight(cfg: dict, run_fn, env: dict[str, str]) -> dict:
         raise StagedUpdateError("live rollback image id does not match the rollback anchor")
     home_live = check_home_live(
         run_fn, cfg["home_host"], active["image_tag"], cfg["uid"], cfg["gid"], env)
-    home_fp = fingerprint_home(cfg["home_host"])
+    home_fp = fingerprint_home_runtime(
+        run_fn, cfg["home_host"], active["image_tag"], cfg["uid"], cfg["gid"], env)
     protection = retention_protects(
         cfg["retention_file"], [active["image_tag"], rollback_anchor["image_tag"]])
     missing = sorted(tag_name for tag_name, kept in protection.items() if not kept)
@@ -795,9 +993,12 @@ def phase_temp_smoke(cfg: dict, run_fn, env: dict[str, str]) -> dict:
             raise StagedUpdateError(
                 f"{in_flight}; temporary cleanup also failed: {cleanup_exc}"
             ) from in_flight
-    after = fingerprint_home(cfg["home_host"])
-    if after["digest"] != cfg["home_fingerprint"]["digest"]:
-        raise StagedUpdateError("persistent HOME changed during temporary smoke")
+    after = fingerprint_home_runtime(
+        run_fn, cfg["home_host"], _runtime_fingerprint_tag(cfg),
+        cfg["uid"], cfg["gid"], env)
+    assert_home_preserved(
+        cfg["home_fingerprint"], after,
+        "persistent HOME changed during temporary smoke")
     return {
         "expected": {"image_tag": cfg["image_tag"], "image_id": cfg["image_id"],
                      "project": tmp_project},
@@ -809,7 +1010,9 @@ def phase_temp_smoke(cfg: dict, run_fn, env: dict[str, str]) -> dict:
 def phase_promote(cfg: dict, run_fn, env: dict[str, str]) -> dict:
     """Bounded promotion of the disposable active runtime with readback."""
     before_container = read_live_container(run_fn, cfg["active_project"], env)
-    before_home = fingerprint_home(cfg["home_host"])
+    before_home = fingerprint_home_runtime(
+        run_fn, cfg["home_host"], _runtime_fingerprint_tag(cfg),
+        cfg["uid"], cfg["gid"], env)
     tag_alias = run_fn(
         ["docker", "tag", cfg["image_id"], STAGED_ALIAS], env, 120)
     if tag_alias.returncode != 0:
@@ -823,9 +1026,11 @@ def phase_promote(cfg: dict, run_fn, env: dict[str, str]) -> dict:
     alias_live = read_live_image(run_fn, STAGED_ALIAS, env)
     if alias_live["id"] != cfg["image_id"]:
         raise StagedUpdateError("promotion alias does not resolve to the new image")
-    after_home = fingerprint_home(cfg["home_host"])
-    if after_home["digest"] != before_home["digest"]:
-        raise StagedUpdateError("persistent HOME changed during promotion")
+    after_home = fingerprint_home_runtime(
+        run_fn, cfg["home_host"], _runtime_fingerprint_tag(cfg),
+        cfg["uid"], cfg["gid"], env)
+    assert_home_preserved(
+        before_home, after_home, "persistent HOME changed during promotion")
     active = {
         "schema_version": ANCHOR_SCHEMA_VERSION,
         "role": "active",
@@ -865,9 +1070,12 @@ def phase_post_smoke(cfg: dict, run_fn, env: dict[str, str]) -> dict:
     alias_live = read_live_image(run_fn, STAGED_ALIAS, env)
     if alias_live["id"] != cfg["image_id"]:
         raise StagedUpdateError("post-promotion alias does not resolve to the new image")
-    after = fingerprint_home(cfg["home_host"])
-    if after["digest"] != cfg["home_fingerprint"]["digest"]:
-        raise StagedUpdateError("persistent HOME changed across promotion")
+    after = fingerprint_home_runtime(
+        run_fn, cfg["home_host"], _runtime_fingerprint_tag(cfg),
+        cfg["uid"], cfg["gid"], env)
+    assert_home_preserved(
+        cfg["home_fingerprint"], after,
+        "persistent HOME changed across promotion")
     return {
         "expected": {"image_tag": cfg["image_tag"], "image_id": cfg["image_id"]},
         "observed": {"probes": probes, "alias": alias_live, "home_preserved": True},
@@ -893,9 +1101,14 @@ def rollback_unambiguous(cfg: dict, run_fn, env: dict[str, str]) -> tuple[bool, 
         return False, "live prior image id does not match the rollback anchor"
     if live["candidate_label"] != prior["candidate_id"]:
         return False, "live prior candidate label does not match the rollback anchor"
-    after = fingerprint_home(cfg["home_host"])
-    if after["digest"] != cfg["home_fingerprint"]["digest"]:
-        return False, "HOME changed across promotion; automatic restore is unsafe"
+    try:
+        after = fingerprint_home_runtime(
+            run_fn, cfg["home_host"], _runtime_fingerprint_tag(cfg),
+            cfg.get("uid", "99"), cfg.get("gid", "100"), env)
+        assert_home_preserved(
+            cfg["home_fingerprint"], after, "HOME changed across promotion")
+    except StagedUpdateError as exc:
+        return False, f"HOME changed across promotion; automatic restore is unsafe: {exc}"
     protection = retention_protects(cfg["retention_file"], [prior["image_tag"]])
     if not protection.get(prior["image_tag"]):
         return False, "prior image lost retention protection"
@@ -904,7 +1117,9 @@ def rollback_unambiguous(cfg: dict, run_fn, env: dict[str, str]) -> tuple[bool, 
 
 def phase_rollback(cfg: dict, run_fn, env: dict[str, str], prior: dict) -> dict:
     """Restore the prior coherent runtime/image alias; HOME stays untouched."""
-    before_home = fingerprint_home(cfg["home_host"])
+    before_home = fingerprint_home_runtime(
+        run_fn, cfg["home_host"], _runtime_fingerprint_tag(cfg),
+        cfg["uid"], cfg["gid"], env)
     tag_alias = run_fn(["docker", "tag", prior["image_id"], STAGED_ALIAS], env, 120)
     if tag_alias.returncode != 0:
         raise StagedUpdateError("rollback alias tagging failed")
@@ -917,9 +1132,11 @@ def phase_rollback(cfg: dict, run_fn, env: dict[str, str], prior: dict) -> dict:
     probes = runtime_probes(
         run_fn, live["id"], prior["image_id"], prior["candidate_id"],
         cfg["prior_pi_version"], env)
-    after_home = fingerprint_home(cfg["home_host"])
-    if after_home["digest"] != before_home["digest"]:
-        raise StagedUpdateError("persistent HOME changed during rollback")
+    after_home = fingerprint_home_runtime(
+        run_fn, cfg["home_host"], _runtime_fingerprint_tag(cfg),
+        cfg["uid"], cfg["gid"], env)
+    assert_home_preserved(
+        before_home, after_home, "persistent HOME changed during rollback")
     restored = {
         "schema_version": ANCHOR_SCHEMA_VERSION,
         "role": "active",
@@ -1196,7 +1413,8 @@ def cmd_init(args: argparse.Namespace) -> int:
         if live_image["candidate_label"] != candidate_id:
             raise StagedUpdateError("seed image candidate label does not match the candidate")
         home_live = check_home_live(_run, home_host, tag, args.uid, args.gid, env)
-        home_fp = fingerprint_home(home_host)
+        home_fp = fingerprint_home_runtime(
+            _run, home_host, tag, args.uid, args.gid, env)
         protection = retention_protects(retention_file, [tag])
         if not protection.get(tag):
             raise StagedUpdateError(f"seed image is not retention-protected: {tag}")
@@ -1268,7 +1486,8 @@ def cmd_readback(args: argparse.Namespace) -> int:
     try:
         marker = check_home_marker_live(
             _run, home, active["image_tag"], args.uid, args.gid, env)
-        live["home"] = {**marker, "fingerprint": fingerprint_home(home)}
+        live["home"] = {**marker, "fingerprint": fingerprint_home_runtime(
+            _run, home, active["image_tag"], args.uid, args.gid, env)}
     except StagedUpdateError as exc:
         live["home"] = {"path": str(home)}
         mismatches.append(f"HOME anchor marker readback failed: {exc}")

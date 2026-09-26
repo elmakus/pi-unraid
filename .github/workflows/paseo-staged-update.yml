@@ -104,10 +104,22 @@ jobs:
             -v "$STAGED:/fixture" \
             "$TAG" 99:100 /fixture/home /fixture/projects /fixture/worktrees
           bash scripts/configure-paseo-runtime.sh "$TAG" "$STAGED/home" "$STAGED/worktrees" 99 100
-          python3 scripts/paseo_staged_home_evidence.py seed \
-            --home-host "$STAGED/home" --tag "$TAG" \
-            --sentinel-text "$GITHUB_RUN_ID:$GITHUB_SHA" \
-            --out "$STAGED/home-seed-manifest.json"
+          # Disposable explicit-consent simulation only (M02 pattern): no phone
+          # pairing, no real credentials. The offer is captured and never logged.
+          pair_offer="$(docker run --rm --user 99:100 \
+            -v "$STAGED/home:/home/paseo" \
+            "$TAG" paseo daemon pair --relay --json --home /home/paseo/.paseo 2>/dev/null)"
+          test -n "$pair_offer"
+          unset pair_offer
+          docker run --rm --user 99:100 \
+            -v "$STAGED/home:/home/paseo:ro" \
+            "$TAG" python3 -c '
+          import json
+          from pathlib import Path
+          cfg = json.loads(Path("/home/paseo/.paseo/config.json").read_text())
+          assert cfg["daemon"]["relay"]["enabled"] is True, cfg
+          assert Path("/home/paseo/.paseo/daemon-keypair.json").is_file()
+          '
       - name: Seed disposable active/rollback anchors
         run: |
           python3 scripts/paseo_staged_update.py --scope disposable init \
@@ -116,6 +128,37 @@ jobs:
             --home-host "$STAGED/home" \
             --projects-host "$STAGED/projects" \
             --worktrees-host "$STAGED/worktrees" | tee /tmp/staged-init.json
+      - name: Seed post-init HOME preservation manifest
+        run: |
+          # Representative stable session/browser markers via the runtime
+          # identity (no real credentials, stable bytes across scenarios).
+          docker run --rm --user 99:100 \
+            -v "$STAGED/home:/home/paseo" \
+            "$SEED_TAG" sh -c '
+          set -eu
+          mkdir -p /home/paseo/.pi/agent/sessions/staged-representative
+          mkdir -p /home/paseo/.paseo/browser-automation-profile
+          printf "%s" "{\"id\":\"staged-representative-session\",\"origin\":\"m05-t03-fixture\"}" \
+            > /home/paseo/.pi/agent/sessions/staged-representative/session.jsonl
+          printf "%s" "{\"profile\":\"staged-automation\",\"origin\":\"m05-t03-fixture\"}" \
+            > /home/paseo/.paseo/browser-automation-profile/staged-marker.json
+          '
+          python3 scripts/paseo_staged_home_evidence.py seed \
+            --home-host "$STAGED/home" --tag "$SEED_TAG" \
+            --sentinel-text "$GITHUB_RUN_ID:$GITHUB_SHA" \
+            --out "$STAGED/home-seed-manifest.json"
+          python3 - <<'EOF'
+          import json
+          m = json.load(open('/tmp/pi-unraid-staged/home-seed-manifest.json'))
+          assert m['relay_enabled'] is True, m.get('relay_enabled')
+          for required in ('.paseo/config.json', '.paseo/daemon-keypair.json',
+                            '.pi-unraid-staged-sentinel',
+                            '.pi/agent/sessions/staged-representative/session.jsonl',
+                            '.paseo/browser-automation-profile/staged-marker.json'):
+              assert required in m['entries'], required
+          print('post-init seed entries:', len(m['entries']), 'relay:', m['relay_enabled'])
+          print('has server-id:', '.paseo/server-id' in m['entries'])
+          EOF
           python3 scripts/paseo_staged_update.py --scope disposable readback \
             --state-root "$STAGED/state" \
             --tower-root /tmp/staged-tower/buildx \

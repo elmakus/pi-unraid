@@ -10,18 +10,21 @@ therefore fails on healthy runs.
 This helper proves the Card's actual requirement instead, through the
 runtime identity and read-only mounts:
 
-* every seeded entry is still present with byte-identical content
-  (content is compared as SHA-256, so secret-bearing state is never
-  printed or stored);
+* every protected seeded entry is still present with byte-identical
+  content (content is compared as SHA-256, so secret-bearing state is
+  never printed or stored); the post-init seed must include the real
+  daemon keypair, server id, Relay-enabled config and representative
+  session/browser markers;
 * the ``.paseo/config.json`` marker stays readable and the persisted
   Relay setting is unchanged;
 * a run-specific sentinel written after fixture configuration is still
   intact, which rules out a destructive restore to a pristine snapshot;
-* entries the daemon legitimately added are reported, not hidden and
-  not treated as preservation failures.
+* volatile daemon state (logs, pid, runtime cache, model downloads) is
+  reported separately and never fails, while other added entries are
+  reported, not hidden and not treated as preservation failures.
 
-Any seeded entry removed or altered, a flipped Relay setting, or a lost
-sentinel fails closed with a machine-readable report.
+Any protected seeded entry removed or altered, a flipped Relay setting,
+or a lost sentinel fails closed with a machine-readable report.
 """
 from __future__ import annotations
 
@@ -41,8 +44,38 @@ HOME_MARKER = ".paseo/config.json"
 SENTINEL_NAME = ".pi-unraid-staged-sentinel"
 SENTINEL_TEXT_RE = re.compile(r"[A-Za-z0-9_.:/+=@-]+")
 
+# Volatile daemon state that must never fail preservation: logs, pid files,
+# ephemeral runtime caches and model downloads. Everything else under HOME is
+# protected persistent state (pairing identity, server id, config/Relay,
+# sentinel, representative session/browser markers). The staged transaction
+# uses the identical classification so phase guards and end-to-end evidence
+# agree on what routine daemon writes may change.
+VOLATILE_HOME_EXACT = frozenset({
+    ".paseo/daemon.log",
+    ".paseo/paseo.pid",
+})
+VOLATILE_HOME_PREFIXES = (
+    ".paseo/models/",
+    ".paseo/runtime/",
+    ".paseo/logs/",
+    ".paseo/cache/",
+    ".paseo/tmp/",
+)
+
 EXIT_FAILED = 1
 EXIT_VALIDATION = 2
+
+
+def is_volatile_home_path(rel: str) -> bool:
+    """Return True for volatile daemon state that preservation must ignore."""
+    if rel in VOLATILE_HOME_EXACT:
+        return True
+    for prefix in VOLATILE_HOME_PREFIXES:
+        if rel.startswith(prefix):
+            return True
+    if rel.startswith(".paseo/") and rel.endswith(".log"):
+        return True
+    return False
 
 
 def collect_home(root) -> dict:
@@ -185,17 +218,25 @@ def write_sentinel(run_fn, home: Path, tag: str, uid: str, gid: str, text: str) 
 def compare_manifest(manifest: dict, current: dict) -> dict:
     """Compare current HOME state against the seed manifest.
 
-    Removed or altered seeded entries, a flipped Relay setting, or a
-    lost marker fail. Added entries are legitimate daemon writes: they
-    are reported, not failed.
+    Removed or altered protected seeded entries, a flipped Relay setting,
+    or a lost marker fail. Volatile daemon state (logs, pid, runtime cache,
+    model downloads) is reported separately and never fails, so routine
+    daemon writes cannot break a healthy run. Added entries are reported,
+    not failed, with volatile additions listed separately for transparency.
     """
     seeded = manifest.get("entries") or {}
     now = current.get("entries") or {}
-    missing = sorted(set(seeded) - set(now))
-    altered = sorted(key for key in set(seeded) & set(now)
-                     if (seeded[key] or {}).get("sha256") != (now[key] or {}).get("sha256")
-                     or (seeded[key] or {}).get("kind") != (now[key] or {}).get("kind"))
+    raw_missing = sorted(set(seeded) - set(now))
+    raw_altered = sorted(key for key in set(seeded) & set(now)
+                         if (seeded[key] or {}).get("sha256") != (now[key] or {}).get("sha256")
+                         or (seeded[key] or {}).get("kind") != (now[key] or {}).get("kind"))
     added = sorted(set(now) - set(seeded))
+    missing = [key for key in raw_missing if not is_volatile_home_path(key)]
+    altered = [key for key in raw_altered if not is_volatile_home_path(key)]
+    volatile_missing = [key for key in raw_missing if is_volatile_home_path(key)]
+    volatile_altered = [key for key in raw_altered if is_volatile_home_path(key)]
+    volatile_added = [key for key in added if is_volatile_home_path(key)]
+    protected_added = [key for key in added if not is_volatile_home_path(key)]
     relay_expected = manifest.get("relay_enabled")
     relay_observed = current.get("relay_enabled")
     relay_changed = relay_expected != relay_observed
@@ -211,6 +252,10 @@ def compare_manifest(manifest: dict, current: dict) -> dict:
         "altered": altered,
         "altered_detail": altered_detail,
         "added": added,
+        "protected_added": protected_added,
+        "volatile_missing": volatile_missing,
+        "volatile_altered": volatile_altered,
+        "volatile_added": volatile_added,
         "relay_expected": relay_expected,
         "relay_observed": relay_observed,
         "relay_changed": relay_changed,

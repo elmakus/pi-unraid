@@ -338,5 +338,180 @@ class SeedVerifyFlowTests(unittest.TestCase):
             self.assertEqual(rc, 2)
 
 
+def make_post_init_home(root: Path, relay_enabled=True) -> Path:
+    """Post-daemon-init style HOME with protected and volatile state."""
+    home = root / "home"
+    (home / ".paseo").mkdir(parents=True)
+    (home / ".paseo" / "config.json").write_text(json.dumps(
+        {"daemon": {"relay": {"enabled": relay_enabled}},
+         "worktrees": {"root": "/worktrees"}}))
+    (home / ".paseo" / "daemon-keypair.json").write_text(SECRET)
+    (home / ".paseo" / "server-id").write_text("server-id-fixture")
+    (home / ".pi" / "agent" / "sessions" / "staged-representative").mkdir(parents=True)
+    (home / ".pi" / "agent" / "sessions" / "staged-representative"
+     / "session.jsonl").write_text('{"id":"staged-session"}\n')
+    (home / ".paseo" / "browser-automation-profile").mkdir(parents=True)
+    (home / ".paseo" / "browser-automation-profile" / "staged-marker.json").write_text(
+        json.dumps({"profile": "staged-automation"}))
+    (home / ".paseo" / "daemon.log").write_text("boot\n")
+    (home / ".paseo" / "paseo.pid").write_text("123\n")
+    (home / ".paseo" / "models" / "local-speech").mkdir(parents=True)
+    (home / ".paseo" / "models" / "local-speech" / "weights.bin").write_text("weights")
+    (home / ".paseo" / "runtime" / "opencode").mkdir(parents=True)
+    (home / ".paseo" / "runtime" / "opencode" / "chunk.mjs").write_text("chunk")
+    return home
+
+
+class VolatileClassificationTests(unittest.TestCase):
+    def test_volatile_paths_are_classified(self):
+        for path in (".paseo/daemon.log", ".paseo/paseo.pid",
+                     ".paseo/models/local-speech/weights.bin",
+                     ".paseo/runtime/opencode/chunk.mjs",
+                     ".paseo/logs/daemon.log", ".paseo/cache/blob",
+                     ".paseo/tmp/scratch", ".paseo/worker.log"):
+            self.assertTrue(evidence.is_volatile_home_path(path), path)
+        for path in (".paseo/config.json", ".paseo/daemon-keypair.json",
+                     ".paseo/server-id", ".pi-unraid-staged-sentinel",
+                     ".pi/agent/sessions/staged-representative/session.jsonl",
+                     ".paseo/browser-automation-profile/staged-marker.json",
+                     "session-state.json"):
+            self.assertFalse(evidence.is_volatile_home_path(path), path)
+
+    def test_volatile_missing_or_altered_does_not_fail(self):
+        manifest = {"relay_enabled": True, "entries": {
+            ".paseo/config.json": {"kind": "file", "sha256": "bb"},
+            ".paseo/daemon.log": {"kind": "file", "sha256": "ll"},
+            ".paseo/models/w": {"kind": "file", "sha256": "mm"}}}
+        now_missing = {"relay_enabled": True, "marker_present": True, "entries": {
+            ".paseo/config.json": {"kind": "file", "sha256": "bb"}}}
+        report = evidence.compare_manifest(manifest, now_missing)
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(report["missing"], [])
+        self.assertEqual(sorted(report["volatile_missing"]),
+                         [".paseo/daemon.log", ".paseo/models/w"])
+        now_altered = {"relay_enabled": True, "marker_present": True, "entries": {
+            ".paseo/config.json": {"kind": "file", "sha256": "bb"},
+            ".paseo/daemon.log": {"kind": "file", "sha256": "changed"},
+            ".paseo/models/w": {"kind": "file", "sha256": "changed"}}}
+        report = evidence.compare_manifest(manifest, now_altered)
+        self.assertTrue(report["ok"], report)
+        self.assertEqual(report["altered"], [])
+        self.assertEqual(sorted(report["volatile_altered"]),
+                         [".paseo/daemon.log", ".paseo/models/w"])
+
+    def test_volatile_added_is_reported_separately(self):
+        manifest = {"relay_enabled": False, "entries": {
+            ".paseo/config.json": {"kind": "file", "sha256": "bb"}}}
+        now = {"relay_enabled": False, "marker_present": True, "entries": {
+            ".paseo/config.json": {"kind": "file", "sha256": "bb"},
+            ".paseo/daemon.log": {"kind": "file", "sha256": "ll"},
+            ".paseo/models/w": {"kind": "file", "sha256": "mm"}}}
+        report = evidence.compare_manifest(manifest, now)
+        self.assertTrue(report["ok"])
+        self.assertEqual(sorted(report["volatile_added"]),
+                         [".paseo/daemon.log", ".paseo/models/w"])
+        self.assertEqual(report["protected_added"], [])
+
+
+class PostInitProtectionTests(unittest.TestCase):
+    def verify(self, td: Path, runtime: FakeRuntime, manifest: Path):
+        report = Path(td) / f"postinit-{len(runtime.calls)}.json"
+        stdout = io.StringIO()
+        with mock.patch.object(sys, "stdout", stdout), \
+                mock.patch.object(sys, "stderr", io.StringIO()):
+            rc = evidence.cmd_verify(verify_args(runtime.home, manifest, report),
+                                     run_fn=runtime)
+        return rc, json.loads(report.read_text())
+
+    def test_post_init_seed_covers_keypair_server_relay_session_browser(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            runtime = FakeRuntime(make_post_init_home(td_path))
+            manifest = seed_manifest(td_path, runtime)
+            data = json.loads(manifest.read_text())
+            self.assertIs(data["relay_enabled"], True)
+            for protected in (".paseo/config.json", ".paseo/daemon-keypair.json",
+                              ".paseo/server-id", evidence.SENTINEL_NAME,
+                              ".pi/agent/sessions/staged-representative/session.jsonl",
+                              ".paseo/browser-automation-profile/staged-marker.json"):
+                self.assertIn(protected, data["entries"], protected)
+            for volatile in (".paseo/daemon.log", ".paseo/paseo.pid",
+                             ".paseo/models/local-speech/weights.bin",
+                             ".paseo/runtime/opencode/chunk.mjs"):
+                self.assertIn(volatile, data["entries"], volatile)
+            self.assertNotIn(SECRET, manifest.read_text())
+            rc, report = self.verify(td_path, runtime, manifest)
+            self.assertEqual(rc, 0)
+            self.assertTrue(report["ok"])
+
+    def test_deleting_protected_post_init_entry_fails(self):
+        protected_paths = [
+            ".paseo/daemon-keypair.json",
+            ".paseo/server-id",
+            ".pi/agent/sessions/staged-representative/session.jsonl",
+            ".paseo/browser-automation-profile/staged-marker.json",
+        ]
+        for target in protected_paths:
+            with self.subTest(target=target), tempfile.TemporaryDirectory() as td:
+                td_path = Path(td)
+                runtime = FakeRuntime(make_post_init_home(td_path))
+                manifest = seed_manifest(td_path, runtime)
+                (runtime.home / target).unlink()
+                rc, report = self.verify(td_path, runtime, manifest)
+                self.assertEqual(rc, 1, target)
+                self.assertFalse(report["ok"])
+                self.assertIn(target, report["missing"])
+
+    def test_altering_protected_post_init_entry_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            runtime = FakeRuntime(make_post_init_home(td_path))
+            manifest = seed_manifest(td_path, runtime)
+            (runtime.home / ".paseo" / "daemon-keypair.json").write_text("rotated")
+            rc, report = self.verify(td_path, runtime, manifest)
+            self.assertEqual(rc, 1)
+            self.assertIn(".paseo/daemon-keypair.json", report["altered"])
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            runtime = FakeRuntime(make_post_init_home(td_path))
+            manifest = seed_manifest(td_path, runtime)
+            (runtime.home / ".pi" / "agent" / "sessions" / "staged-representative"
+             / "session.jsonl").write_text('{"id":"changed"}\n')
+            rc, report = self.verify(td_path, runtime, manifest)
+            self.assertEqual(rc, 1)
+            self.assertIn(".pi/agent/sessions/staged-representative/session.jsonl",
+                          report["altered"])
+
+    def test_relay_flip_from_true_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            runtime = FakeRuntime(make_post_init_home(td_path, relay_enabled=True))
+            manifest = seed_manifest(td_path, runtime)
+            (runtime.home / ".paseo" / "config.json").write_text(json.dumps(
+                {"daemon": {"relay": {"enabled": False}}}))
+            rc, report = self.verify(td_path, runtime, manifest)
+            self.assertEqual(rc, 1)
+            self.assertTrue(report["relay_changed"])
+            self.assertEqual(report["relay_expected"], True)
+            self.assertEqual(report["relay_observed"], False)
+
+    def test_volatile_log_and_model_changes_pass(self):
+        with tempfile.TemporaryDirectory() as td:
+            td_path = Path(td)
+            runtime = FakeRuntime(make_post_init_home(td_path))
+            manifest = seed_manifest(td_path, runtime)
+            (runtime.home / ".paseo" / "daemon.log").write_text("boot\nmore lines\n")
+            (runtime.home / ".paseo" / "paseo.pid").write_text("999\n")
+            (runtime.home / ".paseo" / "models" / "local-speech"
+             / "extra.bin").write_text("extra")
+            (runtime.home / ".paseo" / "runtime" / "opencode"
+             / "next.mjs").write_text("next")
+            rc, report = self.verify(td_path, runtime, manifest)
+            self.assertEqual(rc, 0, report)
+            self.assertTrue(report["ok"])
+            self.assertIn(".paseo/daemon.log", report["volatile_altered"])
+            self.assertIn(".paseo/models/local-speech/extra.bin", report["volatile_added"])
+
+
 if __name__ == "__main__":
     unittest.main()
