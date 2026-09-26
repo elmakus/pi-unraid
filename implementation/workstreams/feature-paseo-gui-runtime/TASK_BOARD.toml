@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 78
+revision = 79
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -331,7 +331,7 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T01-R02
 
 [[cards]]
 id = "M05-T02A"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
@@ -354,5 +354,5 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T02A-R0
 [[jit_triggers]]
 id = "after-M05-T02A-materialize-M05-T02B"
 after_card = "M05-T02A"
-state = "waiting"
+state = "satisfied"
 condition = "The exact GREEN local Buildx/cache foundation result plus live GHCR/runner/host facts are needed to bind the separate private-registry and persistent Tower-builder acceptance surface."
