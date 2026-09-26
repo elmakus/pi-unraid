@@ -12,8 +12,8 @@ separate from the Workstation builder namespace and from the ``paseo`` runtime
 container/service. Builder state lives under a configurable persistent
 directory (used as ``DOCKER_CONFIG`` for buildx state); an optional local
 cache directory adds a portable ``type=local`` cache backend. No registry
-push/pull, no registry cache and no login happen here; those surfaces belong
-to M05-T02B.
+push/pull, no registry cache and no login happen here; under P3 those surfaces
+remain outside the required local-first deployment path.
 
 Every ``build`` run writes one machine-readable record with the immutable
 image identity, structured provenance and per-phase timings for the
@@ -778,3 +778,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+[executed on device: Tower (256a948c-39fa-427e-874b-d2662172d16a)]
