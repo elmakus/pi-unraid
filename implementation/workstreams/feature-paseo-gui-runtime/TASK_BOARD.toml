@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 98
+revision = 99
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -411,7 +411,7 @@ condition = "The exact GREEN M05-T03 staged-update/rollback result (P4 M06-T01: 
 
 [[cards]]
 id = "M06-T01"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
