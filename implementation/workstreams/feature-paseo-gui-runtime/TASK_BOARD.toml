@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 72
+revision = 73
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -309,7 +309,7 @@ condition = "The exact GREEN M04 capability-delivery result is required before c
 
 [[cards]]
 id = "M05-T01"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
