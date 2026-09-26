@@ -56,7 +56,6 @@ PRODUCTION_PROJECTS = frozenset({"pi-unraid"})
 PRODUCTION_HOME = Path("/mnt/user/appdata/pi-unraid/paseo-home")
 PRODUCTION_DEPLOYMENT_STATE = Path("/mnt/user/appdata/pi-unraid/deployment-state")
 HOME_MARKER = ".paseo/config.json"
-WRITE_PROBE = ".pi-unraid-write-probe"
 MAX_HOME_ENTRIES = 20000
 
 FORCE_TEMP_SMOKE_FAIL_ENV = "PI_UNRAID_STAGED_FORCE_TEMP_SMOKE_FAIL"
@@ -237,12 +236,17 @@ def verify_frozen_binding(candidate: dict, dockerfile_text: str, context_dir: Pa
 # ---------------------------------------------------------------------------
 
 def fingerprint_home(home: Path) -> dict:
-    """Fingerprint HOME structure without reading file contents.
+    """Fingerprint HOME file state without reading file contents.
 
-    Only relative names, sizes and mtimes feed the digest, so secret-bearing
-    HOME state never enters the transaction record. Content comparison is
-    deliberately out of scope: preservation means no entry added, removed or
-    resized/retouched across the bounded transaction window.
+    Only file relative names, sizes and mtimes feed the digest, so
+    secret-bearing HOME state never enters the transaction record.
+    Directory mtimes are deliberately excluded: a transient create/delete
+    cycle that restores an identical file set (directory-mtime noise)
+    is not drift, while any file added, removed, resized or retouched
+    changes the digest. Combined with the transaction's non-mutating
+    HOME checks, a digest change across a phase boundary therefore means
+    external drift, and the transaction fails closed instead of
+    promoting or restoring over it.
     """
     entries: list[list] = []
     truncated = False
@@ -386,12 +390,19 @@ def check_home_marker_live(run_fn, home: Path, tag: str, uid: str, gid: str,
 
 def check_home_live(run_fn, home: Path, tag: str, uid: str, gid: str,
                     env: dict[str, str]) -> dict:
-    """Prove the HOME anchor is present and writable; read no HOME content."""
+    """Prove the HOME anchor is present and writable without mutating it.
+
+    The writability proof is a permission check through the runtime
+    identity, never a create/delete cycle: even a removed probe file
+    retouches the parent directory mtime, which would leave the
+    transaction's own footprint on the HOME it must preserve. Read no
+    HOME content here.
+    """
     marker = check_home_marker_live(run_fn, home, tag, uid, gid, env)
     probe = run_fn(
         ["docker", "run", "--rm", "--user", f"{uid}:{gid}",
          "-v", f"{home}:/home/paseo", tag,
-         "sh", "-c", f"touch /home/paseo/{WRITE_PROBE} && rm /home/paseo/{WRITE_PROBE}"],
+         "sh", "-c", "test -w /home/paseo"],
         env, 120,
     )
     if probe.returncode != 0:

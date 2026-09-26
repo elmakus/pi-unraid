@@ -12,6 +12,7 @@ on:
       - config/environment-capabilities.json
       - config/pi-agent/**
       - scripts/paseo_staged_update.py
+      - scripts/paseo_staged_home_evidence.py
       - scripts/paseo_buildx.py
       - scripts/paseo_tower_build.py
       - scripts/smoke_paseo_image.py
@@ -20,6 +21,7 @@ on:
       - scripts/verify-pi-global-capabilities.sh
       - scripts/configure-paseo-runtime.sh
       - tests/test_paseo_staged_update_contract.py
+      - tests/test_paseo_staged_home_evidence_contract.py
       - tests/test_paseo_buildx_contract.py
       - tests/test_paseo_tower_build_contract.py
       - tests/test_paseo_candidate_resolver.py
@@ -70,6 +72,7 @@ jobs:
       - name: Complete contract suite on this SHA
         run: |
           python3 -m unittest tests/test_paseo_staged_update_contract.py -v
+          python3 -m unittest tests/test_paseo_staged_home_evidence_contract.py -v
           python3 -m unittest tests/test_paseo_buildx_contract.py -v
           python3 -m unittest tests/test_paseo_tower_build_contract.py -v
           python3 -m unittest tests/test_paseo_candidate_resolver.py -v
@@ -101,10 +104,10 @@ jobs:
             -v "$STAGED:/fixture" \
             "$TAG" 99:100 /fixture/home /fixture/projects /fixture/worktrees
           bash scripts/configure-paseo-runtime.sh "$TAG" "$STAGED/home" "$STAGED/worktrees" 99 100
-          docker run --rm --user 0:0 --entrypoint sh \
-            -v "$STAGED/home:/home/paseo:ro" \
-            "$TAG" -c 'test -f /home/paseo/.paseo/config.json; find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
-            | tee "$STAGED/home-seed.sha"
+          python3 scripts/paseo_staged_home_evidence.py seed \
+            --home-host "$STAGED/home" --tag "$TAG" \
+            --sentinel-text "$GITHUB_RUN_ID:$GITHUB_SHA" \
+            --out "$STAGED/home-seed-manifest.json"
       - name: Seed disposable active/rollback anchors
         run: |
           python3 scripts/paseo_staged_update.py --scope disposable init \
@@ -148,11 +151,10 @@ jobs:
             --home-host "$STAGED/home" \
             --projects-host "$STAGED/projects" \
             --worktrees-host "$STAGED/worktrees" | tee "$STAGED/readback-after-success.json"
-          docker run --rm --user 0:0 --entrypoint sh \
-            -v "$STAGED/home:/home/paseo:ro" \
-            "$SEED_TAG" -c 'find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
-            | tee "$STAGED/home-after-success.sha"
-          test "$(cut -d' ' -f1 < "$STAGED/home-seed.sha")" = "$(cut -d' ' -f1 < "$STAGED/home-after-success.sha")"
+          python3 scripts/paseo_staged_home_evidence.py verify \
+            --home-host "$STAGED/home" --tag "$SEED_TAG" \
+            --manifest "$STAGED/home-seed-manifest.json" \
+            --report "$STAGED/home-after-success.json"
       - name: Injected pre-smoke failure leaves active runtime untouched
         run: |
           sha256sum "$STAGED/state/active.json" | tee /tmp/staged-active-prefail.sha
@@ -180,11 +182,10 @@ jobs:
               assert r['phases'][name]['status'] == 'skipped', (name, r['phases'][name])
           EOF
           sha256sum -c /tmp/staged-active-prefail.sha
-          docker run --rm --user 0:0 --entrypoint sh \
-            -v "$STAGED/home:/home/paseo:ro" \
-            "$SEED_TAG" -c 'find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
-            | tee "$STAGED/home-after-prefail.sha"
-          test "$(cut -d' ' -f1 < "$STAGED/home-seed.sha")" = "$(cut -d' ' -f1 < "$STAGED/home-after-prefail.sha")"
+          python3 scripts/paseo_staged_home_evidence.py verify \
+            --home-host "$STAGED/home" --tag "$SEED_TAG" \
+            --manifest "$STAGED/home-seed-manifest.json" \
+            --report "$STAGED/home-after-prefail.json"
       - name: Injected post-smoke failure restores prior coherent runtime
         run: |
           set +e
@@ -216,11 +217,10 @@ jobs:
             --home-host "$STAGED/home" \
             --projects-host "$STAGED/projects" \
             --worktrees-host "$STAGED/worktrees" | tee "$STAGED/readback-after-rollback.json"
-          docker run --rm --user 0:0 --entrypoint sh \
-            -v "$STAGED/home:/home/paseo:ro" \
-            "$SEED_TAG" -c 'find /home/paseo -printf "%P %s %T@\n" | sort | sha256sum' \
-            | tee "$STAGED/home-after-postfail.sha"
-          test "$(cut -d' ' -f1 < "$STAGED/home-seed.sha")" = "$(cut -d' ' -f1 < "$STAGED/home-after-postfail.sha")"
+          python3 scripts/paseo_staged_home_evidence.py verify \
+            --home-host "$STAGED/home" --tag "$SEED_TAG" \
+            --manifest "$STAGED/home-seed-manifest.json" \
+            --report "$STAGED/home-after-postfail.json"
       - name: Fail-closed guards and readback idempotence
         run: |
           set +e
@@ -300,7 +300,7 @@ jobs:
             /tmp/pi-unraid-staged/readback-before.json
             /tmp/pi-unraid-staged/readback-after-success.json
             /tmp/pi-unraid-staged/readback-after-rollback.json
-            /tmp/pi-unraid-staged/home-seed.sha
-            /tmp/pi-unraid-staged/home-after-success.sha
-            /tmp/pi-unraid-staged/home-after-prefail.sha
-            /tmp/pi-unraid-staged/home-after-postfail.sha
+            /tmp/pi-unraid-staged/home-seed-manifest.json
+            /tmp/pi-unraid-staged/home-after-success.json
+            /tmp/pi-unraid-staged/home-after-prefail.json
+            /tmp/pi-unraid-staged/home-after-postfail.json

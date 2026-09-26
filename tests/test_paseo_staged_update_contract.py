@@ -703,7 +703,27 @@ class PreflightTests(unittest.TestCase):
             self.assertTrue(detail["readable"])
             self.assertEqual(len(calls), 1)
             self.assertIn(f"{home}:/home/paseo:ro", calls[0])
-            self.assertNotIn(staged.WRITE_PROBE, " ".join(calls[0]))
+            self.assertEqual(calls[0][-1], f"test -f /home/paseo/{staged.HOME_MARKER}")
+
+    def test_home_writability_check_is_non_mutating(self):
+        with tempfile.TemporaryDirectory() as td:
+            home = make_home(Path(td))
+            before = snapshot_tree(home)
+            calls = []
+
+            def ok(argv, env=None, timeout=120):
+                calls.append(list(argv))
+                return Completed(0, "", "")
+
+            detail = staged.check_home_live(ok, home, NEW_TAG, "99", "100", {})
+            self.assertTrue(detail["writable"])
+            self.assertEqual(len(calls), 2)
+            # Read-write mount (an :ro mount could never prove writability)
+            # with a permission check that creates and removes nothing.
+            self.assertIn(f"{home}:/home/paseo", calls[1])
+            self.assertNotIn(f"{home}:/home/paseo:ro", calls[1])
+            self.assertEqual(calls[1][-1], "test -w /home/paseo")
+            self.assertEqual(snapshot_tree(home), before)
 
     def test_preflight_rejects_live_image_mismatch(self):
         with tempfile.TemporaryDirectory() as td:
