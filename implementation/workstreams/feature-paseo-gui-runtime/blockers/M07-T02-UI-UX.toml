@@ -1,0 +1,5 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T02"
+class = "human_authority"
+summary = "All M07-T02 automatic and credentialed technical checks are GREEN after the bounded UID99/OpenSSH runtime repair: GitHub OAuth/workflows, exact least-privilege GraphQL readback and reversible mutation/restoration, credentialed forced SSH fallback plus return-to-GraphQL, and 381/381 regression. The remaining staged HA input is the user's manual post-recreate phone/UI judgment: open the already-paired staged Paseo without re-pairing and confirm normal-entrypoint usability, native UI reuse/no second dashboard, usable session labels and sane notifications."
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T02-staged-ha-technical-2026-09-27.md"
