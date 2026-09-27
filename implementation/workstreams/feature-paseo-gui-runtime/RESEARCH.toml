@@ -1,0 +1,30 @@
+workstream_id = "feature-paseo-gui-runtime"
+state = "consumed"
+origin_role = "execution_prep"
+origin_subject = "M05-T02B|live-ghcr-runner-tower-facts"
+return_target = "execution_prep:M05-T02B"
+return_reconciliation = "applied"
+return_result = "implementation/workstreams/feature-paseo-gui-runtime/BRAINSTORM.toml@7acf641c79d047a5ba7b83d78f768c814411fa0c:8f4735579fcda9b4ce47978d7e4625e0959e95f8"
+finding = "The prior M05-T02B live GHCR/runner/Tower fact obligation was reconciled without materializing the old Card. The user explicitly selected a local-first Tower build/rollback path and removed private project GHCR plus a self-hosted GitHub runner from the required current deployment path. This is a product/global-intent change, so Execution Prep must not continue under the superseded M05-T02B acceptance direction; the exact replacement scope is Brainstorming revision paseo-gui-runtime@3."
+limitations = "No conclusion was reached about private GHCR package state or live Tower registry reachability, because those facts ceased to be required for the superseded current-path design. Tower-local builder/cache/storage facts remain necessary later, after revised Definition and Planning authority exists."
+conflicts = "None. The incomplete live-fact research is superseded by explicit user product authority; it does not claim that GHCR is technically unavailable or invalid, only that it is no longer required in the current deployment path."
+
+[[sources]]
+class = "official_upstream"
+status = "not_relevant"
+weight = "No upstream fact can override the explicit product decision to remove private project GHCR/self-hosted-runner publication from the required current path."
+
+[[sources]]
+class = "project_runtime"
+status = "unavailable"
+weight = "Live Tower facts were unavailable in this context; only Tower-local facts that remain relevant to the revised local-first design will be gathered after revised authority is promoted."
+
+[[sources]]
+class = "tracker_discussion"
+status = "not_relevant"
+weight = "Tracker discussion cannot replace or override the user's explicit product decision."
+
+[[sources]]
+class = "practitioner_community"
+status = "not_relevant"
+weight = "Community preference cannot replace or override the user's explicit product decision."

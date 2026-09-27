@@ -1,0 +1,5 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T02"
+class = "human_authority"
+summary = "M07-T02 staged HA is in progress. GitHub OAuth/workflow proof is GREEN. Paseo Relay is enabled on the staged runtime and an ephemeral pairing offer has been generated; the next required action is for the user to open that current pairing offer on the phone and approve pairing. The offer itself is intentionally not persisted in Git/evidence."
+evidence_path = ""

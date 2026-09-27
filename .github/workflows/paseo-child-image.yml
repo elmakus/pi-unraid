@@ -1,0 +1,102 @@
+name: Paseo image and runtime foundation
+
+on:
+  push:
+    branches:
+      - feat/paseo-gui-runtime
+    paths:
+      - Dockerfile
+      - compose.yaml
+      - config/paseo-candidate.json
+      - config/environment-capabilities.json
+      - config/pi-agent/**
+      - scripts/configure-paseo-runtime.sh
+      - scripts/configure-pi-instruction-plane.sh
+      - scripts/configure-pi-global-capabilities.sh
+      - scripts/pi_instruction_plane.py
+      - scripts/pi_global_capabilities.py
+      - scripts/paseo-relay-access.sh
+      - scripts/smoke_paseo_image.py
+      - scripts/verify-compose-foundation.sh
+      - scripts/verify-pi-instruction-plane.sh
+      - scripts/verify-pi-global-capabilities.sh
+      - scripts/configure_unraid_graphql_credential.py
+      - scripts/unraid_graphql_host_control.py
+      - scripts/unraid_host_safety_guard.py
+      - scripts/unraid_ssh_fallback.py
+      - scripts/unraid_host_control_router.py
+      - scripts/unraid_host_control_doctor.py
+      - scripts/environment_capability_inventory.py
+      - scripts/environment_capability_control.py
+      - tests/test_paseo_candidate_resolver.py
+      - tests/test_paseo_child_image_contract.py
+      - tests/test_paseo_runtime_contract.py
+      - tests/test_paseo_relay_auth_contract.py
+      - tests/test_pi_instruction_plane_contract.py
+      - tests/test_pi_global_capabilities_contract.py
+      - tests/test_unraid_graphql_host_control_contract.py
+      - tests/test_unraid_host_control_guard_contract.py
+      - tests/test_unraid_host_control_doctor_contract.py
+      - tests/test_environment_capability_inventory_contract.py
+      - tests/test_environment_capability_control_contract.py
+      - docs/PASEO_RELAY_AUTH.md
+      - docs/PI_INSTRUCTION_PLANE.md
+      - docs/UNRAID_GRAPHQL_HOST_CONTROL.md
+      - docs/UNRAID_HOST_CONTROL_SAFETY.md
+      - config/unraid-host-control/permission-profile.json
+      - config/unraid-host-control/host-safety-policy.json
+      - .github/workflows/paseo-child-image.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract-build-and-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Verify exact predecessor bindings
+        run: |
+          test "$(git rev-parse bbc862c37c0da81a08a91876499cfe865be958ab:implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md)" = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
+          test "$(git rev-parse 727b6f25a3b957551d10c9c24d9e9d1e26efd6ab:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T01.md)" = "e5075d474bb7aaf0583baf66757add56fb556253"
+          test "$(git rev-parse d70e95292c561ad7ca5491027a221a7c22177574:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T02.md)" = "7b8574df581ace7e62125b8dc79fb48c1e491e7d"
+          test "$(git rev-parse cac4ac5e5a4b6c96ad71d9bbce12962388f7a4be:implementation/workstreams/feature-paseo-gui-runtime/results/M02-T03.md)" = "0d13d7fe5a6dd29fb68e700d13cc5c1251722c28"
+          test "$(git rev-parse 16e5a14f1f0357b8af40fa23602c6d6c1da24724:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T01.md)" = "1b157d85116b5a9dffab7df7766f62cc8a288f3e"
+          test "$(git rev-parse 97e7833edaa55d54b35336a07c46bf261795fc46:implementation/workstreams/feature-paseo-gui-runtime/results/M03-T02.md)" = "a5c8a0c3a84b5c7f6da3d147896ee60995860800"
+          test "$(git rev-parse affd83590ec534ed144b9048a2b9075434761f27:implementation/workstreams/feature-paseo-gui-runtime/results/M04-T01.md)" = "5173447ec3ab8775450a9defbf193aede63ca290"
+          test "$(git rev-parse e9a412557bfbe927a64b1f7ba0d892f5f059e08a:implementation/workstreams/feature-paseo-gui-runtime/results/M04-T02.md)" = "c6adc8514548b701c3aa959df9f5a6f4ff581a9d"
+      - name: Candidate image and runtime contract tests
+        run: |
+          python3 -m unittest tests/test_paseo_candidate_resolver.py -v
+          python3 -m unittest tests/test_paseo_child_image_contract.py -v
+          python3 -m unittest tests/test_paseo_runtime_contract.py -v
+          python3 -m unittest tests/test_paseo_relay_auth_contract.py -v
+          python3 -m unittest tests/test_pi_instruction_plane_contract.py -v
+          python3 -m unittest tests/test_pi_global_capabilities_contract.py -v
+          python3 -m unittest tests/test_unraid_graphql_host_control_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_guard_contract.py -v
+          python3 -m unittest tests/test_unraid_host_control_doctor_contract.py -v
+          python3 -m unittest tests/test_environment_capability_inventory_contract.py -v
+          python3 -m unittest tests/test_environment_capability_control_contract.py -v
+      - name: Build frozen Paseo child-image foundation
+        env:
+          DOCKER_BUILDKIT: "1"
+        run: docker build --progress=plain -t pi-unraid:paseo-foundation .
+      - name: Disposable image and provenance smoke
+        run: python3 scripts/smoke_paseo_image.py pi-unraid:paseo-foundation config/paseo-candidate.json
+      - name: Disposable persistence and ownership smoke
+        run: bash scripts/verify-compose-foundation.sh pi-unraid:paseo-foundation
+      - name: Disposable Pi instruction-plane smoke
+        run: bash scripts/verify-pi-instruction-plane.sh pi-unraid:paseo-foundation
+      - name: Disposable Pi global-capability smoke
+        run: bash scripts/verify-pi-global-capabilities.sh pi-unraid:paseo-foundation
+      - name: Inspect immutable foundation metadata
+        run: |
+          test "$(docker image inspect pi-unraid:paseo-foundation --format '{{ index .Config.Labels "io.pi-unraid.candidate-id" }}')" = "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69"
+          docker image inspect pi-unraid:paseo-foundation --format '{{.Id}}'

@@ -1,0 +1,618 @@
+workstream_id = "feature-paseo-gui-runtime"
+revision = 151
+
+[execution_ref]
+branch = "feat/paseo-gui-runtime"
+
+[[cards]]
+id = "M01-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M01-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M01-T01.md"
+commit = "dd3047320faf92f0dfe9d0ac0a0f5ff590e11250"
+blob = "4ccca450fa664344ef3ded7de33de7df7c79d8f9"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M01-T01-R01.toml"
+
+[[cards]]
+id = "M01-T02"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M01-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M01-T02.md"
+commit = "4e60c855a84b2e74d50de812db1ba9cc156af400"
+blob = "be820f52901a9d2d4a40b71c3da6d19ffc08edea"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M01-T02-R01.toml"
+
+[[cards]]
+id = "M01-T03"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M01-T03.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M01-T03.md"
+commit = "bbc862c37c0da81a08a91876499cfe865be958ab"
+blob = "3772f647f5a0c55e856d3ae8e3feb05c6fb3e1f5"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M01-T03-R01.toml"
+
+[[jit_triggers]]
+id = "after-M01-T01-materialize-M01-T02"
+after_card = "M01-T01"
+state = "consumed"
+condition = "The exact frozen candidate result is required before the child-image foundation Card can bind concrete versions, digests and compatibility inputs."
+
+[[jit_triggers]]
+id = "after-M01-T02-materialize-M01-T03"
+after_card = "M01-T02"
+state = "consumed"
+condition = "The exact child-image foundation result is required before provenance and disposable image smoke can bind the concrete image construction and verification surface."
+
+[[cards]]
+id = "M02-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M02-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M02-T01.md"
+commit = "727b6f25a3b957551d10c9c24d9e9d1e26efd6ab"
+blob = "e5075d474bb7aaf0583baf66757add56fb556253"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M02-T01-R01.toml"
+
+[[jit_triggers]]
+id = "after-M01-T03-materialize-M02-T01"
+after_card = "M01-T03"
+state = "consumed"
+condition = "The exact GREEN M01 candidate-image smoke result is required before persistence/workspace ownership work can bind the concrete Paseo image/runtime contract."
+
+[[jit_triggers]]
+id = "after-M02-T01-materialize-M02-T02"
+after_card = "M02-T01"
+state = "consumed"
+condition = "The exact GREEN persistence/workspace ownership result is required before Relay, pairing, authentication and secret-state work can bind the concrete Paseo HOME surfaces and authentication boundary."
+
+
+[[cards]]
+id = "M02-T02"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M02-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M02-T02.md"
+commit = "d70e95292c561ad7ca5491027a221a7c22177574"
+blob = "7b8574df581ace7e62125b8dc79fb48c1e491e7d"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M02-T02-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M02-T02-R02.toml"
+
+[[jit_triggers]]
+id = "after-M02-T02-materialize-M02-T03"
+after_card = "M02-T02"
+state = "consumed"
+condition = "The exact GREEN Relay/auth/secret-state result is required before the Pi-native instruction/config plane can bind the persisted HOME surfaces and authentication boundary."
+
+[[cards]]
+id = "M02-T03"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M02-T03.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M02-T03.md"
+commit = "cac4ac5e5a4b6c96ad71d9bbce12962388f7a4be"
+blob = "0d13d7fe5a6dd29fb68e700d13cc5c1251722c28"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M02-T03-R01.toml"
+
+
+[[cards]]
+id = "M03-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M03-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M03-T01.md"
+commit = "16e5a14f1f0357b8af40fa23602c6d6c1da24724"
+blob = "1b157d85116b5a9dffab7df7766f62cc8a288f3e"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M03-T01-R01.toml"
+
+
+[[jit_triggers]]
+id = "after-M03-T01-materialize-M03-T02"
+after_card = "M03-T01"
+state = "consumed"
+condition = "The exact GREEN GraphQL-primary host-control result is required before SSH fallback and mutation-guard work can bind the real primary transport, credential/readback contract and safe gap boundary."
+
+
+[[cards]]
+id = "M03-T02"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M03-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M03-T02.md"
+commit = "97e7833edaa55d54b35336a07c46bf261795fc46"
+blob = "a5c8a0c3a84b5c7f6da3d147896ee60995860800"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M03-T02-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M03-T02-R02.toml"
+
+[[jit_triggers]]
+id = "after-M03-T02-materialize-M03-T03"
+after_card = "M03-T02"
+state = "consumed"
+condition = "The exact GREEN SSH-fallback and mutation-guard result is required before the host-control doctor Card can bind both transport health surfaces, safety-policy readback and credential-health fingerprint contracts."
+
+
+[[cards]]
+id = "M03-T03"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M03-T03.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M03-T03.md"
+commit = "5c1386b78c4ed0b3508b9ba0e77139e65cd82f08"
+blob = "db16908476e2f081669c65a4ff8e8e7062579f71"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M03-T03-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M03-T03-R02.toml"
+
+
+[[cards]]
+id = "M04-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M04-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M04-T01.md"
+commit = "affd83590ec534ed144b9048a2b9075434761f27"
+blob = "5173447ec3ab8775450a9defbf193aede63ca290"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T01-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T01-R02.toml"
+
+[[jit_triggers]]
+id = "after-M04-T01-materialize-M04-T02"
+after_card = "M04-T01"
+state = "consumed"
+condition = "The exact GREEN M04-T01 inventory result is required before doctor/reconcile can bind the concrete desired-state schema, drift semantics and secret-safe observation surface."
+
+[[cards]]
+id = "M04-T02"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M04-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M04-T02.md"
+commit = "e9a412557bfbe927a64b1f7ba0d892f5f059e08a"
+blob = "c6adc8514548b701c3aa959df9f5a6f4ff581a9d"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T02-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T02-R02.toml"
+
+
+[[jit_triggers]]
+id = "after-M04-T02-materialize-M04-T03"
+after_card = "M04-T02"
+state = "consumed"
+condition = "The exact GREEN M04-T02 doctor/reconcile result is required before global capability delivery can bind the accepted inventory identities, readback semantics and no-update boundary."
+
+[[cards]]
+id = "M04-T03"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M04-T03.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M04-T03.md"
+commit = "fb6195831d047ede2f359146b69ede2690e84ef3"
+blob = "e31658fda900d748010bedc6caa0bb3aacf8c430"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M04-T03-R01.toml"
+
+[[jit_triggers]]
+id = "after-M04-T03-materialize-M05-T01"
+after_card = "M04-T03"
+state = "consumed"
+condition = "The exact GREEN M04 capability-delivery result is required before coordinated global update resolution can bind the complete approved capability set and its current delivery/readback contract."
+
+[[cards]]
+id = "M05-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T01-R02.md"
+commit = "40ad9529f7f3bb05a27caa306d21a3cdc83c5bcd"
+blob = "7b3855238c59f35f2cd2af05a0d1456db34832db"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T01-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T01-R02.toml"
+
+[[cards]]
+id = "M05-T02A"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T02A.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T02A-R02.md"
+commit = "d6643ffcdf202add37a39bc7653d6192cde36637"
+blob = "4273708d8f1cc8fb5eb33b3a7582fd0b21e143f4"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T02A-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T02A-R02.toml"
+
+[[jit_triggers]]
+id = "after-M05-T02A-materialize-M05-T02B"
+after_card = "M05-T02A"
+state = "consumed"
+condition = "The exact GREEN local Buildx/cache foundation result plus current Tower host facts are required to bind the persistent local-first builder/cache/retention acceptance surface under approved P3 authority."
+
+[[cards]]
+id = "M05-T02B"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T02B.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T02B.md"
+commit = "b7aa565649d14168e0d4b2d2d06044c08aac46a0"
+blob = "7bdb9fffcbada5f0dc6475f3bb2b7be92d8e1d20"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T02B-R01.toml"
+
+[[jit_triggers]]
+id = "after-M05-T02B-materialize-M05-T03"
+after_card = "M05-T02B"
+state = "consumed"
+condition = "The exact GREEN persistent Tower builder/cache/retention result is required before staged promotion/cutover/rollback can bind the real local immutable-image and rollback-anchor surface."
+
+[[cards]]
+id = "M05-T03"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M05-T03.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M05-T03-R02.md"
+commit = "550c5f76cca783e43eb44b0bdbf82c7fe889bff6"
+blob = "b526cf4717ea6d353fc6d23f082b1c726e7f55ed"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T03-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M05-T03-R02.toml"
+
+[[jit_triggers]]
+id = "after-M05-T03-materialize-M06-T01"
+after_card = "M05-T03"
+state = "consumed"
+condition = "The exact GREEN M05-T03 staged-update/rollback result (P4 M06-T01: planning/PASEO_GUI_RUNTIME_P4.md sections 2.1/3/4/5/6/7, no user presence, technical GREEN only) was consumed to bind non-production Pi RPC and project/workspace scope from the completed M05 environment transaction and immutable candidate; predecessor M05-T03 is DONE so downstream M06-T01 is now materialized."
+
+[[cards]]
+id = "M06-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M06-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M06-T01.md"
+commit = "0f8538f7d226c6c022b5070aeca42375ba2d751a"
+blob = "e01bd1dd4d84c94ec9b29f7bd1914e7160162d82"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M06-T01-R01.toml"
+
+[[cards]]
+id = "M06-T02"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M06-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M06-T02.md"
+commit = "724d24e6d25d9a405998d8c6f48bbe65318ba4b4"
+blob = "13a49bd857c50b79213561ece74e06a585069d73"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M06-T02-R01.toml"
+
+[[cards]]
+id = "M06-T03"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M06-T03.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M06-T03.md"
+commit = "d93bc18a20358ed6cd9cccf9c2c7031094f23410"
+blob = "a140f95fef4cd99a433d3b7b08f3e482e4c4dbc2"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M06-T03-R01.toml"
+
+
+[[cards]]
+id = "M06-T04"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M06-T04.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M06-T04.md"
+commit = "9ba5ea11a2510f265a962b7870c8a3a09cb1cf4c"
+blob = "fc2bb31f794480e3fc954d28a47ac09086f2734e"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M06-T04-R01.toml"
+
+
+[[cards]]
+id = "M07-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T01.md"
+commit = "bd3f0715993e7f4fff2d0d9c6bfab1f8bcb21f17"
+blob = "5c12fc5fd75b13dc37915c061953c08ecba79a57"
+
+
+[[cards]]
+id = "M07-T02"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T02.md"
+commit = "7e2be5ecc2996d62bc22124ddff321f9afbe48de"
+blob = "bf2010c429e7b90a9cb9d47c24e4472dbaf31dcd"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M07-T02-R01.toml"
+
+
+[[cards]]
+id = "M07-T03"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T03.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T03.md"
+commit = "3116a20ca46dd56ecdbca187810652dfceb72a42"
+blob = "6fddfd94a8debec5b458f8cc6ddbd1f78005b602"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M07-T03-R01.toml"
+
+[[cards]]
+id = "M07-T04"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T04.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T04.md"
+commit = "1cf7cf3277edda7d9f5a82615f3e27d5f8d6a3c9"
+blob = "3fca9476ac6fd96d7b039571952c0be43c18192f"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M07-T04-R01.toml"
+
+
+[[cards]]
+id = "M07-T05"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T05.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T05.md"
+commit = "0278f67d73b450fa7464525d9e29398b1b988655"
+blob = "56c09a92115ddb83ce58b744ed36e8c76fd39b41"
+
+
+[[cards]]
+id = "M07-T06"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T06.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T06.md"
+commit = "20a0585bc68396466a24b677de3fbdec75910697"
+blob = "0ea9060bedeeea90809806476418b395972ac3bc"
+
+
+[[cards]]
+id = "M08-T01"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M08-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M08-T01.md"
+commit = "1b25ec8fd1c82c3c317dcf3fbb63193873042768"
+blob = "605e11fc08f563354a61a258ea8120dade11986d"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M08-T01-R01.toml"
+
+
+[[cards]]
+id = "M08-T02"
+status = "done"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M08-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M08-T02.md"
+commit = "2637c558d473576363b02bfef2bd0081c2b6b476"
+blob = "8679ae122800699ba209dc9c253635db5f1c4098"

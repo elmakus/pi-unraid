@@ -1,0 +1,39 @@
+# M06-T03 R01 independent review — GREEN
+
+- Task ID: PASEO-P4-M06-T03-R01
+- Exact subject: `elmakus/pi-unraid@d93bc18a20358ed6cd9cccf9c2c7031094f23410:implementation/workstreams/feature-paseo-gui-runtime/results/M06-T03.md`, blob `a140f95fef4cd99a433d3b7b08f3e482e4c4dbc2`; implementation subject `4bcb5aaa8f9754a76df46603f90f0152c7891ced`; worker evidence `implementation/workstreams/feature-paseo-gui-runtime/evidence/M06-T03-relay-doctor-readiness-2026-09-26.md`, blob `15a5150c780c635834f66cc8f315a7077d772579` at the frozen result lineage.
+- Acceptance: `implementation/workstreams/feature-paseo-gui-runtime/cards/M06-T03.md` (review `required`), frozen approved P4 `planning/PASEO_GUI_RUNTIME_P4.md` at `f87ec5df4215af06302765bad615a6be69a295ef`, blob `3c0949e50b41100630b8e57f7dc51472e183f49c`; Board revision 106 has M06-T03 as the sole current `in_progress` Card with this exact result and R01 pending.
+- Independence: this fresh review context did not author or repair the M06-T03 implementation, semantic result, or worker evidence. The exact subject, dependencies and authority, implementation harness/workflow/tests, GitHub Actions API state/job logs, and downloaded CI artifact were inspected independently.
+- Verdict: **GREEN**. No blocking acceptance gap was found. The permitted claim is M06-T03 automatic technical-slice GREEN only; M06-T04 and the Human Acceptance wave remain outstanding, and no full GREEN is implied.
+
+## Exact identity and authority reconciliation
+
+- Remote branch HEAD was revalidated at `ab4c1b589971fb580a269f3ee61ec693301358ef` before this review write; it freezes R01 against result blob `a140f95...`.
+- All six exact dependency result bindings were independently re-read at their pinned commits and match the Card byte-for-byte: M06-T02 `13a49bd857c50b79213561ece74e06a585069d73`, M06-T01 `e01bd1dd4d84c94ec9b29f7bd1914e7160162d82`, M02-T02 `7b8574df581ace7e62125b8dc79fb48c1e491e7d`, M02-T01 `e5075d474bb7aaf0583baf66757add56fb556253`, M04-T01 `5173447ec3ab8775450a9defbf193aede63ca290`, and M04-T02 `c6adc8514548b701c3aa959df9f5a6f4ff581a9d`.
+- P4 remains approved and independently reviewed GREEN. Its M06-T03 slice requires Relay default-disabled/fail-closed behavior, explicit pairing consent, synthetic persistence/recreate proof without a real phone, zero public ports, secret-safe HOME/evidence, fail-closed unsupported revocation/readback, desired/observed inventory with non-destructive drift handling, approved-only reconcile, quick/full doctor GREEN/WARN/RED, lightweight health, and bounded auth fingerprints. Real phone/authenticated/manual proof is explicitly deferred to M07 HA.
+- Current requirements and ADR boundaries agree: Relay is the initial remote path without public raw ports; persistent HOME is sensitive; first interactive authentication requires deliberate user participation; raw credentials are forbidden from inventory/log/evidence surfaces; the Environment Capability Inventory owns environment availability only; doctor diagnoses while reconcile restores current approved state.
+
+## Exact-SHA CI and artifact verification
+
+- GitHub Actions run `36278632419` is completed/success on exact head SHA `4bcb5aaa8f9754a76df46603f90f0152c7891ced`, workflow `Paseo relay/doctor readiness (M06-T03 disposable evidence)`, job `relay-doctor-readiness-disposable-evidence`. Every job step, including predecessor verification, full contract suite, readback, frozen-candidate build, disposable flow, production-scope refusal, untouched guard, and artifact upload, completed successfully.
+- The full suite ran 18 test modules with per-suite counts `42/27/6/5/5/6/4/9/10/7/5/13/39/11/68/28/41/52` = **378 tests**. Log strings containing “failed/error” belong to intentional negative-path tests; the suites themselves complete successfully and no blocking traceback was found.
+- Static readback reports `technical_green_ha_outstanding`, zero violations and `full_green_claimed: false`.
+- The disposable flow reports `relay_doctor_readiness_green`, `scope: disposable`, `production_mutation: false`, and all ten expected phases `ok`: fixture, image labels, Relay fail-closed, synthetic persistence, daemon health/ports, recreate survival, secret-safe HOME, inventory drift, reconcile/doctor, and auth fingerprints.
+- Frozen flow image is `pi-unraid:paseo-b4e0c1e7c276`, image id `sha256:1dd9aad512310849089435fc18a7c0d0d0cb34f83ceee53e58732b03c5e46d7d`, with the exact frozen candidate label.
+- Artifact `paseo-relay-doctor-readiness-evidence` id `10917926282`, digest `sha256:9af44ef5623dc31ebae37d435a3dc3ed06732cbbd4151a789ecf69ba6ac12611`, is present and unexpired. Independent inspection found the flow report and tee output byte-identical, all ten phases successful, and no high-confidence raw-secret pattern in the eight artifact files.
+
+## Implementation and false-positive assessment
+
+- Relay default-disabled behavior is exercised through the real candidate CLI: a non-consenting `paseo daemon pair --json` must fail nonzero with `RELAY_DISABLED`; repository pairing-helper markers require an interactive TTY and default-negative `[y/N]` confirmation before the native `--relay` path.
+- The disposable synthetic-consent leg invokes native `paseo daemon pair --relay --json` only inside the isolated fixture. The pairing offer is discarded without logging; evidence retains only the one-way keypair SHA plus mode/ownership. After Compose recreation, Relay remains enabled, marker files persist, the keypair SHA is unchanged, mode remains 0600, health is GREEN, and public port bindings remain zero. No real-phone proof is claimed.
+- Secret-bearing HOME reads occur container-side under the runtime identity; the harness verifies no forbidden credential wiring/assignment while never reading keypair contents into evidence. Credential-like observation probes are normalized to fingerprints, including unknown-id reconcile refusals.
+- Inventory/control behavior is substantive rather than exit-code-only: perfect observations derive GREEN; missing/mismatched/unexpected observations derive explicit drift; unexpected extras remain report-only and are never silently deleted; reconcile targets only drifted approved ids; preserved unexpected extras yield WARN after approved restoration, unresolved drift stays RED, and an unexpectedly disappearing extra fails RED.
+- Quick/full doctor output is machine-readable with GREEN on perfect observations and RED on drift, while the inherited lightweight `/api/health` probe is separately exercised.
+- The harness refuses non-`disposable` scope and fixture roots outside system temporary storage. The CI “production untouched” assertion is runner-local and is therefore treated only as evidence that this job exposes no production mutation path, not as a live Tower state assertion. That is consistent with the Card’s non-production automatic slice; production and credential-backed behavior remain explicitly deferred.
+- Workflow assertions inspect concrete fields and phase details rather than merely accepting process exit 0, and `set -o pipefail` protects piped evidence-producing steps.
+
+## Limitations and residual risk
+
+- Live Docker behavior was independently validated through the exact-SHA hosted-runner logs and downloaded artifact rather than re-executed on this review host. The Card expressly permits disposable CI execution and requires CI-host portability, so this is not a blocking gap.
+- No real phone pairing/transfer, first interactive authentication, credential-backed GraphQL/GitHub action, manual UX judgment, wishlist activation, production cutover, or production Relay confirmation was performed or inferred. Those surfaces remain owned by M07-T02/M07-T03/M07-T05 as planned.
+- M06-T04 host-control integration remains outstanding. This GREEN verdict closes only the exact M06-T03 subject.

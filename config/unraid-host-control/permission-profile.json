@@ -1,0 +1,25 @@
+{
+  "roles": [],
+  "permissions": [
+    {
+      "resource": "INFO",
+      "actions": [
+        "READ_ANY"
+      ]
+    },
+    {
+      "resource": "DOCKER",
+      "actions": [
+        "READ_ANY",
+        "UPDATE_ANY"
+      ]
+    }
+  ],
+  "docker_mutations": [
+    "start",
+    "stop",
+    "restart",
+    "pause",
+    "unpause"
+  ]
+}

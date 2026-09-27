@@ -1,0 +1,12 @@
+workstream_id = "feature-paseo-gui-runtime"
+kind = "feature"
+state = "complete"
+diagnosis_revision = 0
+repair_subject = ""
+diagnosis_prior_art_subject = ""
+diagnosis_prior_art_result = ""
+response_kind = "none"
+response_observed = false
+alignment_state = "not_required"
+alignment_subject = ""
+micro_fix_candidate = false

@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T04"
+attempt = "R01"
+verdict = "green"
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T04-R01-independent-review-2026-09-27.md"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "1cf7cf3277edda7d9f5a82615f3e27d5f8d6a3c9"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T04.md"
+blob = "3fca9476ac6fd96d7b039571952c0be43c18192f"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T04.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R01 was performed in a fresh independent review context that did not author or repair the M07-T04 execution evidence, result, or exact reviewed subject; exact subject/dependencies/authority, durable acceptance evidence, immutable source blobs and fresh read-only Tower facts were independently inspected."

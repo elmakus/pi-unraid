@@ -1,3 +1,9 @@
++++
+project_workflow = "v2"
+project_id = "pi-unraid"
+repository = "elmakus/pi-unraid"
+workstream_root = "implementation/workstreams"
++++
 # PROJECT
 
 ## Identity

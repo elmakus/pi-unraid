@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "card_id": "M06-T04",
+  "implementation_subject": "6d9e13018eaaf3da331d93d9a6d91bdf7f758464",
+  "outcome": "automatic_host_control_green_ha_outstanding",
+  "full_green_claimed": false,
+  "production_mutation": false,
+  "live_host_mutation": false,
+  "contract_tests": {
+    "modules": 18,
+    "tests": 378,
+    "verdict": "GREEN",
+    "log_sha256": "f6dc1c9f7e43971f6d6c5d6633d6b9edde284174322d13e1be10ab50f72358c7"
+  },
+  "live_nonsecret": {
+    "unraid_version": "7.2.4",
+    "unraid_api_version": "4.37.4+ad268301",
+    "unraid_api_status": "online",
+    "graphql_path": "/graphql",
+    "graphql_unauth_http": 200,
+    "graphql_unauth_error_code": "UNAUTHENTICATED",
+    "graphql_unauth_has_data": false,
+    "ssh_lan_tcp_reachable": true,
+    "ssh_protocol": "SSH-2.0"
+  },
+  "policy": {
+    "roles": [],
+    "permissions": [
+      "INFO:READ_ANY",
+      "DOCKER:READ_ANY",
+      "DOCKER:UPDATE_ANY"
+    ],
+    "docker_mutations": [
+      "start",
+      "stop",
+      "restart",
+      "pause",
+      "unpause"
+    ],
+    "primary_transport": "graphql",
+    "fallback_reasons": [
+      "api_gap",
+      "api_outage",
+      "os_plugin_filesystem_recovery",
+      "forced_test"
+    ],
+    "unknown_operation": "deny"
+  },
+  "ssh_credential_boundary": {
+    "persistent_identity_present": true,
+    "persistent_identity_mode": "0600",
+    "persistent_tower_known_host_present": false,
+    "credentialed_read_only_witness": false,
+    "existing_identity_auth_result": "rejected",
+    "deferred_owner": "M07-T02"
+  },
+  "ha_deferred": [
+    "authenticated_graphql_info_docker_readback",
+    "least_privilege_permission_sufficiency",
+    "reversible_live_container_mutation_and_restoration",
+    "credentialed_forced_ssh_fallback_witness",
+    "manual_and_phone_acceptance"
+  ]
+}

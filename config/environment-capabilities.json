@@ -1,0 +1,208 @@
+{
+  "schema_version": 1,
+  "authority": "environment_availability_only",
+  "candidate_source": "config/paseo-candidate.json",
+  "capabilities": [
+    {
+      "id": "paseo",
+      "approval": "accepted",
+      "delivery_mode": "upstream_parent_image",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "paseo"
+      },
+      "runtime_location": {
+        "kind": "service",
+        "value": "paseo"
+      },
+      "probe": {
+        "kind": "http_health",
+        "path": "/api/health"
+      }
+    },
+    {
+      "id": "node",
+      "approval": "accepted",
+      "delivery_mode": "upstream_parent_image",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "node"
+      },
+      "runtime_location": {
+        "kind": "command",
+        "value": "node"
+      },
+      "probe": {
+        "kind": "command_version",
+        "argv": ["node", "--version"]
+      }
+    },
+    {
+      "id": "pi",
+      "approval": "accepted",
+      "delivery_mode": "npm_global",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "pi"
+      },
+      "runtime_location": {
+        "kind": "command",
+        "value": "pi"
+      },
+      "probe": {
+        "kind": "command_version",
+        "argv": ["pi", "--version"]
+      }
+    },
+    {
+      "id": "playwright",
+      "approval": "accepted",
+      "delivery_mode": "npm_global",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "playwright"
+      },
+      "runtime_location": {
+        "kind": "command",
+        "value": "playwright"
+      },
+      "probe": {
+        "kind": "command_version",
+        "argv": ["playwright", "--version"]
+      }
+    },
+    {
+      "id": "chromium",
+      "approval": "accepted",
+      "delivery_mode": "playwright_managed_browser",
+      "desired": {
+        "kind": "candidate_field",
+        "path": ["components", "playwright", "chromium", "browser_version"],
+        "provenance_component": "playwright"
+      },
+      "runtime_location": {
+        "kind": "directory",
+        "value": "/opt/ms-playwright"
+      },
+      "probe": {
+        "kind": "playwright_browser_version"
+      }
+    },
+    {
+      "id": "github_cli",
+      "approval": "accepted",
+      "delivery_mode": "pinned_binary",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "github_cli"
+      },
+      "runtime_location": {
+        "kind": "command",
+        "value": "gh"
+      },
+      "probe": {
+        "kind": "command_version",
+        "argv": ["gh", "--version"]
+      }
+    },
+    {
+      "id": "docker_cli",
+      "approval": "accepted",
+      "delivery_mode": "pinned_binary",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "docker_cli"
+      },
+      "runtime_location": {
+        "kind": "command",
+        "value": "docker"
+      },
+      "probe": {
+        "kind": "command_version",
+        "argv": ["docker", "--version"]
+      }
+    },
+    {
+      "id": "docker_compose",
+      "approval": "accepted",
+      "delivery_mode": "pinned_cli_plugin",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "docker_compose"
+      },
+      "runtime_location": {
+        "kind": "command",
+        "value": "docker compose"
+      },
+      "probe": {
+        "kind": "command_version",
+        "argv": ["docker", "compose", "version", "--short"]
+      }
+    },
+    {
+      "id": "specpi",
+      "approval": "accepted",
+      "delivery_mode": "pi_global_extension",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "specpi"
+      },
+      "runtime_location": {
+        "kind": "pi_extension",
+        "value": "specpi"
+      },
+      "probe": {
+        "kind": "pi_extension_readback"
+      }
+    },
+    {
+      "id": "pi_mcp_adapter",
+      "approval": "accepted",
+      "delivery_mode": "pi_global_extension",
+      "desired": {
+        "kind": "candidate_component",
+        "component": "pi_mcp_adapter"
+      },
+      "runtime_location": {
+        "kind": "pi_extension",
+        "value": "pi-mcp-adapter"
+      },
+      "probe": {
+        "kind": "pi_extension_readback"
+      }
+    },
+    {
+      "id": "base_tooling",
+      "approval": "accepted",
+      "delivery_mode": "child_image_package_graph",
+      "desired": {
+        "kind": "candidate_field",
+        "path": ["policy", "generic_base_tooling_identity"],
+        "members_path": ["policy", "generic_base_tooling"]
+      },
+      "runtime_location": {
+        "kind": "image_scope",
+        "value": "PATH"
+      },
+      "probe": {
+        "kind": "command_set"
+      }
+    },
+    {
+      "id": "pi_instruction_plane",
+      "approval": "accepted",
+      "delivery_mode": "repository_managed_home_install",
+      "desired": {
+        "kind": "repo_tree",
+        "path": "config/pi-agent"
+      },
+      "runtime_location": {
+        "kind": "directory",
+        "value": "/home/paseo/.pi/agent"
+      },
+      "probe": {
+        "kind": "managed_tree_identity"
+      }
+    }
+  ]
+}

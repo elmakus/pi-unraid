@@ -1,0 +1,143 @@
+{
+  "candidate_id": "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69",
+  "components": {
+    "docker_cli": {
+      "artifact_identity": {
+        "digest": null,
+        "reason": "docker/cli publishes release tags without GitHub release assets",
+        "status": "source-commit-exact"
+      },
+      "source": {
+        "commit": "4a63305d74332de5ceba7fcbccbc3cbb7412f5ba",
+        "repository": "docker/cli",
+        "tag": "v29.8.1"
+      },
+      "stable_line_source": {
+        "repository": "moby/moby",
+        "tag": "docker-v29.8.1"
+      },
+      "version": "29.8.1"
+    },
+    "docker_compose": {
+      "artifact": {
+        "digest": "sha256:db1889184726840f75c4f9c001048430d4f25b3be3cb084d3ddd762bc0aed576",
+        "name": "docker-compose-linux-x86_64",
+        "size": 32333754
+      },
+      "source": {
+        "commit": "5f94fb0aa42a2cd1248c6e6c7fafb87546b9c8de",
+        "repository": "docker/compose",
+        "tag": "v5.5.1"
+      },
+      "version": "5.5.1"
+    },
+    "github_cli": {
+      "artifact": {
+        "digest": "sha256:9bca2d1c16825f109907a23307628a2f0698fbf99662b73a5cf0b020293072b8",
+        "name": "gh_2.101.0_linux_amd64.tar.gz",
+        "size": 15282175
+      },
+      "source": {
+        "commit": "0cf1092493af067646fc5f3db9421c6a6ec9c938",
+        "repository": "cli/cli",
+        "tag": "v2.101.0"
+      },
+      "version": "2.101.0"
+    },
+    "node": {
+      "delivery": "provided-by-exact-paseo-image",
+      "immutable_parent": "ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136",
+      "minimum_for_pi": ">=22.19.0",
+      "version": "22.23.3"
+    },
+    "paseo": {
+      "artifact": {
+        "config_digest": "sha256:cec7883d5dc43e739ef0adf024de70efaad1ca9552d248dbb0ccf0f6f7034335",
+        "digest": "sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136",
+        "image": "ghcr.io/getpaseo/paseo:0.9.2",
+        "linux_amd64_manifest": "sha256:79bf8774b0d71ab3afed3d0f4dc556b160de9d2e15841786eb92b446540dc791",
+        "node_version": "22.23.3",
+        "reference": "ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136"
+      },
+      "source": {
+        "commit": "c67b7158b441bb09026b38d86ae335cc4b49190a",
+        "repository": "getpaseo/paseo",
+        "tag": "v0.9.2"
+      },
+      "version": "0.9.2"
+    },
+    "pi": {
+      "npm": {
+        "integrity": "sha512-m8ArJUtVcQMSe1lLE/Ei7vX/JV7O39sWmWBsXV2NOU70F0qCp8GubA24pT3LnwTmM6LL2xV80/h6sQg85n69ew==",
+        "package": "@earendil-works/pi-coding-agent",
+        "shasum": "5708b9310325177d5c1b487b5c99627ffa733324"
+      },
+      "source": {
+        "commit": "f07218c4d4bbc12bef056a7058c3dd49dfe41abe",
+        "repository": "earendil-works/pi",
+        "tag": "v0.87.1"
+      },
+      "version": "0.87.1"
+    },
+    "pi_mcp_adapter": {
+      "declared_pi_ai_peer": "^0.84.1 || ^0.85.0 || ^0.86.0 || ^0.87.0",
+      "live_compatibility_smoke_required": true,
+      "npm": {
+        "integrity": "sha512-Adjvt70MZz9U68z50i+KIeTvI5H9ls31fHi5i0JIwVgXJyS3mEaYEfa4lkHbSUq/P8JHS1iO4BInt9MhdWnG9Q==",
+        "package": "pi-mcp-adapter",
+        "shasum": "102869669de2e2595b475d8ef86fef73bf41a5fa"
+      },
+      "source": {
+        "commit": "28049dee20cd0ee809cf5a78442cf35dfa36659c",
+        "repository": "nicobailon/pi-mcp-adapter",
+        "tag": "v2.37.0"
+      },
+      "version": "2.37.0"
+    },
+    "playwright": {
+      "chromium": {
+        "browser_version": "153.0.8010.12",
+        "revision": "1243"
+      },
+      "npm": {
+        "integrity": "sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==",
+        "package": "playwright",
+        "shasum": "99b56f9f69b1b70c44f00bf84b2fe52348ae2511"
+      },
+      "source": {
+        "commit": "1b025d7e20a026371cd5f98ba0cdce48892737c8",
+        "repository": "microsoft/playwright",
+        "tag": "v1.63.0"
+      },
+      "version": "1.63.0"
+    },
+    "specpi": {
+      "live_compatibility_smoke_required": true,
+      "npm": {
+        "integrity": "sha512-AnyyuW9whO8NW63FSaBlCGghh+RBhu/p8CKVSaVcjuKd7CInHvOC0q5vhrPoDl9SRfoja3cT4wrii1/cG15gHw==",
+        "package": "specpi",
+        "shasum": "4106da59b017d8bdde324796e4db7724c24334ca"
+      },
+      "source": {
+        "commit": "4edc0c0045a5fa03a1f63e41347894db5b3b0563",
+        "repository": "tannermidd/SpecPi",
+        "tag": "v0.34.0"
+      },
+      "version": "0.34.0"
+    }
+  },
+  "policy": {
+    "build_must_not_reresolve": true,
+    "channel": "latest-stable",
+    "compatibility_exceptions": [],
+    "generic_base_tooling": [
+      "bash",
+      "git",
+      "network-tools",
+      "build-tools",
+      "python3"
+    ],
+    "generic_base_tooling_identity": "owned by the exact Paseo child-image package graph; not independent floating version lines"
+  },
+  "schema_version": 1
+}

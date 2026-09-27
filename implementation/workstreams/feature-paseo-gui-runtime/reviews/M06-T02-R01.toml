@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M06-T02"
+attempt = "R01"
+verdict = "green"
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M06-T02-R01-independent-review-2026-09-26.md"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "724d24e6d25d9a405998d8c6f48bbe65318ba4b4"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M06-T02.md"
+blob = "13a49bd857c50b79213561ece74e06a585069d73"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M06-T02.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R01 was performed in a fresh independent tester context that did not author or repair the M06-T02 implementation, result, or worker evidence; code, harness, contract tests, workflow, and CI artifact plus GitHub API run identity were inspected independently."
