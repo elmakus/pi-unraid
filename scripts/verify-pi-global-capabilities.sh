@@ -78,19 +78,18 @@ docker run --rm --user "$uid:$gid" \
   -v "$fixture:/fixture" \
   "$image" python3 - \
     /fixture/home/.pi-unraid/global-capabilities/snapshot.json \
-    /fixture/home/.pi-unraid/global-capabilities/compatibility.json <<'PY'
+    /fixture/home/.pi-unraid/global-capabilities/compatibility.json \
+    /fixture/home/.pi/agent/specpi/tool-wishlist-config.json <<'PY'
 import json,os,stat,sys
-snapshot, compatibility = sys.argv[1:3]
+snapshot, compatibility, wishlist = sys.argv[1:4]
 d=json.load(open(snapshot))
 assert d["packages_field_present"] is True
 assert d["prior_managed_packages"]==[]
+assert json.load(open(wishlist)) == {"schema":1,"mode":"on"}
 assert stat.S_IMODE(os.stat(snapshot).st_mode) == 0o600
 assert stat.S_IMODE(os.stat(compatibility).st_mode) == 0o600
-wishlist = os.path.join(os.path.dirname(os.path.dirname(snapshot)), ".pi/agent/specpi/tool-wishlist-config.json")
+assert stat.S_IMODE(os.stat(wishlist).st_mode) == 0o600
 PY
-test "$(stat -c '%a' "$fixture/home/.pi/agent/specpi/tool-wishlist-config.json")" = "600"
-test "$(cat "$fixture/home/.pi/agent/specpi/tool-wishlist-config.json")" = '{"mode":"on","schema":1}' || \
-  test "$(cat "$fixture/home/.pi/agent/specpi/tool-wishlist-config.json")" = '{"schema":1,"mode":"on"}'
 
 noop_json="$(bash "$repo_root/scripts/configure-pi-global-capabilities.sh" \
   apply "$image" "$fixture/home" "$uid" "$gid")"
