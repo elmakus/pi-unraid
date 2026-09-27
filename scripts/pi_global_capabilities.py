@@ -656,8 +656,18 @@ def apply(home: Path, candidate_id: str, desired: dict[str, dict], expected_pi: 
     if before["in_sync"]:
         return {"action": "apply", "changed": False, **before}
 
+    packages_exact = all(item["installed_exact"] for item in before["packages"].values())
+    compatibility_path = _compatibility_path(home)
+    wishlist_path = _specpi_wishlist_path(home)
+    prior_compatibility_present = compatibility_path.is_file()
+    prior_compatibility = (
+        _load_json(compatibility_path) if prior_compatibility_present else None
+    )
+    prior_wishlist_present = wishlist_path.is_file()
+    prior_wishlist = _load_json(wishlist_path) if prior_wishlist_present else None
+
     write_snapshot(home, candidate_id)
-    _compatibility_path(home).unlink(missing_ok=True)
+    compatibility_path.unlink(missing_ok=True)
     try:
         for key in sorted(MANAGED):
             if not before["packages"][key]["installed_exact"]:
@@ -665,6 +675,18 @@ def apply(home: Path, candidate_id: str, desired: dict[str, dict], expected_pi: 
         _set_specpi_wishlist_mode(home)
         run_compatibility_smoke(home, candidate_id, desired, expected_pi)
     except CapabilityDeliveryError as exc:
+        if packages_exact:
+            if prior_wishlist_present:
+                _atomic_json(wishlist_path, prior_wishlist, mode=0o600)
+            else:
+                wishlist_path.unlink(missing_ok=True)
+            if prior_compatibility_present:
+                _atomic_json(compatibility_path, prior_compatibility, mode=0o600)
+            else:
+                compatibility_path.unlink(missing_ok=True)
+            raise CapabilityDeliveryError(
+                "Pi global capability apply failed; wishlist/compatibility state restored"
+            ) from exc
         try:
             rollback(home, candidate_id, desired, expected_pi)
         except CapabilityDeliveryError as rollback_exc:
