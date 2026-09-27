@@ -1,0 +1,5 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T01"
+class = "human_authority"
+summary = "All automatic staged-readiness work is GREEN. M07-T01 now requires the user's explicit presence/scheduling to start the consolidated P4 Human Acceptance wave; credentials, phone pairing, authenticated host-control proof and manual UX judgment must not be inferred or started without that user action."
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T01-staged-ha-readiness-2026-09-27.md"
