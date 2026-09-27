@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T04"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "1cf7cf3277edda7d9f5a82615f3e27d5f8d6a3c9"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M07-T04.md"
+blob = "3fca9476ac6fd96d7b039571952c0be43c18192f"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T04.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending R01 is reserved for a fresh independent review context. The current execution context materially produced M07-T04 live recovery/update evidence and the exact result subject and therefore must not issue this review verdict."
