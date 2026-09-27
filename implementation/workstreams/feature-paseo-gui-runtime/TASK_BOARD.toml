@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 150
+revision = 151
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -605,8 +605,14 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M08-T01-R01
 
 [[cards]]
 id = "M08-T02"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
 path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M08-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-gui-runtime/results/M08-T02.md"
+commit = "2637c558d473576363b02bfef2bd0081c2b6b476"
+blob = "8679ae122800699ba209dc9c253635db5f1c4098"
