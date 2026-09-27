@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 138
+revision = 139
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -537,7 +537,7 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M07-T03-R01
 
 [[cards]]
 id = "M07-T04"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
