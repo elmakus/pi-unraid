@@ -552,3 +552,12 @@ blob = "3fca9476ac6fd96d7b039571952c0be43c18192f"
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-gui-runtime/reviews/M07-T04-R01.toml"
+
+
+[[cards]]
+id = "M07-T05"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T05.md"
