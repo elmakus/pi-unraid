@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 147
+revision = 148
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -586,7 +586,7 @@ blob = "0ea9060bedeeea90809806476418b395972ac3bc"
 
 [[cards]]
 id = "M08-T01"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
