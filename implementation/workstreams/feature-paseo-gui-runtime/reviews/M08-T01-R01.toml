@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-gui-runtime"
 card_id = "M08-T01"
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "green"
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M08-T01-R01-independent-review-2026-09-27.md"
 
 [subject]
 class = "git_blob"
@@ -17,4 +17,4 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M08-T01.md"
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "Pending R01 is reserved for a fresh independent review context. The current execution context materially produced the M08-T01 final ledger and exact result subject and therefore must not issue this review verdict."
+basis = "R01 was performed in an independent context that did not author or repair the M08-T01 final ledger, execution evidence, result, or exact reviewed subject; exact subject/acceptance/dependencies/authority were inspected and fresh read-only Tower state was independently verified."
