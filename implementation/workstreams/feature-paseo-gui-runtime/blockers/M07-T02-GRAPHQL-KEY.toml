@@ -1,0 +1,5 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T02"
+class = "human_authority"
+summary = "GitHub OAuth/workflow proof and real-phone staged Relay pairing/restart persistence are GREEN. The next required HA input is creation in the native Unraid API Keys UI of a dedicated key named pi-unraid-paseo-host-control with no broad role and exactly INFO:READ_ANY, DOCKER:READ_ANY, DOCKER:UPDATE_ANY. The installed CLI create path is a known-invalid granular-key path on this exact build, so the workflow must not substitute an ADMIN key."
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T02-ha-progress-2026-09-27.md"
