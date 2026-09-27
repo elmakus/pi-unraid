@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
 card_id = "M07-T02"
 class = "human_authority"
-summary = "The staged GraphQL secret is correctly materialized and matches the native Unraid key record, but the key record currently has excess authority (VIEWER role, ACTIVATION_CODE read/update, INFO update). M07-T02 requires the user to edit the native Unraid API key so it has no roles and exactly INFO:READ_ANY, DOCKER:READ_ANY, DOCKER:UPDATE_ANY. No GraphQL mutation was attempted after the authenticated readback failed closed."
-evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T02-graphql-key-diagnosis-2026-09-27.md"
+summary = "The staged GraphQL secret is correctly materialized and authenticated GraphQL readback now succeeds, but after the user-reported correction the native Unraid key record still persists excess authority (VIEWER role, ACTIVATION_CODE read/update, INFO update). M07-T02 remains blocked until the native record has no roles and exactly INFO:READ_ANY, DOCKER:READ_ANY, DOCKER:UPDATE_ANY. No GraphQL mutation has been attempted."
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T02-graphql-permission-correction-check-2026-09-27.md"
