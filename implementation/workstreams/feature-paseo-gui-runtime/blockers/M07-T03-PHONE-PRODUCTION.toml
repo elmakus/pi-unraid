@@ -1,0 +1,5 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T03"
+class = "human_authority"
+summary = "M07-T03 automatic production cutover and technical acceptance are GREEN. Production Paseo is healthy on the exact reviewed candidate; Relay, GitHub/provider auth, browser, full host-control doctor, full environment capability doctor and post-reconcile Pi-provider turn are GREEN; legacy Pi remains healthy and staged Paseo is intentionally stopped. The only remaining required acceptance item is an actual user phone action through the production Relay path. Open the production session titled 'M07-T03 production technical final' in the paired phone UI and send exactly 'PHONE-PROD-GREEN'."
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T03-production-pre-phone-2026-09-27.md"
