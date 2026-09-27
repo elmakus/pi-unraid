@@ -19,6 +19,9 @@ NPM_REL = AGENT_REL / "npm"
 STATE_REL = Path(".pi-unraid/global-capabilities")
 SNAPSHOT_NAME = "snapshot.json"
 COMPATIBILITY_NAME = "compatibility.json"
+SPECPI_STATE_REL = AGENT_REL / "specpi"
+SPECPI_WISHLIST_CONFIG_NAME = "tool-wishlist-config.json"
+SPECPI_WISHLIST_MODE = "on"
 ALLOWED_PACKAGE_KEYS = {"source", "autoload", "extensions", "skills", "prompts", "themes"}
 PINNED_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$")
 
@@ -246,6 +249,37 @@ def _compatibility_path(home: Path) -> Path:
     return home / STATE_REL / COMPATIBILITY_NAME
 
 
+def _specpi_wishlist_path(home: Path) -> Path:
+    return home / SPECPI_STATE_REL / SPECPI_WISHLIST_CONFIG_NAME
+
+
+def _specpi_wishlist_readback(home: Path) -> dict:
+    path = _specpi_wishlist_path(home)
+    if not path.is_file():
+        return {"state": "RED", "mode": "undecided", "reason": "wishlist_config_missing"}
+    try:
+        payload = _load_json(path)
+    except CapabilityDeliveryError:
+        return {"state": "RED", "mode": "unknown", "reason": "wishlist_config_invalid"}
+    if payload == {"schema": 1, "mode": SPECPI_WISHLIST_MODE}:
+        return {"state": "GREEN", "mode": SPECPI_WISHLIST_MODE, "reason": "none"}
+    mode = payload.get("mode") if isinstance(payload, dict) else None
+    return {
+        "state": "RED",
+        "mode": mode if mode in {"on", "off"} else "unknown",
+        "reason": "wishlist_mode_mismatch",
+    }
+
+
+def _set_specpi_wishlist_mode(home: Path, mode: str = SPECPI_WISHLIST_MODE) -> None:
+    if mode not in {"on", "off"}:
+        raise CapabilityDeliveryError("unsupported SpecPi wishlist mode")
+    path = _specpi_wishlist_path(home)
+    path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
+    os.chmod(path.parent, 0o700)
+    _atomic_json(path, {"schema": 1, "mode": mode}, mode=0o600)
+
+
 def _compatibility_payload(
     candidate_id: str,
     desired: dict[str, dict],
@@ -266,6 +300,7 @@ def _compatibility_payload(
             "provider_free_rpc": True,
             "specpi_scope_inactive": True,
             "specpi_improvement_wishlist": True,
+            "specpi_wishlist_collection": SPECPI_WISHLIST_MODE,
             "mcp_command_surface": True,
         },
     }
@@ -306,6 +341,7 @@ def build_status(
     compatibility = _compatibility_readback(
         home, candidate_id, desired, runtime_pi_version
     )
+    wishlist = _specpi_wishlist_readback(home)
 
     for key in sorted(MANAGED):
         want = desired[key]
@@ -359,7 +395,13 @@ def build_status(
         home / AGENT_REL / "mcp.json",
     ]
     config_count = sum(1 for path in known_config_paths if path.is_file())
-    overall = "GREEN" if pi_exact and all(state == "GREEN" for state in states) else "RED"
+    overall = (
+        "GREEN"
+        if pi_exact
+        and wishlist["state"] == "GREEN"
+        and all(state == "GREEN" for state in states)
+        else "RED"
+    )
     snapshot_path = home / STATE_REL / SNAPSHOT_NAME
     return {
         "schema_version": 1,
@@ -384,6 +426,7 @@ def build_status(
             "contents_exposed": False,
         },
         "specpi_scope_policy": "inactive_in_fresh_session",
+        "specpi_wishlist": wishlist,
         "snapshot_available": snapshot_path.is_file(),
         "compatibility": compatibility,
         "summary": f"{overall}: pi_global_capabilities managed={len(packages)}",
@@ -400,11 +443,23 @@ def write_snapshot(home: Path, candidate_id: str) -> bool:
         return False
     settings = _settings(home)
     prior = _managed_entries(settings, rollback_safe=True)
+    wishlist_path = _specpi_wishlist_path(home)
+    prior_wishlist = {"present": wishlist_path.is_file(), "config": None}
+    if wishlist_path.is_file():
+        prior_config = _load_json(wishlist_path)
+        if (
+            not isinstance(prior_config, dict)
+            or prior_config.get("schema") != 1
+            or prior_config.get("mode") not in {"on", "off"}
+        ):
+            raise CapabilityDeliveryError("existing SpecPi wishlist config is unsupported")
+        prior_wishlist["config"] = prior_config
     payload = {
         "schema_version": 1,
         "candidate_id": candidate_id,
         "packages_field_present": "packages" in settings,
         "prior_managed_packages": prior,
+        "prior_specpi_wishlist": prior_wishlist,
     }
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(path.parent, 0o700)
@@ -422,6 +477,25 @@ def _load_snapshot(home: Path, candidate_id: str) -> dict:
         or not isinstance(payload.get("packages_field_present"), bool)
     ):
         raise CapabilityDeliveryError("global capability snapshot is invalid or stale")
+    prior_wishlist = payload.get(
+        "prior_specpi_wishlist",
+        {"present": False, "config": None},
+    )
+    if (
+        not isinstance(prior_wishlist, dict)
+        or not isinstance(prior_wishlist.get("present"), bool)
+        or (
+            prior_wishlist["present"]
+            and (
+                not isinstance(prior_wishlist.get("config"), dict)
+                or prior_wishlist["config"].get("schema") != 1
+                or prior_wishlist["config"].get("mode") not in {"on", "off"}
+            )
+        )
+    ):
+        raise CapabilityDeliveryError("global capability wishlist snapshot is invalid")
+    payload["prior_specpi_wishlist"] = prior_wishlist
+
     seen: set[str] = set()
     for item in payload["prior_managed_packages"]:
         if (
@@ -555,6 +629,8 @@ def run_compatibility_smoke(
     ]
     if not scope_events or any(item.get("statusText") for item in scope_events):
         raise CapabilityDeliveryError("SpecPi scope is not inactive in the fresh compatibility session")
+    if _specpi_wishlist_readback(home)["state"] != "GREEN":
+        raise CapabilityDeliveryError("SpecPi wishlist collection is not enabled")
 
     runtime_pi = _runtime_pi_version(home)
     if runtime_pi != expected_pi:
@@ -586,6 +662,7 @@ def apply(home: Path, candidate_id: str, desired: dict[str, dict], expected_pi: 
         for key in sorted(MANAGED):
             if not before["packages"][key]["installed_exact"]:
                 _run_pi(home, "install", desired[key]["source"])
+        _set_specpi_wishlist_mode(home)
         run_compatibility_smoke(home, candidate_id, desired, expected_pi)
     except CapabilityDeliveryError as exc:
         try:
@@ -649,6 +726,12 @@ def rollback(home: Path, candidate_id: str, desired: dict[str, dict], expected_p
     settings_after_ops = _settings(home)
     restored = _merge_prior_managed(settings_after_ops, snapshot)
     _atomic_json(home / SETTINGS_REL, restored)
+    prior_wishlist = snapshot["prior_specpi_wishlist"]
+    wishlist_path = _specpi_wishlist_path(home)
+    if prior_wishlist["present"]:
+        _atomic_json(wishlist_path, prior_wishlist["config"], mode=0o600)
+    else:
+        wishlist_path.unlink(missing_ok=True)
     _snapshot_path(home).unlink()
     state_dir = home / STATE_REL
     try:
