@@ -1,0 +1,5 @@
+workstream_id = "feature-paseo-gui-runtime"
+card_id = "M07-T02"
+class = "human_authority"
+summary = "All M07-T02 technical and provider/auth checks are GREEN. A real staged Paseo session named 'HA session label check' now exists and completed successfully through pi/codex-lb/gpt-6-sol. The final required user input is to view that real session in the already-paired phone UI and confirm its session label and notification behavior are sensible."
+evidence_path = "implementation/workstreams/feature-paseo-gui-runtime/evidence/M07-T02-provider-session-ui-prep-2026-09-27.md"
