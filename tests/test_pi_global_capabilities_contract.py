@@ -70,9 +70,11 @@ class PiGlobalCapabilitiesContractTests(unittest.TestCase):
             )
             self.assertFalse(before["in_sync"])
             self.assertEqual(before["compatibility"]["reason"], "compatibility_smoke_missing")
+            self.assertEqual(before["specpi_wishlist"]["reason"], "wishlist_config_missing")
             self.assertTrue(all(item["installed_exact"] for item in before["packages"].values()))
             self.assertTrue(all(item["state"] == "RED" for item in before["packages"].values()))
 
+            manager._set_specpi_wishlist_mode(home)
             path = manager._compatibility_path(home)
             path.parent.mkdir(parents=True)
             manager._atomic_json(
@@ -89,6 +91,34 @@ class PiGlobalCapabilitiesContractTests(unittest.TestCase):
             )
             self.assertTrue(after["in_sync"])
             self.assertTrue(after["compatibility"]["verified"])
+            self.assertEqual(
+                after["specpi_wishlist"],
+                {"state": "GREEN", "mode": "on", "reason": "none"},
+            )
+
+    def test_wishlist_off_is_desired_state_drift(self) -> None:
+        desired = self._desired()
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            self._materialize_exact(home, desired)
+            manager._set_specpi_wishlist_mode(home, "off")
+            path = manager._compatibility_path(home)
+            path.parent.mkdir(parents=True)
+            manager._atomic_json(
+                path,
+                manager._compatibility_payload(CANDIDATE["candidate_id"], desired, "0.87.1"),
+                mode=0o600,
+            )
+            status = manager.build_status(
+                home,
+                CANDIDATE["candidate_id"],
+                desired,
+                runtime_pi_version="0.87.1",
+                expected_pi_version="0.87.1",
+            )
+            self.assertFalse(status["in_sync"])
+            self.assertEqual(status["specpi_wishlist"]["state"], "RED")
+            self.assertEqual(status["specpi_wishlist"]["mode"], "off")
 
     def test_unexpected_values_are_fingerprinted_not_exposed(self) -> None:
         desired = self._desired()
