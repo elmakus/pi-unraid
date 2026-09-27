@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-gui-runtime"
-revision = 118
+revision = 119
 
 [execution_ref]
 branch = "feat/paseo-gui-runtime"
@@ -508,4 +508,4 @@ path = "implementation/workstreams/feature-paseo-gui-runtime/cards/M07-T02.md"
 
 [cards.blocker]
 class = "blocker"
-path = "implementation/workstreams/feature-paseo-gui-runtime/blockers/M07-T02-RELAY-PAIR.toml"
+path = "implementation/workstreams/feature-paseo-gui-runtime/blockers/M07-T02-GRAPHQL-KEY.toml"
