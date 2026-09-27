@@ -57,6 +57,7 @@ assert d["action"]=="apply" and d["changed"] and d["in_sync"]
 assert d["compatibility"]=={"reason":"none","state":"GREEN","verified":True}
 assert d["packages"]["specpi"]["desired_version"]=="0.34.0"
 assert d["packages"]["pi_mcp_adapter"]["desired_version"]=="2.37.0"
+assert d["specpi_wishlist"]=={"state":"GREEN","mode":"on","reason":"none"}
 assert d["inventory_observations"]["specpi"]["present"] is True
 assert d["inventory_observations"]["pi_mcp_adapter"]["present"] is True
 '
@@ -85,7 +86,11 @@ assert d["packages_field_present"] is True
 assert d["prior_managed_packages"]==[]
 assert stat.S_IMODE(os.stat(snapshot).st_mode) == 0o600
 assert stat.S_IMODE(os.stat(compatibility).st_mode) == 0o600
+wishlist = os.path.join(os.path.dirname(os.path.dirname(snapshot)), ".pi/agent/specpi/tool-wishlist-config.json")
 PY
+test "$(stat -c '%a' "$fixture/home/.pi/agent/specpi/tool-wishlist-config.json")" = "600"
+test "$(cat "$fixture/home/.pi/agent/specpi/tool-wishlist-config.json")" = '{"mode":"on","schema":1}' || \
+  test "$(cat "$fixture/home/.pi/agent/specpi/tool-wishlist-config.json")" = '{"schema":1,"mode":"on"}'
 
 noop_json="$(bash "$repo_root/scripts/configure-pi-global-capabilities.sh" \
   apply "$image" "$fixture/home" "$uid" "$gid")"
@@ -138,6 +143,7 @@ assert d["packages"]==[{"source":"npm:unrelated-example@1.2.3","autoload":False}
 PY
 test ! -e "$fixture/home/.pi-unraid/global-capabilities/snapshot.json"
 test ! -e "$fixture/home/.pi-unraid/global-capabilities/compatibility.json"
+test ! -e "$fixture/home/.pi/agent/specpi/tool-wishlist-config.json"
 test "$(sha256sum "$fixture/home/.pi/agent/AGENTS.md" | awk '{print $1}')" = "$instruction_hash"
 test "$(sha256sum "$fixture/home/.pi/agent/provider-state.json" | awk '{print $1}')" = "$provider_hash"
 
@@ -156,6 +162,7 @@ import json,sys
 d=json.load(sys.stdin)
 assert d["action"]=="status" and d["in_sync"]
 assert d["specpi_scope_policy"]=="inactive_in_fresh_session"
+assert d["specpi_wishlist"]=={"state":"GREEN","mode":"on","reason":"none"}
 '
 
 printf '{"card":"M04-T03","global_packages":2,"compatibility_smoke":true,"scope_inactive":true,"mcp_surface":true,"status_read_only":true,"rollback_reapply":true,"runtime_uid":%s,"runtime_gid":%s,"result":"GREEN"}\n' "$uid" "$gid"
