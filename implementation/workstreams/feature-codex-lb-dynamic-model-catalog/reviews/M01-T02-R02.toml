@@ -1,0 +1,20 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+card_id = "M01-T02"
+attempt = "R02"
+verdict = "green"
+evidence_path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/evidence/M01-T02-R02-independent-review-2026-09-28.md"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "c8160b88de6ebe506e4328810d325938659934e2"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/results/M01-T02.md"
+blob = "96f78959ab95d6ac18bd7fc71a670383b1481a59"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/cards/M01-T02.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R02 independently inspected the exact frozen corrected result subject, its named implementation/dependency subjects, exact Card acceptance and accepted authority, and independently reran the durable live-RPC harness on Tower; this reviewer did not materially produce or repair the reviewed subject."

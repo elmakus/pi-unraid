@@ -1,0 +1,21 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+plan_revision = "P1"
+planning_cycle = 1
+attempt = "R01"
+verdict = "green"
+evidence_path = "planning/reviews/CODEX_LB_DYNAMIC_MODEL_CATALOG_P1_R01.md"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "570466068e1b6703ed3617d37319a2cf7901804e"
+path = "planning/CODEX_LB_DYNAMIC_MODEL_CATALOG_P1.md"
+blob = "205b203e9e8b70be9c75b542efedd165acf5b3cc"
+
+[acceptance]
+class = "authority"
+path = "requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R01 was performed in a fresh independent review context entered specifically for Premium B / independent Plan Review; this context did not materially author or repair the exact frozen P1 subject."

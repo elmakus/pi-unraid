@@ -1,0 +1,13 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+source_scope_subject = "codex-lb-dynamic-model-catalog@1"
+revision = "R1"
+state = "green"
+completeness_audit = "green"
+premium_a = "satisfied"
+decisions = [
+  { class = "authority", path = "decisions/CLDMC_ADR_001_DYNAMIC_PROVIDER_DISCOVERY.md" },
+]
+
+[requirements]
+class = "authority"
+path = "requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md"

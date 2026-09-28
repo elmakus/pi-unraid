@@ -1,0 +1,9 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+provider = "github"
+repository = "elmakus/pi-unraid"
+dedup_key = "project-workflow:feature-codex-lb-dynamic-model-catalog"
+state = "linked"
+issue_number = 7
+candidate_issue_numbers = []
+readback_state = "verified"
+final_pr = 8

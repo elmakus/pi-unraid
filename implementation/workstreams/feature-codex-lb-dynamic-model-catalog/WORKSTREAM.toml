@@ -1,0 +1,43 @@
+kind = "feature"
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+branch = "feat/codex-lb-dynamic-model-catalog"
+created_from = "fc7a470a7330839cbaf8eaf0c2914323981d6901"
+integration_target = "main"
+authority = [
+  { class = "authority", path = "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md" },
+  { class = "authority", path = "requirements/PASEO_GUI_RUNTIME.md" },
+  { class = "authority", path = "requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md" },
+  { class = "authority", path = "decisions/CLDMC_ADR_001_DYNAMIC_PROVIDER_DISCOVERY.md" },
+]
+
+[intake]
+class = "intake"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/INTAKE.toml"
+
+[tracker]
+class = "tracker"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/TRACKER.toml"
+
+[brainstorm]
+class = "brainstorm"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/BRAINSTORM.toml"
+
+[research]
+class = "research"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/RESEARCH.toml"
+
+[definition]
+class = "definition"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/DEFINITION.toml"
+
+[planning]
+class = "planning"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/PLANNING.toml"
+
+[plan_review]
+class = "plan_review"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/PLAN_REVIEW.toml"
+
+[task_board]
+class = "task_board"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/TASK_BOARD.toml"

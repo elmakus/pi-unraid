@@ -1,0 +1,30 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+state = "consumed"
+origin_role = "brainstorming"
+origin_subject = "codex-lb-dynamic-model-catalog@1"
+return_target = "brainstorming"
+return_reconciliation = "applied"
+return_result = "research/CODEX_LB_DYNAMIC_MODEL_CATALOG_R1.md"
+finding = "Pi 0.87.1 supports dynamic provider discovery; a codex-lb provider extension can fetch /v1/models and update active RPC model snapshots without hardcoded IDs or container restarts."
+limitations = "Long-lived Paseo RPC sessions use a runtime snapshot, so the extension needs a bounded in-session refresh/publish mechanism; model-specific capability metadata must use verified or conservative defaults."
+conflicts = "none"
+
+[[sources]]
+class = "official_upstream"
+status = "checked"
+weight = "primary"
+
+[[sources]]
+class = "project_runtime"
+status = "checked"
+weight = "direct"
+
+[[sources]]
+class = "tracker_discussion"
+status = "not_relevant"
+weight = "supporting"
+
+[[sources]]
+class = "practitioner_community"
+status = "not_relevant"
+weight = "supporting"
