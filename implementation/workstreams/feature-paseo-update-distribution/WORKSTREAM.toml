@@ -19,3 +19,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/TRACKER.tom
 [brainstorm]
 class = "brainstorm"
 path = "implementation/workstreams/feature-paseo-update-distribution/BRAINSTORM.toml"
+
+[research]
+class = "research"
+path = "implementation/workstreams/feature-paseo-update-distribution/RESEARCH.toml"
