@@ -1,5 +1,5 @@
 workstream_id = "issue-paseo-codex-lb-env-propagation"
-revision = 3
+revision = 4
 
 [execution_ref]
 branch = "fix/paseo-codex-lb-runtime-env"
@@ -17,3 +17,7 @@ class = "result"
 path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/results/M01-T01.md"
 commit = "fad7a0289dcf226e542c056bc7b0254f639ed776"
 blob = "2c06f36f79f8e151684e4d5f486ab2f1f90e9f50"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/reviews/M01-T01-R01.toml"
