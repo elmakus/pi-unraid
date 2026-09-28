@@ -12,15 +12,15 @@ workstream_root = "implementation/workstreams"
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: operate a reproducible Pi Coding Agent environment on Unraid with Paseo as the production GUI/runtime, durable project/worktree storage, bounded host control, reproducible global capabilities and rollback/recovery evidence.
-- High-level status: **Phase 1 R3 and the Paseo/Pi GUI runtime scope are complete and integrated into `main`.** Phase 1 was integrated through PR #1; the Paseo/Pi workstream was integrated through PR #4 with all M01-M08 Cards terminal, M08-T01 REQUIRED independent review GREEN and M08-T02 close-readiness GREEN. Production Paseo is accepted on the frozen immutable image. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
+- High-level status: **Phase 1 R3 and the Paseo/Pi GUI runtime scope are complete and integrated into `main`; the Paseo update-distribution workstream is currently active.** Phase 1 was integrated through PR #1; the Paseo/Pi workstream was integrated through PR #4 with all M01-M08 Cards terminal, M08-T01 REQUIRED independent review GREEN and M08-T02 close-readiness GREEN. Production Paseo is accepted on the frozen immutable image. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
 
-## Execution policy
+## Workflow runtime policy
 
-- execution_policy: `chatgpt_only`
+Current Project Workflow V2 routing is harness-neutral. Provider, model, product, session or worker identity does not select or gate Project Workflow roles.
 
-Changing execution policy requires an explicit user decision.
+Independent review is determined by exact-subject semantic independence under the canonical `workflow/REVIEW.md`: a context that materially produced or repaired the exact subject cannot issue its independent verdict; another qualifying context or harness may do so.
 
-The latest user authority supersedes the former Codex/Astra Max planner assignment: the current normal ChatGPT session authored Strategic Planning R3 under `PIB-ADR-006` after the explicit R3 acceptance change in `PIB-ADR-007`. This does not change the project's `chatgpt_only` execution policy. Independent Plan Review must be performed by a fresh normal ChatGPT that did not author the exact R3 plan subject, and downstream Execution Prep, Execution, implementation review and Close remain routed through ChatGPT unless the user explicitly changes project authority later.
+Historical Phase 1 ADRs, plans and evidence that contain runtime-specific role routing or earlier workflow package paths are retained as historical records only. They are not current routing authority for active Project Workflow V2 workstreams.
 
 ## Canonical authority pointers
 
@@ -66,8 +66,9 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
 
 ## Workflow
 
-- Workflow repository: `elmakus/chatgpt-codex-project-workflow`
-- Workflow ref: `main`
+- Workflow repository: `elmakus/project_workflow_v2`
+- Workflow ref: current default branch (`main`)
+- Active managed workstream: `implementation/workstreams/feature-paseo-update-distribution/WORKSTREAM.toml`
 
 ## Context note
 
