@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 7
+revision = 8
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -39,12 +39,16 @@ path = "implementation/workstreams/feature-paseo-update-distribution/cards/M01-T
 [cards.result]
 class = "result"
 path = "implementation/workstreams/feature-paseo-update-distribution/results/M01-T02.md"
-commit = "851e5775a863c24e797b99b091e6ca7c46fb8baa"
-blob = "23221119f90d2852044ca278bdb6f45ab805554f"
+commit = "1a8cf6c639a92e4328abf47479dcba6726869ca6"
+blob = "32c0ed61f9622d77c31d5740cca4d196b43c1b2b"
 
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M01-T02-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M01-T02-R02.toml"
 
 [[jit_triggers]]
 id = "after-M01-T02-materialize-M01-T03"
