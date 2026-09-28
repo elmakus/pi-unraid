@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 71
+revision = 72
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -288,7 +288,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M04
 
 [[cards]]
 id = "M05-T01"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
