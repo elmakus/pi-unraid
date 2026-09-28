@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M04-T01"
 attempt = "R02"
-verdict = "pending"
-evidence_path = ""
+verdict = "red"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/evidence/M04-T01-R02-health-wait-not-integrated-2026-09-28.md"
 
 [subject]
 class = "git_blob"
@@ -16,5 +16,5 @@ class = "task_card"
 path = "implementation/workstreams/feature-paseo-update-distribution/cards/M04-T01.md"
 
 [independence]
-materially_produced_or_repaired_subject = true
-basis = "R02 is frozen for a fresh independent review context. This context issued M04-T01-R01 RED and then materially repaired the exact Tower-validator subject, added regression tests, reran verification and reconciled the new semantic result, so it must not issue the independent R02 verdict."
+materially_produced_or_repaired_subject = false
+basis = "R02 independently reviewed the exact frozen repaired M04-T01 result and implementation subject against the stable Card and authority. This context did not materially produce or repair that frozen subject."
