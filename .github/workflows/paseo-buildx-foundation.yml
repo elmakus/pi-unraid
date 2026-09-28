@@ -1,48 +1,6 @@
 name: Paseo Buildx foundation (cold/warm cache evidence)
 
 on:
-  push:
-    branches:
-      - feat/paseo-gui-runtime
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - compose.yaml
-      - config/paseo-candidate.json
-      - config/environment-capabilities.json
-      - config/pi-agent/**
-      - scripts/paseo_buildx.py
-      - scripts/smoke_paseo_image.py
-      - scripts/verify-compose-foundation.sh
-      - scripts/verify-pi-instruction-plane.sh
-      - scripts/verify-pi-global-capabilities.sh
-      - scripts/configure-paseo-runtime.sh
-      - scripts/configure-pi-instruction-plane.sh
-      - scripts/configure-pi-global-capabilities.sh
-      - scripts/pi_instruction_plane.py
-      - scripts/pi_global_capabilities.py
-      - scripts/paseo-relay-access.sh
-      - scripts/configure_unraid_graphql_credential.py
-      - scripts/unraid_graphql_host_control.py
-      - scripts/unraid_host_safety_guard.py
-      - scripts/unraid_ssh_fallback.py
-      - scripts/unraid_host_control_router.py
-      - scripts/unraid_host_control_doctor.py
-      - scripts/environment_capability_inventory.py
-      - scripts/environment_capability_control.py
-      - tests/test_paseo_buildx_contract.py
-      - tests/test_paseo_candidate_resolver.py
-      - tests/test_paseo_child_image_contract.py
-      - tests/test_paseo_runtime_contract.py
-      - tests/test_paseo_relay_auth_contract.py
-      - tests/test_pi_instruction_plane_contract.py
-      - tests/test_pi_global_capabilities_contract.py
-      - tests/test_unraid_graphql_host_control_contract.py
-      - tests/test_unraid_host_control_guard_contract.py
-      - tests/test_unraid_host_control_doctor_contract.py
-      - tests/test_environment_capability_inventory_contract.py
-      - tests/test_environment_capability_control_contract.py
-      - .github/workflows/paseo-buildx-foundation.yml
   workflow_dispatch:
 
 permissions:

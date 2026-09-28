@@ -1,37 +1,6 @@
 name: Paseo browser/tool/extension compatibility (M06-T02 disposable evidence)
 
 on:
-  push:
-    branches:
-      - feat/paseo-gui-runtime
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - compose.yaml
-      - config/paseo-candidate.json
-      - scripts/paseo_browser_tool_compat.py
-      - scripts/paseo_buildx.py
-      - scripts/smoke_paseo_image.py
-      - scripts/pi_global_capabilities.py
-      - scripts/configure-pi-global-capabilities.sh
-      - tests/test_paseo_browser_tool_compat_contract.py
-      - tests/test_paseo_candidate_resolver.py
-      - tests/test_paseo_child_image_contract.py
-      - tests/test_paseo_runtime_contract.py
-      - tests/test_paseo_relay_auth_contract.py
-      - tests/test_pi_instruction_plane_contract.py
-      - tests/test_pi_global_capabilities_contract.py
-      - tests/test_unraid_graphql_host_control_contract.py
-      - tests/test_unraid_host_control_guard_contract.py
-      - tests/test_unraid_host_control_doctor_contract.py
-      - tests/test_environment_capability_inventory_contract.py
-      - tests/test_environment_capability_control_contract.py
-      - tests/test_paseo_buildx_contract.py
-      - tests/test_paseo_tower_build_contract.py
-      - tests/test_paseo_staged_update_contract.py
-      - tests/test_paseo_staged_home_evidence_contract.py
-      - tests/test_paseo_rpc_workspace_contract.py
-      - .github/workflows/paseo-browser-tool-compat.yml
   workflow_dispatch:
 
 permissions:

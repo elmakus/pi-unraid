@@ -327,7 +327,8 @@ class BrowserToolCompatContractTests(unittest.TestCase):
         self.assertIn("refusing non-disposable scope", text)
         self.assertIn("upload-artifact", text)
         self.assertIn("set -o pipefail", text)
-        self.assertIn("feat/paseo-gui-runtime", text)
+        self.assertIn("workflow_dispatch:", text)
+        self.assertNotIn("feat/paseo-gui-runtime", text)
 
     def test_workflow_proves_disposable_scope_and_production_untouched(self) -> None:
         text = workflow_text()

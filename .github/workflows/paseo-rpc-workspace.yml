@@ -1,40 +1,6 @@
 name: Paseo RPC workspace flow (M06-T01 disposable evidence)
 
 on:
-  push:
-    branches:
-      - feat/paseo-gui-runtime
-    paths:
-      - Dockerfile
-      - .dockerignore
-      - compose.yaml
-      - config/paseo-candidate.json
-      - config/pi-agent/**
-      - scripts/paseo_rpc_workspace_flow.py
-      - scripts/paseo_buildx.py
-      - scripts/smoke_paseo_image.py
-      - scripts/verify-compose-foundation.sh
-      - scripts/verify-pi-instruction-plane.sh
-      - scripts/configure-paseo-runtime.sh
-      - scripts/configure-pi-instruction-plane.sh
-      - scripts/pi_instruction_plane.py
-      - tests/test_paseo_rpc_workspace_contract.py
-      - tests/test_paseo_candidate_resolver.py
-      - tests/test_paseo_child_image_contract.py
-      - tests/test_paseo_runtime_contract.py
-      - tests/test_paseo_relay_auth_contract.py
-      - tests/test_pi_instruction_plane_contract.py
-      - tests/test_pi_global_capabilities_contract.py
-      - tests/test_unraid_graphql_host_control_contract.py
-      - tests/test_unraid_host_control_guard_contract.py
-      - tests/test_unraid_host_control_doctor_contract.py
-      - tests/test_environment_capability_inventory_contract.py
-      - tests/test_environment_capability_control_contract.py
-      - tests/test_paseo_buildx_contract.py
-      - tests/test_paseo_tower_build_contract.py
-      - tests/test_paseo_staged_update_contract.py
-      - tests/test_paseo_staged_home_evidence_contract.py
-      - .github/workflows/paseo-rpc-workspace.yml
   workflow_dispatch:
 
 permissions:

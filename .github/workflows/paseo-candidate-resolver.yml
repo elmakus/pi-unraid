@@ -1,35 +1,86 @@
-name: Paseo candidate resolver
+name: Paseo daily candidate discovery
 
 on:
-  push:
-    branches:
-      - feat/paseo-gui-runtime
-    paths:
-      - scripts/resolve-paseo-candidate.py
-      - tests/test_paseo_candidate_resolver.py
-      - tests/fixtures/paseo-candidate/**
-      - .github/workflows/paseo-candidate-resolver.yml
+  schedule:
+    - cron: "17 3 * * *"
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
+
+concurrency:
+  group: paseo-candidate-${{ github.event.repository.default_branch }}
+  cancel-in-progress: true
 
 jobs:
   resolve:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.13"
-      - name: Fixture tests
-        run: python3 -m unittest tests/test_paseo_candidate_resolver.py -v
-      - name: Live read-only resolution
+      - name: Verify exact resolver predecessor
+        run: |
+          test "$(git rev-parse 1226bef3261b5ba1c3eae8e073a0918e6dbbe001:implementation/workstreams/feature-paseo-update-distribution/results/M02-T03.md)" = "770e5c22b7c1fcd355d6e473e15d8ab2c287028a"
+      - name: Resolver and topology contracts
+        run: |
+          python3 -m unittest tests.test_paseo_candidate_resolver tests.test_paseo_core_compat tests.test_paseo_independent_resolution tests.test_paseo_update_workflow_topology -q
+          python3 -m py_compile scripts/resolve-paseo-candidate.py scripts/paseo_core_compat.py scripts/paseo_independent_resolution.py scripts/paseo_candidate_handoff.py
+      - name: Freeze and classify candidate once
+        id: prepare
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: |
-          python3 scripts/resolve-paseo-candidate.py --check > candidate-live.json
-          python3 scripts/resolve-paseo-candidate.py --validate candidate-live.json
-          echo "CANDIDATE_JSON_BEGIN"
-          cat candidate-live.json
-          echo "CANDIDATE_JSON_END"
+          python3 scripts/resolve-paseo-candidate.py --output "$RUNNER_TEMP/candidate.json"
+          python3 scripts/resolve-paseo-candidate.py --validate "$RUNNER_TEMP/candidate.json"
+          python3 scripts/paseo_candidate_handoff.py \
+            --candidate "$RUNNER_TEMP/candidate.json" \
+            --accepted config/paseo-candidate.json \
+            --stage-dir "$RUNNER_TEMP/paseo-candidate-handoff" \
+            --source-sha "$GITHUB_SHA" \
+            --source-ref "$GITHUB_REF" \
+            --github-output "$GITHUB_OUTPUT"
+      - name: Preserve changed candidate artifact
+        if: steps.prepare.outputs.status == 'update'
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-candidate-handoff
+          path: ${{ runner.temp }}/paseo-candidate-handoff/
+          if-no-files-found: error
+      - name: Create or refresh candidate pull request
+        if: steps.prepare.outputs.status == 'update'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          CANDIDATE_ID: ${{ steps.prepare.outputs.candidate_id }}
+          CANDIDATE_BRANCH: automation/paseo-update-candidate
+        run: |
+          set -euo pipefail
+          remote_sha="$(git ls-remote --heads origin "refs/heads/$CANDIDATE_BRANCH" | cut -f1)"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch --force-create "$CANDIDATE_BRANCH" "$GITHUB_SHA"
+          mkdir -p candidates/paseo-update
+          cp "$RUNNER_TEMP/paseo-candidate-handoff/candidate.json" candidates/paseo-update/candidate.json
+          cp "$RUNNER_TEMP/paseo-candidate-handoff/evidence.json" candidates/paseo-update/evidence.json
+          git add candidates/paseo-update/candidate.json candidates/paseo-update/evidence.json
+          git commit -m "chore: stage Paseo update candidate $CANDIDATE_ID"
+          if [ -n "$remote_sha" ]; then
+            git push --force-with-lease="refs/heads/$CANDIDATE_BRANCH:$remote_sha" origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          else
+            git push origin "HEAD:refs/heads/$CANDIDATE_BRANCH"
+          fi
+          digest="${CANDIDATE_ID#sha256:}"
+          title="chore: Paseo update candidate ${digest:0:12}"
+          body="Automated exact candidate handoff from default-branch discovery. Candidate: $CANDIDATE_ID. Source: $GITHUB_SHA. Build, GHCR publication, Tower validation and production promotion remain downstream gates."
+          pr_number="$(gh pr list --head "$CANDIDATE_BRANCH" --base "$DEFAULT_BRANCH" --state open --json number --jq '.[0].number // empty')"
+          if [ -n "$pr_number" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$pr_number" -f title="$title" -f body="$body" >/dev/null
+          else
+            gh pr create --base "$DEFAULT_BRANCH" --head "$CANDIDATE_BRANCH" --title "$title" --body "$body"
+          fi
