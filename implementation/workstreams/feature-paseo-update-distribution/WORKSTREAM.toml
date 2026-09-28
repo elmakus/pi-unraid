@@ -6,6 +6,10 @@ integration_target = "main"
 authority = [
   { class = "authority", path = "requirements/PASEO_GUI_RUNTIME.md" },
   { class = "authority", path = "decisions/ADR_PGR_004_UPDATE_BUILD_ROLLBACK.md" },
+  { class = "authority", path = "requirements/PASEO_UPDATE_DISTRIBUTION.md" },
+  { class = "authority", path = "decisions/ADR_PUD_001_DISTRIBUTION_AND_CUTOVER.md" },
+  { class = "authority", path = "decisions/ADR_PUD_002_MANAGED_COMPONENT_LIFECYCLE.md" },
+  { class = "authority", path = "decisions/ADR_PUD_003_ROLLBACK_SAFE_PROMOTION.md" },
 ]
 
 [intake]
@@ -23,3 +27,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/BRAINSTORM.
 [research]
 class = "research"
 path = "implementation/workstreams/feature-paseo-update-distribution/RESEARCH.toml"
+
+[definition]
+class = "definition"
+path = "implementation/workstreams/feature-paseo-update-distribution/DEFINITION.toml"
