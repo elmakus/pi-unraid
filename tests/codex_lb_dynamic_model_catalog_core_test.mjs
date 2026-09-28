@@ -4,7 +4,6 @@ import os from "node:os";
 import path from "node:path";
 
 import {
-  CATALOG_STORE_SCHEMA_VERSION,
   conservativeModelDefinition,
   createDynamicProviderConfig,
   definitionsFromCatalog,
@@ -154,7 +153,6 @@ assert.ok(published[0].persist.models.every((model) => model.provider === "codex
 assert.ok(published[0].persist.models.every((model) => model.api === "openai-responses"));
 assert.equal(published[0].persist.checkedAt, 123456);
 assert.equal(published[0].persist.etag, '"catalog-v1"');
-assert.equal(published[0].persist.schemaVersion, CATALOG_STORE_SCHEMA_VERSION);
 
 const stored = published[0].persist;
 let networkCalled = false;
@@ -183,37 +181,21 @@ assert.equal(offlineBeta.thinkingLevelMap.low, "low");
 assert.equal(offlineBeta.thinkingLevelMap.medium, null);
 assert.equal(networkCalled, false);
 
-let legacyIfNoneMatch;
-let legacyPublish;
-const legacyStored = {
-  ...stored,
-  schemaVersion: undefined,
-  models: stored.models.map((model) => ({ ...model, reasoning: false, thinkingLevelMap: undefined })),
-};
-const legacyUpgradeProvider = createDynamicProviderConfig(bootstrap, {
+let validatorSeen;
+const fullRefreshProvider = createDynamicProviderConfig(bootstrap, {
   fetchFn: async (_url, options) => {
-    legacyIfNoneMatch = options.headers["if-none-match"];
-    return new Response(JSON.stringify({
-      data: [{
-        id: "beta",
-        supports_reasoning: true,
-        metadata: { supported_reasoning_levels: [{ effort: "low" }] },
-      }],
-    }), { status: 200, headers: { etag: '"catalog-v2"' } });
+    validatorSeen = options.headers["if-none-match"];
+    return new Response(JSON.stringify({ data: [{ id: "beta" }] }), { status: 200 });
   },
 });
-const legacyUpgraded = await legacyUpgradeProvider.refreshModels({
+await fullRefreshProvider.refreshModels({
   allowNetwork: true,
   credential: { type: "api_key", key: "fixture-secret-never-log" },
   signal: new AbortController().signal,
-  stored: legacyStored,
-  async publish(value) { legacyPublish = value; return true; },
+  stored,
+  async publish() { return true; },
 });
-assert.equal(legacyIfNoneMatch, undefined);
-assert.equal(legacyUpgraded[0].reasoning, true);
-assert.equal(legacyUpgraded[0].thinkingLevelMap.low, "low");
-assert.equal(legacyPublish.persist.schemaVersion, CATALOG_STORE_SCHEMA_VERSION);
-assert.equal(legacyPublish.persist.etag, '"catalog-v2"');
+assert.equal(validatorSeen, undefined);
 
 async function assertFailurePreservesStored(testProvider, pattern) {
   let publishCount = 0;

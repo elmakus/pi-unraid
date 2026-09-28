@@ -22,6 +22,7 @@
 - When `supported_reasoning_levels` is explicitly supplied, Pi `thinkingLevelMap` must represent exactly those known levels and mark omitted levels unsupported.
 - Explicit positive context/output limits may be adopted; missing or unusable fields retain conservative defaults.
 - Persisted last-known-good catalog entries must retain the sanitized verified capability metadata so offline/cache-only startup does not silently downgrade a previously verified reasoning model.
+- Network catalog refreshes fetch the small Codex-LB catalog body directly rather than relying on conditional ETag reuse, so capability-metadata changes cannot remain hidden behind an older persisted body.
 - If verified reasoning metadata is absent, the model remains conservative `reasoning=false`.
 
 ## Real LLM test policy
