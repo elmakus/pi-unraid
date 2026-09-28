@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R7`
+Revision: `R8`
 Status: `active`
 
 ## Problem / goal
@@ -106,3 +106,36 @@ The 12-lane Research wave found the selected direction feasible and refined the 
 2. Whether to allow one project/plugin `Update + Verify` action in Unraid if exact crash-safe binding to the stock DockerMan Update button cannot be proven on the installed version.
 3. Operator settings for the dedicated Codex-LB smoke key: exact cheap model, quota/token/window limits and Tower-local secret placement.
 4. Policy for a future desired release with an irreversible migration that cannot pass `A -> C -> A`.
+
+
+## Owner decisions after Research — R8
+
+Accepted:
+- Freshness tie-break for incomparable Pareto-maximal candidates: minimize aggregate lag from newest available versions across managed independently versioned components, with equal component weight; use a deterministic technical tie-break only after equal aggregate lag.
+- Preserve the stock Unraid Docker Update gesture when it can be bound safely to the pre-armed transaction guard; if target-version proof fails, allow one project/plugin `Update + Verify` action in Unraid rather than patching DockerMan or adding a dashboard.
+- The user will provide a dedicated Codex-LB smoke API key. Key creation/model forcing/quota policy is operator-owned in Codex-LB; the update system only consumes the supplied dedicated secret.
+- A desired future release that cannot pass rollback-safe `A -> C -> A` state proof is held out of the ordinary update channel and requires a separate explicit maintenance procedure.
+
+### Compatibility complexity reduction — proposed classification
+
+Do not put every versioned tool into combinatorial compatibility search. Use separate classes:
+
+1. **Compatibility-search group** — solver may test alternate version combinations/backtrack:
+   - Paseo + Pi + SpecPi + pi-mcp-adapter as the primary runtime/API/plugin compatibility group.
+   - Node is not an independent choice; it is derived from the exact Paseo image and only checked against required runtime floors/constraints.
+
+2. **Derived pair** — no independent combinatorial search:
+   - Playwright + Chromium. Chromium is exactly derived from Playwright. Treat the pair as one version decision unit and run its browser smoke. If the newest Playwright pair fails, hold back that pair without recombining unrelated runtime components.
+
+3. **Independent smoke-only components** — no cross-component combination search:
+   - GitHub CLI;
+   - Docker CLI;
+   - Docker Compose.
+   Resolve newest stable independently, install/build, run a small deterministic functional/version probe, and hold back only the failing component when necessary. Do not enumerate combinations with Paseo/Pi/SpecPi/MCP.
+
+4. **Non-independent / repository-owned environment surfaces** — no upstream compatibility solver:
+   - generic base tooling package graph;
+   - Pi instruction plane / managed repository tree.
+   These are validated as part of the image/runtime contract when repository/base-image changes occur, not independently version-searched by the update resolver.
+
+Every final candidate still receives one whole-environment integration smoke. The classification controls only which components participate in compatibility backtracking/version-combination search; it does not remove basic verification from the final candidate.
