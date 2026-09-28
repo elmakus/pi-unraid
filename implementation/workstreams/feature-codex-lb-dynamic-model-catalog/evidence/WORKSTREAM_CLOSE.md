@@ -35,3 +35,7 @@ Accepted scope is already durably integrated on default branch. The only remaini
 All accepted `CLDMC-REQ-001..012` are reconciled GREEN. The dynamic Codex-LB catalog is repository-managed, uses the existing `openai-responses`/Codex-LB auth boundary, refreshes long-lived Pi/Paseo sessions without hardcoded model IDs, preserves last-known-good state on discovery failure, and does not automatically change the selected model. The separate Paseo update/distribution workstream remains outside this scope.
 
 No production, HOME, container, image, Codex-LB service, OAuth/account-routing or update/distribution state was changed by Close integration bookkeeping.
+
+## Tracker closure readback
+
+The explicit post-integration close of Issue #7 returned success. Exact readback reports `CLOSED` with reason `COMPLETED`. No retry was performed. This reconciles the earlier missing automatic-close effect after durable accepted integration.

@@ -12,7 +12,7 @@ workstream_root = "implementation/workstreams"
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: operate a reproducible Pi Coding Agent environment on Unraid with Paseo as the production GUI/runtime, durable project/worktree storage, bounded host control, reproducible global capabilities and rollback/recovery evidence.
-- High-level status: **Phase 1 R3 and the Paseo/Pi GUI runtime scope are complete and integrated into `main`.** Phase 1 was integrated through PR #1; the Paseo/Pi workstream was integrated through PR #4 with all M01-M08 Cards terminal, M08-T01 REQUIRED independent review GREEN and M08-T02 close-readiness GREEN. Production Paseo is accepted on the frozen immutable image. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
+- High-level status: **Phase 1 R3, the Paseo/Pi GUI runtime scope and the dynamic Codex-LB model-catalog scope are complete and integrated into `main`.** Phase 1 was integrated through PR #1; Paseo/Pi through PR #4; dynamic Codex-LB model discovery through PR #8 with all five Cards terminal and final M03-T01 REQUIRED independent review GREEN. Production Paseo remains accepted on the frozen immutable image with the instruction plane in sync, dynamic Codex-LB provider state and bounded rollback anchors. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
 
 ## Execution policy
 
@@ -29,6 +29,11 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
 - Paseo/Pi final production evidence: `implementation/workstreams/feature-paseo-gui-runtime/results/M08-T01.md`
 - Paseo/Pi final independent review: `implementation/workstreams/feature-paseo-gui-runtime/reviews/M08-T01-R01.toml`
 - Paseo/Pi close-readiness result: `implementation/workstreams/feature-paseo-gui-runtime/results/M08-T02.md`
+- Completed dynamic Codex-LB model catalog workstream: `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/WORKSTREAM.toml`
+- Dynamic catalog requirements: `requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md`
+- Dynamic catalog final scope reconciliation: `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/results/M03-T01.md`
+- Dynamic catalog final independent review: `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/reviews/M03-T01-R01.toml`
+- Dynamic catalog post-merge closure evidence: `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/evidence/WORKSTREAM_CLOSE.md`
 - Approved requirements: `requirements/PI_UNRAID_BOOTSTRAP.md`
 - Accepted decisions:
   - `decisions/PIB_ADR_001_PHASE1_SCOPE.md`
@@ -64,6 +69,17 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
 - Residual risk: scheduled Appdata Backup is degraded through the 2026-09-27 failed run; bounded production and legacy-retirement archives remain verified
 - Downstream boundary: Orchestration Runtime live integration and future PWv2.1 Pi-extension packaging/bootstrap are separate scopes and are not authorized by this completed workstream
 
+## Codex-LB dynamic model catalog state
+
+- Workstream: `feature-codex-lb-dynamic-model-catalog`
+- Requirements: `requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md`, approved Definition R1
+- Accepted plan: `planning/CODEX_LB_DYNAMIC_MODEL_CATALOG_P1.md`
+- Implementation state: all five Cards terminal; final M03-T01 scope reconciliation REQUIRED review `M03-T01-R01` GREEN
+- Integrated source: PR #8, exact source head `e6efe241a95f97a2483748638d74532a55e30a57`, merge commit `0ac278a29ed2decf93f4bf71d4585d712b2ddf14`
+- Production state: instruction plane remains in sync; Codex-LB provider configuration is dynamic; persisted Codex-LB auth shadow is absent; bounded instruction/provider/auth rollback anchors remain available
+- Tracker state: Issue #7 is CLOSED / COMPLETED after explicit post-merge reconciliation; the merged PR body contained literal escaped newline characters, so GitHub did not register its intended automatic closing linkage
+- Scope boundary: no automatic model selection/failover was introduced, and the separate `feature-paseo-update-distribution` workstream was not modified by this feature scope
+
 ## Workflow
 
 - Workflow repository: `elmakus/chatgpt-codex-project-workflow`
@@ -75,4 +91,4 @@ This file is a high-level integrated-project router/index, not live execution st
 
 The historical brainstorming record originally accumulated on `main` before the branch-first managed-change contract was applied. The managed Phase 1 continuation was recovered onto `feat/pi-unraid-bootstrap`, completed under the namespaced workstream package and merged back to `main` through PR #1; GitHub then automatically removed the source branch. Terminal recovery truth now lives in the target-side namespaced workstream package.
 
-Master Plan R3 is approved after independent Plan Review GREEN. Phase 1 has no remaining implementation, review or Close obligation. The later Paseo/Pi GUI runtime scope was executed as its own V2 workstream, integrated through PR #4, and its target-side recovery package now lives under `implementation/workstreams/feature-paseo-gui-runtime/`. The original source branch was automatically removed after merge and must not be recreated for bookkeeping.
+Master Plan R3 is approved after independent Plan Review GREEN. Phase 1 has no remaining implementation, review or Close obligation. The later Paseo/Pi GUI runtime scope was executed as its own V2 workstream and integrated through PR #4. The dynamic Codex-LB model-catalog scope was subsequently executed as `feature-codex-lb-dynamic-model-catalog`, integrated through PR #8, and its target-side recovery package now lives under `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/`. Both completed scopes are recoverable from `main`; their automatically removed source branches must not be recreated for bookkeeping.
