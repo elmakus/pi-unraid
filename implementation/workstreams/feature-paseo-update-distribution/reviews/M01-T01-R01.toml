@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M01-T01"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "d9d6ad81fa2e8b7c531948696da8607440541fed"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M01-T01.md"
+blob = "4c513cf4617f3b1bfcb4b244039edad603fd93c2"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M01-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R01 is reserved for a fresh independent reviewer that did not materially produce, reconcile, or repair the exact M01-T01 result subject; the producing context must not issue this verdict."
