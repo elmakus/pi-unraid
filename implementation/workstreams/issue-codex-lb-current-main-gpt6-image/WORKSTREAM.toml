@@ -1,0 +1,21 @@
+kind = "issue"
+workstream_id = "issue-codex-lb-current-main-gpt6-image"
+branch = "fix/codex-lb-current-main-gpt6-image"
+created_from = "4fdeaedbe65aac20fbe7f32e1b7d4ef4adb5e08a"
+integration_target = "main"
+authority = [
+  { class = "authority", path = "requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md" },
+  { class = "authority", path = "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md" },
+]
+
+[intake]
+class = "intake"
+path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/INTAKE.toml"
+
+[research]
+class = "research"
+path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/RESEARCH.toml"
+
+[task_board]
+class = "task_board"
+path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/TASK_BOARD.toml"

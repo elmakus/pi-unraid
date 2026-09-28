@@ -1,0 +1,30 @@
+workstream_id = "issue-codex-lb-current-main-gpt6-image"
+state = "consumed"
+origin_role = "intake"
+origin_subject = "repair:codex-lb-current-main-plus-gpt6-128k:v1"
+return_target = "intake"
+return_reconciliation = "applied"
+return_result = "research/CODEX_LB_CURRENT_MAIN_GPT6_IMAGE_R1.md"
+finding = "Current Soju06/codex-lb main is f8ffbac2099a113fba54dfd8d77774f5bca80ffa, 42 commits after v1.25.0-beta.9. The existing GPT-6 128K patch is bounded to app/modules/proxy/api.py plus tests/spec contribution, and can be applied directly to current upstream main. The safe production artifact is an immutable SHA-addressed fork image built from exact current upstream main plus the GPT-6 patch, rather than mislabeling it as another beta.9 private release."
+limitations = "This change advances the production Codex-LB baseline from v1.25.0-beta.9 to current upstream main, so it intentionally includes upstream changes after beta.9. No automatic future tracking of mutable main is authorized; production must pin the exact built image tag and retain rollback to the currently running private beta.9 image."
+conflicts = "none"
+
+[[sources]]
+class = "official_upstream"
+status = "checked"
+weight = "primary"
+
+[[sources]]
+class = "project_runtime"
+status = "checked"
+weight = "direct"
+
+[[sources]]
+class = "tracker_discussion"
+status = "not_relevant"
+weight = "supporting"
+
+[[sources]]
+class = "practitioner_community"
+status = "not_relevant"
+weight = "supporting"
