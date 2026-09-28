@@ -38,6 +38,21 @@ def run_instruction(repo: Path, image: str, action: str, home: Path) -> dict[str
     )
 
 
+def run_auth_reconciler(repo: Path, image: str, action: str, home: Path) -> dict[str, object]:
+    script = repo / "scripts/reconcile-codex-lb-auth-shadow.py"
+    output = run(
+        "docker", "run", "--rm", "--user", "99:100",
+        "-v", f"{home}:/home/paseo",
+        "-v", f"{script}:/reconcile-codex-lb-auth-shadow.py:ro",
+        image,
+        "python3", "/reconcile-codex-lb-auth-shadow.py",
+        action,
+        "/home/paseo/.pi/agent/auth.json",
+        "/home/paseo/.pi-unraid/codex-lb-auth-shadow",
+    )
+    return json.loads(output)
+
+
 def run_reconciler(repo: Path, image: str, action: str, home: Path) -> dict[str, object]:
     script = repo / "scripts/reconcile-codex-lb-provider-config.py"
     output = run(
@@ -87,9 +102,11 @@ def instruction_fingerprint(source: Path, home: Path) -> str:
     digest = hashlib.sha256()
     current = home / ".pi-unraid/instruction-plane/current.json"
     digest.update(b"current\0")
-    digest.update(current.read_bytes() if current.is_file() else b"<absent>")
-    digest.update(b"\0previous\0")
-    digest.update(b"1" if (home / ".pi-unraid/instruction-plane/previous").exists() else b"0")
+    if current.is_file():
+        canonical = json.dumps(load_json(current), sort_keys=True, separators=(",", ":")).encode()
+        digest.update(canonical)
+    else:
+        digest.update(b"<absent>")
     agent = home / ".pi/agent"
     for rel in managed_relpaths(source, home):
         target = agent / rel
@@ -104,6 +121,24 @@ def instruction_fingerprint(source: Path, home: Path) -> str:
             digest.update(b"absent")
         digest.update(b"\0")
     return digest.hexdigest()
+
+
+def instruction_details(source: Path, home: Path) -> dict[str, object]:
+    current = home / ".pi-unraid/instruction-plane/current.json"
+    agent = home / ".pi/agent"
+    files: dict[str, object] = {}
+    for rel in managed_relpaths(source, home):
+        target = agent / rel
+        files[rel.as_posix()] = {
+            "present": target.is_file() and not target.is_symlink(),
+            "mode": stat.S_IMODE(target.stat().st_mode) if target.is_file() else None,
+            "sha256": sha256_file(target),
+        }
+    return {
+        "current": load_json(current) if current.is_file() else None,
+        "previous_exists": (home / ".pi-unraid/instruction-plane/previous").exists(),
+        "files": files,
+    }
 
 
 def provider_semantics_without_models(doc: dict[str, object]) -> dict[str, object]:
@@ -230,7 +265,9 @@ def production_state(home: Path, source: Path) -> dict[str, object]:
         "started_at": state.get("StartedAt") if isinstance(state, dict) else None,
         "restart_count": raw.get("RestartCount"),
         "models_sha256": sha256_file(home / ".pi/agent/models.json"),
+        "auth_sha256": sha256_file(home / ".pi/agent/auth.json"),
         "instruction_fingerprint": instruction_fingerprint(source, home),
+        "instruction_previous_exists": (home / ".pi-unraid/instruction-plane/previous").exists(),
     }
 
 
@@ -377,14 +414,23 @@ def main() -> int:
         os.chown(stage / ".pi-unraid", 99, 100)
         subprocess.check_call(["cp", "-a", str(prod / ".pi/agent"), str(stage / ".pi/agent")])
         prod_ip = prod / ".pi-unraid/instruction-plane"
+        stage_ip = stage / ".pi-unraid/instruction-plane"
         if prod_ip.is_dir():
-            subprocess.check_call(["cp", "-a", str(prod_ip), str(stage / ".pi-unraid/instruction-plane")])
+            stage_ip.mkdir(parents=True, exist_ok=True)
+            os.chown(stage_ip, 99, 100)
+            current = prod_ip / "current.json"
+            if current.is_file():
+                subprocess.check_call(["cp", "-a", str(current), str(stage_ip / "current.json")])
 
         models_file = stage / ".pi/agent/models.json"
+        auth_file = stage / ".pi/agent/auth.json"
         provider_state = stage / ".pi-unraid/codex-lb-provider-config"
+        auth_state = stage / ".pi-unraid/codex-lb-auth-shadow"
         before_models_raw = models_file.read_bytes()
+        before_auth_raw = auth_file.read_bytes() if auth_file.is_file() else None
         before_doc = load_json(models_file)
         before_instruction = instruction_fingerprint(source, stage)
+        before_instruction_details = instruction_details(source, stage)
         if sha256_file(models_file) != before_prod["models_sha256"]:
             raise AssertionError("staged provider config is not an exact production clone")
         if before_instruction != before_prod["instruction_fingerprint"]:
@@ -392,11 +438,14 @@ def main() -> int:
 
         summary["staged_before"] = {
             "models_sha256": sha256_file(models_file),
+            "auth_sha256": sha256_file(auth_file),
             "instruction_fingerprint": before_instruction,
             "provider": provider_details(before_doc),
+            "auth_status": run_auth_reconciler(repo, args.image, "status", stage),
         }
 
         applied = False
+        auth_migrated = False
         migrated = False
         try:
             summary["instruction_apply"] = run_instruction(repo, args.image, "apply", stage)
@@ -404,6 +453,12 @@ def main() -> int:
             summary["instruction_status"] = run_instruction(repo, args.image, "status", stage)
             if summary["instruction_status"].get("in_sync") is not True:
                 raise AssertionError("staged instruction plane is not in sync after apply")
+
+            summary["auth_shadow_migrate"] = run_auth_reconciler(repo, args.image, "migrate", stage)
+            auth_migrated = bool(summary["auth_shadow_migrate"].get("changed"))
+            summary["auth_shadow_status"] = run_auth_reconciler(repo, args.image, "status", stage)
+            if summary["auth_shadow_status"].get("shadow_present") is not False:
+                raise AssertionError("stale codex-lb auth shadow remains in staged HOME")
 
             bootstrap_details = provider_details(before_doc)
             base_url = bootstrap_details["baseUrl"]
@@ -462,21 +517,47 @@ def main() -> int:
                 rpc.close()
             if migrated:
                 summary["provider_rollback"] = run_reconciler(repo, args.image, "rollback", stage)
+            if auth_migrated:
+                summary["auth_shadow_rollback"] = run_auth_reconciler(repo, args.image, "rollback", stage)
             if applied:
                 summary["instruction_rollback"] = run_instruction(repo, args.image, "rollback", stage)
 
         after_instruction = instruction_fingerprint(source, stage)
+        after_instruction_details = instruction_details(source, stage)
         summary["staged_after_rollback"] = {
             "models_sha256": sha256_file(models_file),
+            "auth_sha256": sha256_file(auth_file),
             "instruction_fingerprint": after_instruction,
             "provider_rollback_state_exists": provider_state.exists(),
+            "auth_rollback_state_exists": auth_state.exists(),
         }
         if models_file.read_bytes() != before_models_raw:
             raise AssertionError("provider rollback did not restore exact pre-change bytes")
+        if before_auth_raw is None:
+            if auth_file.exists():
+                raise AssertionError("auth rollback created a file that was absent before staging")
+        elif auth_file.read_bytes() != before_auth_raw:
+            raise AssertionError("auth rollback did not restore exact pre-change bytes")
         if after_instruction != before_instruction:
-            raise AssertionError("instruction rollback did not restore exact pre-change surface")
+            keys = sorted(set(before_instruction_details["files"]) | set(after_instruction_details["files"]))
+            diffs = {
+                key: {
+                    "before": before_instruction_details["files"].get(key),
+                    "after": after_instruction_details["files"].get(key),
+                }
+                for key in keys
+                if before_instruction_details["files"].get(key) != after_instruction_details["files"].get(key)
+            }
+            manifest_changed = before_instruction_details["current"] != after_instruction_details["current"]
+            previous_changed = before_instruction_details["previous_exists"] != after_instruction_details["previous_exists"]
+            raise AssertionError(
+                f"instruction rollback mismatch: manifest_changed={manifest_changed}, "
+                f"previous_changed={previous_changed}, file_diffs={diffs}"
+            )
         if provider_state.exists():
             raise AssertionError("provider rollback state remains after rollback")
+        if auth_state.exists():
+            raise AssertionError("auth rollback state remains after rollback")
 
     after_prod = production_state(prod, source)
     summary["production_after"] = after_prod
