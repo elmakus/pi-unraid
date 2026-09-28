@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 15
+revision = 16
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -82,3 +82,9 @@ status = "in_progress"
 [cards.contract]
 class = "task_card"
 path = "implementation/workstreams/feature-paseo-update-distribution/cards/M02-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M02-T01.md"
+commit = "75b2c7a77037b31857ff2b5adb2f50ae248c2e76"
+blob = "d6fd5e657466e068cb0aa78461d892c33672cab9"
