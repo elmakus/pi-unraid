@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bounded disposable Tower validation for one immutable Paseo candidate digest."""
 from __future__ import annotations
-import argparse, json, re, shutil, subprocess, tempfile
+import argparse, json, os, re, shutil, subprocess, tempfile
 from pathlib import Path
 
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -53,7 +53,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100, network
             path.mkdir()
             path.chmod(0o700)
             try:
-                path.chown(uid, gid)
+                os.chown(path, uid, gid)
             except PermissionError as exc:
                 raise ValidationBlocked("cannot establish validator UID:GID ownership") from exc
         if run(["docker","network","inspect",network], check=False).returncode:
