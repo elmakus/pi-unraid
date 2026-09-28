@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Bounded disposable Tower validation for one immutable Paseo candidate digest."""
 from __future__ import annotations
-import argparse, json, os, re, shutil, subprocess, tempfile
+import argparse, json, os, re, shutil, subprocess, tempfile, time
 from pathlib import Path
 
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -27,6 +27,28 @@ def immutable_ref(repository, digest):
     if not DIGEST.fullmatch(digest):
         raise ValidationError("exact sha256 OCI digest required")
     return f"{repository}@{digest}"
+
+def wait_for_runtime(name, *, timeout=90, poll_interval=2):
+    deadline = time.monotonic() + timeout
+    while True:
+        obj = json.loads(run(["docker","inspect",name]).stdout)[0]
+        state = obj.get("State") or {}
+        health = state.get("Health")
+        if health is not None:
+            status = health.get("Status")
+            if status == "healthy":
+                return obj
+            if status == "unhealthy":
+                raise ValidationError("candidate runtime health: unhealthy")
+        else:
+            status = state.get("Status")
+            if status == "running":
+                return obj
+            if status in ("exited","dead"):
+                raise ValidationError(f"candidate runtime state: {status}")
+        if time.monotonic() >= deadline:
+            raise ValidationError(f"candidate runtime readiness timeout: {status}")
+        time.sleep(poll_interval)
 
 def validate(*, repository, digest, output, state_root, uid=99, gid=100, network="pi-unraid-validator"):
     ref = immutable_ref(repository, digest)
