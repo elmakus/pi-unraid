@@ -1,5 +1,5 @@
 workstream_id = "feature-codex-lb-dynamic-model-catalog"
-revision = 15
+revision = 16
 
 [execution_ref]
 branch = "feat/codex-lb-dynamic-model-catalog"
@@ -69,6 +69,10 @@ class = "result"
 path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/results/M02-T01.md"
 commit = "ad5ca62c34673ca4ea088a56c15e2697b0eb3c96"
 blob = "4f10d2754a9722e0f38b69676fef5eacd8f0fb0f"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/reviews/M02-T01-R01.toml"
 
 [[jit_triggers]]
 id = "after-M01-T01-materialize-M01-T02"
