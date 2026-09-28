@@ -7,9 +7,11 @@ later build path. Resolution only stages a candidate: it never reconciles
 current desired state, never runs doctor checks, never builds images, and
 never promotes/cuts over production. Default output is read-only stdout;
 --output stages to a separate path and can never overwrite the accepted
-candidate. Independent-component compatibility lag remains authority-bound;
-the core Paseo/Pi pair may backtrack only within the exact bounded compatibility
-search and never below the accepted baseline.
+candidate. The core Paseo/Pi pair may backtrack only within the exact bounded
+compatibility search and never below the accepted baseline. Non-core managed
+components resolve independently: exact proven install/build unavailability may
+fall back only to the previous accepted identity, while transient/BLOCKED state
+never becomes durable incompatibility.
 """
 from __future__ import annotations
 
@@ -24,6 +26,15 @@ from paseo_core_compat import (
     load_nogood_cache,
     search_core_pairs,
     semver_tuple,
+)
+from paseo_independent_resolution import (
+    IndependentResolutionBlocked,
+    IndependentResolutionError,
+    candidate_resolution_status,
+    independent_component_names,
+    load_independent_outcomes,
+    resolve_independent_components,
+    select_freshest_complete_candidate,
 )
 
 SHA40=re.compile(r"^[0-9a-f]{40}$")
@@ -708,10 +719,9 @@ def check_compatibility(comps):
     for n in ("specpi","pi_mcp_adapter"):
         if comps[n].get("live_compatibility_smoke_required") is not True:
             raise ResolutionError(f"incompatible coordinated set: {n} lacks the required compatibility-smoke gate")
-    peer=str(comps["pi_mcp_adapter"].get("declared_pi_ai_peer",""))
-    marker=f"^0.{comps['pi']['version'].split('.')[1]}.0"
-    if marker not in peer:
-        raise ResolutionError(f"incompatible coordinated set: pi-mcp-adapter does not declare Pi {comps['pi']['version']} compatibility")
+    # Non-core extension compatibility is intentionally not a core Paseo/Pi gate.
+    # Install/build-unavailable extension identities are handled independently by
+    # M02-T03 fallback; extension-specific runtime functionality is diagnosed later.
 
 def authority_record_path(record):
     if not isinstance(record,str) or not record:
@@ -780,10 +790,21 @@ def facts_digest(components, proposals, observed_latest):
                    sort_keys=True,separators=(",",":")).encode()
     return "sha256:"+hashlib.sha256(raw).hexdigest()
 
-def evaluate_exceptions(components, proposals, observed_latest, approved, automatic_lag=None):
+def evaluate_exceptions(
+    components,
+    proposals,
+    observed_latest,
+    approved,
+    automatic_lag=None,
+    automatic_lag_allowed=None,
+):
     automatic_lag=set(automatic_lag or ())
-    if not automatic_lag.issubset({"paseo","pi"}):
-        raise ResolutionError("automatic compatibility lag is limited to the core Paseo/Pi pair")
+    allowed=set(automatic_lag_allowed or {"paseo","pi"})
+    if not automatic_lag.issubset(allowed):
+        raise ResolutionError(
+            "automatic compatibility lag contains a component outside the accepted "
+            "core/independent fallback policy"
+        )
     if not isinstance(proposals,list): raise ResolutionError("compatibility proposals must be a list")
     if not isinstance(observed_latest,dict): raise ResolutionError("observed latest facts must be an object")
     for comp, ver in observed_latest.items():
@@ -850,10 +871,20 @@ def evaluate_exceptions(components, proposals, observed_latest, approved, automa
                         "recheck":{"status":status,"observed_latest":latest_seen,"facts_digest":digest}})
     return records
 
+def select_complete_candidate(candidates, version_domains):
+    try:
+        return select_freshest_complete_candidate(candidates, version_domains)
+    except IndependentResolutionError as e:
+        raise ResolutionError(str(e)) from e
+
+
 def assemble_candidate(components, proposals, observed_latest, approved, definition, automatic_lag=None):
     check_capability_set(components, definition)
     comps=typed_discovery_freeze(components,definition)
-    records=evaluate_exceptions(comps, proposals, observed_latest, approved, automatic_lag)
+    automatic_allowed={"paseo","pi"} | independent_component_names(definition)
+    records=evaluate_exceptions(
+        comps, proposals, observed_latest, approved, automatic_lag, automatic_allowed
+    )
     for name in sorted(comps):
         comps[name]["stable_line"]=copy.deepcopy(STABLE_LINES[name])
     c={"schema_version":1,"policy":{"channel":"latest-stable","build_must_not_reresolve":True,
@@ -1002,6 +1033,7 @@ def resolve_live(
     core_gate_definition_hash=None,
     core_platform_fingerprint="linux-amd64",
     core_search_budget=None,
+    independent_outcomes=None,
 ):
     approved=approved or []
     if definition is None:
@@ -1018,6 +1050,29 @@ def resolve_live(
             budget=core_search_budget,
             pi_node_range=live_metadata.get("pi",{}).get("node_range"),
         )
+
+    accepted=load_json_file(accepted_candidate_path(definition))
+    accepted_components=accepted.get("components")
+    if not isinstance(accepted_components,dict):
+        raise ResolutionError("accepted candidate lacks component baseline")
+    approved_independent={
+        entry["component"] for entry in approved
+        if entry["component"] in independent_component_names(definition)
+    }
+    try:
+        components,independent_lag,_=resolve_independent_components(
+            components,
+            accepted_components,
+            definition,
+            outcomes=independent_outcomes,
+            skip_components=approved_independent,
+        )
+    except IndependentResolutionBlocked:
+        raise
+    except IndependentResolutionError as e:
+        raise ResolutionError(str(e)) from e
+    automatic_lag |= independent_lag
+
     for entry in approved:
         comp,pin=entry["component"],entry["pinned_version"]
         if pin==observed[comp]: continue
@@ -1165,6 +1220,10 @@ def main():
         help="exact relevant runtime/toolchain/platform fingerprint for core nogood matching")
     ap.add_argument("--core-search-budget",type=int,
         help="optional operational pair-attempt bound; exhaustion is RESOLUTION_INCOMPLETE")
+    ap.add_argument("--independent-outcomes",type=Path,
+        help="optional exact-identity non-core install/build outcomes; proven unavailable may fall back to the previous accepted identity while BLOCKED remains non-poisoning")
+    ap.add_argument("--resolution-status",action="store_true",
+        help="print only no_op/update for the resolved exact candidate instead of the candidate payload")
     a=ap.parse_args()
     try:
         definition=load_json_file(a.inventory)
@@ -1176,24 +1235,30 @@ def main():
             c=facts_to_candidate(load_json_file(a.fixture), definition, approved)
         else:
             core_nogoods=load_nogood_cache(a.core_nogood_cache)
+            independent_outcomes=load_independent_outcomes(a.independent_outcomes)
             c=resolve_live(
                 definition,approved,core_nogoods=core_nogoods,
                 core_gate_definition_hash=a.core_gate_definition_hash,
                 core_platform_fingerprint=a.core_platform_fingerprint,
                 core_search_budget=a.core_search_budget,
+                independent_outcomes=independent_outcomes,
             )
-        if a.check or a.output is None: print(json.dumps(c,sort_keys=True,indent=2))
+        if a.resolution_status:
+            accepted=load_json_file(accepted_candidate_path(definition))
+            print(candidate_resolution_status(c,accepted))
+        elif a.check or a.output is None: print(json.dumps(c,sort_keys=True,indent=2))
         else:
             out=guard_output_path(a.output, definition, [
                 ("fixture",a.fixture),("inventory",a.inventory),
                 ("approved-exceptions",a.approved_exceptions),
                 ("core-nogood-cache",a.core_nogood_cache),
+                ("independent-outcomes",a.independent_outcomes),
             ])
             atomic_write(out,c); print(c["candidate_id"])
         return 0
-    except CoreResolutionBlocked as e:
+    except (CoreResolutionBlocked,IndependentResolutionBlocked) as e:
         print(f"candidate resolution BLOCKED: {e}",file=os.sys.stderr); return 3
-    except (CoreResolutionError,ResolutionError,KeyError,TypeError,ValueError,OSError,AttributeError) as e:
+    except (CoreResolutionError,IndependentResolutionError,ResolutionError,KeyError,TypeError,ValueError,OSError,AttributeError) as e:
         print(f"candidate resolution failed: {e}",file=os.sys.stderr); return 2
 
 if __name__=="__main__": raise SystemExit(main())

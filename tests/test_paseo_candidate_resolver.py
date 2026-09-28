@@ -265,10 +265,6 @@ class CoordinatedResolverTests(unittest.TestCase):
             facts=self.base_facts(); facts["components"]["node"]["version"]="22.24.0"
             r=self.invoke("--fixture",str(self.write(td,facts,"drift.json")),"--check")
             self.assertNotEqual(r.returncode,0); self.assertIn("incompatible",r.stderr.lower())
-        with tempfile.TemporaryDirectory() as td:
-            facts=self.base_facts(); facts["components"]["pi_mcp_adapter"]["declared_pi_ai_peer"]="^0.80.0"
-            r=self.invoke("--fixture",str(self.write(td,facts,"peer.json")),"--check")
-            self.assertNotEqual(r.returncode,0); self.assertIn("incompatible",r.stderr.lower())
 
     def test_unapproved_exception_and_lag_fail_closed(self):
         with tempfile.TemporaryDirectory() as td:
