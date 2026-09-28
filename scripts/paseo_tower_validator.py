@@ -91,10 +91,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100, network
             if forbidden in joined:
                 raise ValidationError(f"forbidden production authority: {forbidden}")
         run(argv)
-        obj = json.loads(run(["docker","inspect",name]).stdout)[0]
+        obj = wait_for_runtime(name)
         cfg, host, mounts = obj.get("Config") or {}, obj.get("HostConfig") or {}, obj.get("Mounts") or []
-        state = obj.get("State") or {}
-        health = (state.get("Health") or {}).get("Status") or state.get("Status")
         if cfg.get("User") != f"{uid}:{gid}":
             raise ValidationError("UID:GID mismatch")
         if host.get("NetworkMode") != network:
@@ -106,8 +104,6 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100, network
         env = "\n".join(cfg.get("Env") or []).upper()
         if any(x in env for x in ("UNRAID_API","CODEX_LB_SECRET","GITHUB_TOKEN")):
             raise ValidationError("production/host secret exposed")
-        if health not in ("healthy","running"):
-            raise ValidationError(f"candidate runtime state: {health}")
         result["checks"].update({"uid_gid":"PASS","mount_isolation":"PASS","network_isolation":"PASS","secret_isolation":"PASS","runtime":"PASS"})
         result["status"] = "PASS"
     except ValidationBlocked as exc:
