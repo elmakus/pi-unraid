@@ -8,10 +8,11 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-POLICY = json.loads((ROOT / "config" / "llm-test-policy.json").read_text())
+POLICY = json.loads((ROOT / "config" / "pi-agent" / "policies" / "llm-test-policy.json").read_text())
 DOC = (ROOT / "docs" / "LLM_TEST_POLICY.md").read_text()
+GLOBAL_DOC = (ROOT / "config" / "pi-agent" / "policies" / "LLM_TEST_POLICY.md").read_text()
 AGENTS = (ROOT / "config" / "pi-agent" / "AGENTS.md").read_text()
-RUNNER = ROOT / "scripts" / "run-llm-test.sh"
+RUNNER = ROOT / "config" / "pi-agent" / "bin" / "run-llm-test.sh"
 
 
 class LlmTestPolicyContractTests(unittest.TestCase):
@@ -24,7 +25,8 @@ class LlmTestPolicyContractTests(unittest.TestCase):
         self.assertIn("gpt-6-astra", profile["forbidden_models"])
 
     def test_human_and_agent_instructions_are_explicit(self) -> None:
-        for text in (DOC, AGENTS):
+        self.assertEqual(DOC, GLOBAL_DOC)
+        for text in (DOC, GLOBAL_DOC, AGENTS):
             self.assertIn("gpt-6-luna", text)
             self.assertIn("low", text)
             self.assertIn("gpt-6-astra", text)

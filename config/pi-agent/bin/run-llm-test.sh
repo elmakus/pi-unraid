@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-policy="$repo_root/config/llm-test-policy.json"
+agent_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+policy="$agent_root/policies/llm-test-policy.json"
 
 [ "$#" -ge 1 ] && [ "$#" -le 2 ] || {
   echo "usage: $(basename "$0") PROMPT [CWD]" >&2
