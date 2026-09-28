@@ -29,7 +29,7 @@ class TowerValidatorTests(unittest.TestCase):
                     obj={"Config":{"User":"99:100","Env":["TZ=Europe/Zurich","HOME=/home/paseo"]},"HostConfig":{"NetworkMode":"pi-unraid-validator"},"Mounts":mounts,"State":{"Status":"running"}}
                     return mock.Mock(returncode=0,stdout=json.dumps([obj]),stderr="")
                 return mock.Mock(returncode=0,stdout="",stderr="")
-            with mock.patch.object(V.shutil,"which",return_value="/usr/bin/docker"), mock.patch.object(V.Path,"chown"), mock.patch.object(V,"run",side_effect=fake) as runner:
+            with mock.patch.object(V.shutil,"which",return_value="/usr/bin/docker"), mock.patch.object(V.os,"chown"), mock.patch.object(V,"run",side_effect=fake) as runner:
                 out=Path(td)/"result.json"
                 result=V.validate(repository="ghcr.io/elmakus/pi-unraid",digest=digest,output=out,state_root=Path(td))
             self.assertEqual(result["status"],"PASS")
