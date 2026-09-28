@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 83
+revision = 84
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -386,3 +386,7 @@ blob = "c1fb95f943341ba6fc7d6338b5b58038dea65667"
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M06-T01-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M06-T01-R02.toml"
