@@ -1,7 +1,7 @@
 # Brainstorming — Codex-LB dynamic model catalog
 
 Scope subject: `codex-lb-dynamic-model-catalog@1`
-Status: ready for Definition
+Status: promoted to Definition
 
 ## Accepted target
 
