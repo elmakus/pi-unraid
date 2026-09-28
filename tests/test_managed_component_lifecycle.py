@@ -14,6 +14,7 @@ assert spec.loader is not None
 spec.loader.exec_module(lifecycle)
 BASE = json.loads((ROOT / "config" / "environment-capabilities.json").read_text())
 
+
 class ManagedComponentLifecycleTests(unittest.TestCase):
     def _spec(self, component_id: str, managed_class: str) -> dict:
         common = {
@@ -40,7 +41,10 @@ class ManagedComponentLifecycleTests(unittest.TestCase):
         for managed_class in ("pi_extension", "developer_tool", "derived_component"):
             with self.subTest(managed_class=managed_class):
                 component_id = f"test_{managed_class}"
-                added = lifecycle.add_component(BASE, self._spec(component_id, managed_class))
+                added = lifecycle.add_component(
+                    BASE,
+                    self._spec(component_id, managed_class),
+                )
                 self.assertIn(component_id, {x["id"] for x in added["capabilities"]})
                 removed = lifecycle.remove_component(added, component_id)
                 self.assertEqual(removed, BASE)
@@ -60,6 +64,52 @@ class ManagedComponentLifecycleTests(unittest.TestCase):
         with self.assertRaises(lifecycle.LifecycleError):
             lifecycle.add_component(BASE, missing_owner)
 
+    def test_rejects_unsupported_or_contradictory_metadata(self) -> None:
+        extension_with_unsupported_source = self._spec(
+            "bad_extension_metadata",
+            "pi_extension",
+        )
+        extension_with_unsupported_source["source_kind"] = "pip"
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.add_component(BASE, extension_with_unsupported_source)
+
+        unexpected_field = self._spec("bad_extra_metadata", "derived_component")
+        unexpected_field["source_kind"] = "derived"
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.add_component(BASE, unexpected_field)
+
+        unsupported_developer_source = self._spec(
+            "bad_developer_source",
+            "developer_tool",
+        )
+        unsupported_developer_source["source_kind"] = "oci"
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.add_component(BASE, unsupported_developer_source)
+
+        contradictory_developer_metadata = self._spec(
+            "bad_developer_pair",
+            "developer_tool",
+        )
+        contradictory_developer_metadata["source_kind"] = "npm"
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.add_component(BASE, contradictory_developer_metadata)
+
+    def test_invalid_metadata_does_not_replace_inventory(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "inventory.json"
+            path.write_text(json.dumps(BASE, indent=2) + "\n")
+            before = path.read_bytes()
+            bad = self._spec("bad_persisted_metadata", "pi_extension")
+            bad["installation_class"] = "apt_package"
+
+            with self.assertRaises(lifecycle.LifecycleError):
+                lifecycle.apply(path, "add", spec=bad)
+
+            self.assertEqual(path.read_bytes(), before)
+            self.assertFalse(
+                path.with_name(path.name + ".managed-component.tmp").exists()
+            )
+
     def test_rejects_credential_bearing_spec(self) -> None:
         bad = self._spec("bad_secret", "pi_extension")
         bad["secret"] = "do-not-store"
@@ -75,8 +125,18 @@ class ManagedComponentLifecycleTests(unittest.TestCase):
             path = Path(td) / "inventory.json"
             path.write_text(json.dumps(BASE, indent=2) + "\n")
             before = path.read_bytes()
-            first = lifecycle.apply(path, "add", spec=self._spec("dryrun_tool", "developer_tool"), dry_run=True)
-            second = lifecycle.apply(path, "add", spec=self._spec("dryrun_tool", "developer_tool"), dry_run=True)
+            first = lifecycle.apply(
+                path,
+                "add",
+                spec=self._spec("dryrun_tool", "developer_tool"),
+                dry_run=True,
+            )
+            second = lifecycle.apply(
+                path,
+                "add",
+                spec=self._spec("dryrun_tool", "developer_tool"),
+                dry_run=True,
+            )
             self.assertEqual(first, second)
             self.assertEqual(path.read_bytes(), before)
 
@@ -85,20 +145,39 @@ class ManagedComponentLifecycleTests(unittest.TestCase):
             path = Path(td) / "inventory.json"
             path.write_text(json.dumps(BASE, indent=2) + "\n")
             before = path.read_bytes()
-            updated = lifecycle.add_component(BASE, self._spec("atomic_tool", "developer_tool"))
-            with mock.patch.object(lifecycle.os, "replace", side_effect=OSError("injected replace failure")):
+            updated = lifecycle.add_component(
+                BASE,
+                self._spec("atomic_tool", "developer_tool"),
+            )
+            with mock.patch.object(
+                lifecycle.os,
+                "replace",
+                side_effect=OSError("injected replace failure"),
+            ):
                 with self.assertRaises(OSError):
                     lifecycle._atomic_write(path, updated)
             self.assertEqual(path.read_bytes(), before)
-            self.assertFalse(path.with_name(path.name + ".managed-component.tmp").exists())
+            self.assertFalse(
+                path.with_name(path.name + ".managed-component.tmp").exists()
+            )
 
     def test_existing_registry_intent_classes_are_valid(self) -> None:
         lifecycle.inventory.validate_definition(BASE)
         snapshot = lifecycle.snapshot(BASE)
         by_id = {item["id"]: item for item in snapshot["components"]}
-        self.assertEqual(by_id["specpi"]["installation_intent"]["class"], "pi_extension")
-        self.assertEqual(by_id["github_cli"]["installation_intent"]["class"], "developer_tool")
-        self.assertEqual(by_id["chromium"]["installation_intent"]["class"], "derived_component")
+        self.assertEqual(
+            by_id["specpi"]["installation_intent"]["class"],
+            "pi_extension",
+        )
+        self.assertEqual(
+            by_id["github_cli"]["installation_intent"]["class"],
+            "developer_tool",
+        )
+        self.assertEqual(
+            by_id["chromium"]["installation_intent"]["class"],
+            "derived_component",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
