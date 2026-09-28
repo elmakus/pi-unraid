@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 8
+revision = 9
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -30,7 +30,7 @@ condition = "The exact M01-T01 registry-schema result is required before the man
 
 [[cards]]
 id = "M01-T02"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
@@ -53,5 +53,5 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M01
 [[jit_triggers]]
 id = "after-M01-T02-materialize-M01-T03"
 after_card = "M01-T02"
-state = "waiting"
+state = "satisfied"
 condition = "The exact M01-T02 managed add/remove helper result is required before installed-vs-registered drift enforcement and managed round-trip readback can bind the final helper/install-intent surfaces."
