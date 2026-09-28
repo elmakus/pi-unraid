@@ -54,7 +54,7 @@ def wait_for_stock_update(guard_path: Path, binding: str,
             running=None
         if running == g['candidate_digest']:
             return run_transaction(guard_path,binding,probes,restore_predecessor,verify_recovery)
-        if running not in (None,g['predecessor_digest']):
+        if running not in (None,g['previous_digest']):
             raise DockerManBindingError('ambiguous running digest during stock update')
         if n + 1 < attempts:
             sleeper(interval)
