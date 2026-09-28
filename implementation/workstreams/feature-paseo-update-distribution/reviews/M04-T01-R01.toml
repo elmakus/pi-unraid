@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M04-T01"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "61e4054ac3d5fde79f98442ae09575ba84a49bcc"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M04-T01.md"
+blob = "4bf3c8266f2409ba0cc870bace0e294178129316"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M04-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = true
+basis = "R01 is frozen for a fresh independent review context. This execution context materialized M04-T01, implemented and repaired the exact Tower-validator subject, produced its evidence and reconciled the exact result, so it must not issue the independent verdict."
