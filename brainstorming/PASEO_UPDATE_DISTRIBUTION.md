@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R5`
+Revision: `R6`
 Status: `active`
 
 ## Problem / goal
@@ -24,6 +24,7 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 9. Do not add a separate candidate changelog/UX surface for now; keep the user-facing flow minimal.
 10. If multiple accepted candidates accumulate before the user updates, expose only the newest accepted compatible candidate as the normal update target; intermediate accepted candidates do not need sequential installation.
 11. Major versions do not receive a special product policy. They follow the same compatibility/build/test gates as any other version; avoid a separate major-version approval mechanism unless later evidence proves it necessary.
+12. A user-triggered production update is one bounded transaction: if the newly started candidate fails its immediate post-update acceptance window, automatically roll back to the previous known-good image so Paseo is restored without requiring a second manual action. This automatic rollback applies only to the immediate update transaction; failures that appear after the candidate has already passed acceptance must not trigger an autonomous later rollback/restart.
 
 ## Current component set
 
@@ -62,7 +63,16 @@ The resolver must maximize freshness subject to compatibility and acceptance con
 
 ### Post-update verification direction
 
-After the user clicks Update and the new container starts, perform a bounded mechanical health/readback check. Do not automatically trigger another production restart merely because that post-update check fails. The exact user-visible failure/rollback mechanism remains open for Research because it depends on what Unraid DockerMan can expose cleanly without adding a custom operational UI.
+After the user clicks Update, treat cutover plus immediate verification as one bounded transaction:
+
+- start the new accepted image;
+- run a short deterministic post-update acceptance window (health/readback and required runtime probes);
+- GREEN -> commit the new runtime as the active known-good version;
+- RED before acceptance -> automatically restore the immediately previous known-good image and verify that Paseo is healthy again.
+
+This is recovery from the update the user explicitly initiated, not unattended update scheduling. Automatic rollback authority ends once the new candidate has passed its immediate acceptance window. A later unrelated runtime failure must not autonomously restart or roll back production, because agent work may already be active.
+
+Research must determine the cleanest Unraid-native/bounded-host realization and how rollback status is exposed without adding a custom operational dashboard.
 
 ## Research trigger
 
