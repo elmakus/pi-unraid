@@ -45,6 +45,15 @@ class PromotionTests(unittest.TestCase):
             with self.assertRaises(P.PromotionError):
                 P.promote(repository="ghcr.io/elmakus/pi-unraid",alias="accepted",candidate_digest=B,expected_current_digest=A,output_path=Path(td)/"o",final_gate=gate,guard=guard)
 
+
+    def test_production_rejects_forged_guard_before_registry_access(self):
+        gate={"status":"GREEN","candidate_digest":B,"guard_binding_digest":D}
+        guard={"state":"armed","candidate_digest":B,"previous_digest":A,"rollback_digest":A,"config_digest":C,"binding_digest":D}
+        with tempfile.TemporaryDirectory() as td, mock.patch.object(P,"inspect_digest") as inspect, mock.patch.object(P,"run_checked") as run:
+            with self.assertRaisesRegex(P.PromotionError,"validated transaction guard readback"):
+                P.promote(repository="ghcr.io/elmakus/pi-unraid",alias="accepted",candidate_digest=B,expected_current_digest=A,output_path=Path(td)/"o",final_gate=gate,guard=guard)
+            inspect.assert_not_called(); run.assert_not_called()
+
     def test_production_rejects_outside_tower_writer_domain(self):
         gate={"status":"GREEN","candidate_digest":B,"guard_binding_digest":D}
         guard={"state":"armed","candidate_digest":B,"previous_digest":A,"rollback_digest":A,"config_digest":D,"binding_digest":D}
