@@ -1,0 +1,12 @@
+{
+  "schema": 1,
+  "real_llm_tests": {
+    "provider": "codex-lb",
+    "model": "gpt-6-luna",
+    "thinking": "low",
+    "forbidden_models": [
+      "gpt-6-astra"
+    ],
+    "fallback_allowed": false
+  }
+}

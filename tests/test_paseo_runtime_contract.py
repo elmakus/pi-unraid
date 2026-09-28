@@ -18,10 +18,8 @@ class PaseoRuntimeContractTests(unittest.TestCase):
             "/home/pi",
             "PI_UID",
             "PI_GID",
-            "PI_CODEX_LB_",
             "pi-unraid-service",
-            "codex_lb_client",
-            "host.docker.internal",
+            "CODEX_LB_API_KEY",
         ):
             self.assertNotIn(forbidden, COMPOSE)
 
@@ -29,6 +27,11 @@ class PaseoRuntimeContractTests(unittest.TestCase):
         for target in ("/home/paseo", "/projects", "/worktrees"):
             self.assertIn(f"target: {target}", COMPOSE)
         self.assertEqual(COMPOSE.count("create_host_path: false"), 3)
+        self.assertIn("PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb", COMPOSE)
+        self.assertIn('"host.docker.internal:host-gateway"', COMPOSE)
+        self.assertIn("source: codex_lb_client", COMPOSE)
+        self.assertIn("target: pi-unraid-codex-lb", COMPOSE)
+        self.assertIn('file: "${PI_CODEX_LB_SECRET_SOURCE:-/mnt/user/appdata/pi-unraid/secrets/codex-lb.env}"', COMPOSE)
         self.assertIn("/mnt/user/appdata/pi-unraid/paseo-home", COMPOSE)
         self.assertIn("/mnt/user/projects", COMPOSE)
         self.assertIn("/mnt/user/pi-worktrees", COMPOSE)
@@ -53,7 +56,6 @@ class PaseoRuntimeContractTests(unittest.TestCase):
     def test_no_raw_port_or_entrypoint_override(self) -> None:
         self.assertNotRegex(COMPOSE, r"(?m)^\s+ports:\s*$")
         self.assertNotRegex(COMPOSE, r"(?m)^\s+(entrypoint|command|healthcheck):\s*")
-        self.assertNotRegex(COMPOSE, r"(?m)^\s+secrets:\s*$")
 
     def test_worktree_root_has_reproducible_native_config_path(self) -> None:
         self.assertIn(

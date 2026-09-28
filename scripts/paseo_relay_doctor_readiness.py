@@ -227,8 +227,14 @@ def check_runtime_network_shape(root: Path) -> tuple[dict, list[str]]:
     if ports_block:
         violations.append("compose must not publish public ports")
     secrets_block = re.search(r"(?m)^\s+secrets:\s*$", compose) is not None
-    if secrets_block:
-        violations.append("compose must not carry a secrets block")
+    dedicated_secret = all(marker in compose for marker in (
+        "source: codex_lb_client",
+        "target: pi-unraid-codex-lb",
+        'file: "${PI_CODEX_LB_SECRET_SOURCE:-/mnt/user/appdata/pi-unraid/secrets/codex-lb.env}"',
+        "PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb",
+    ))
+    if secrets_block and not dedicated_secret:
+        violations.append("compose secrets must be limited to the dedicated Codex-LB file-backed secret")
     leaked_env = [token for token in SECRET_ENV_TOKENS if token in compose]
     if leaked_env:
         violations.append(f"secret environment wiring in compose: {leaked_env}")
@@ -250,6 +256,7 @@ def check_runtime_network_shape(root: Path) -> tuple[dict, list[str]]:
         "public_ports": 0 if not ports_block else None,
         "ports_published": ports_block,
         "secret_env_wiring": leaked_env,
+        "dedicated_codex_lb_secret": dedicated_secret,
         "forbidden_keys": forbidden,
     }
     return report, violations

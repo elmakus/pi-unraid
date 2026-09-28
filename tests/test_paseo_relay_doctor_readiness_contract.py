@@ -162,11 +162,12 @@ class RelayDoctorReadinessContractTests(unittest.TestCase):
                        '"daemon_identity_persisted":true'):
             self.assertIn(marker, SMOKE)
 
-    def test_zero_public_ports_and_no_secrets_block(self) -> None:
+    def test_zero_public_ports_and_only_bounded_codex_lb_secret(self) -> None:
         report, violations = FLOW.check_runtime_network_shape(ROOT)
         self.assertEqual(violations, [])
         self.assertEqual(report["public_ports"], 0)
         self.assertIs(report["ports_published"], False)
+        self.assertIs(report["dedicated_codex_lb_secret"], True)
         self.assertNotIn("ports:", COMPOSE)
 
     def test_no_secret_env_or_forbidden_runtime_keys(self) -> None:
