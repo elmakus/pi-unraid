@@ -20,8 +20,9 @@ export default function (pi: ExtensionAPI) {
     },
   });
 
-  pi.on("session_start", (_event, ctx) => {
+  pi.on("session_start", async (_event, ctx) => {
     refresher.start(ctx);
+    await refresher.refreshNow(ctx);
   });
 
   pi.on("session_shutdown", () => {
