@@ -9,10 +9,11 @@
   <Overview>Production Paseo/Pi runtime. The mutable accepted tag is update signaling only; immutable OCI digest is deployment authority.</Overview>
   <Category>Other:</Category>
   <WebUI>http://[IP]:[PORT:6767]</WebUI>
-  <ExtraParams>--restart=unless-stopped --user=99:100 --shm-size=1g</ExtraParams>
+  <ExtraParams>--restart=unless-stopped --user=99:100 --shm-size=1g --add-host=host.docker.internal:host-gateway</ExtraParams>
   <Config Name="Paseo home" Target="/home/paseo" Default="/mnt/user/appdata/pi-unraid/paseo-home" Mode="rw" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/pi-unraid/paseo-home</Config>
   <Config Name="Projects" Target="/projects" Default="/mnt/user/projects" Mode="rw" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/projects</Config>
   <Config Name="Worktrees" Target="/worktrees" Default="/mnt/user/pi-worktrees" Mode="rw" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/pi-worktrees</Config>
+  <Config Name="UID 99 passwd overlay" Target="/etc/passwd" Default="/mnt/user/appdata/pi-unraid/m07-t02/passwd" Mode="ro" Type="Path" Display="advanced" Required="true" Mask="false">/mnt/user/appdata/pi-unraid/m07-t02/passwd</Config>
   <Config Name="Codex-LB secret" Target="/run/secrets/pi-unraid-codex-lb" Default="/mnt/user/appdata/pi-unraid/secrets/codex-lb.env" Mode="ro" Type="Path" Display="advanced" Required="true" Mask="true">/mnt/user/appdata/pi-unraid/secrets/codex-lb.env</Config>
   <Config Name="Unraid API key" Target="/run/secrets/unraid-api.key" Default="/mnt/user/appdata/pi-unraid/secrets/unraid-api.key" Mode="ro" Type="Path" Display="advanced" Required="true" Mask="true">/mnt/user/appdata/pi-unraid/secrets/unraid-api.key</Config>
   <Config Name="PASEO_LISTEN" Target="PASEO_LISTEN" Default="0.0.0.0:6767" Mode="" Type="Variable" Display="advanced" Required="true" Mask="false">0.0.0.0:6767</Config>
