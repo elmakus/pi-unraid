@@ -7,6 +7,7 @@ from pathlib import Path
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 REPOSITORY = re.compile(r"^ghcr\.io/[a-z0-9][a-z0-9._/-]*$")
 SCHEMA_VERSION = 1
+CODEX_SECRET_TARGET = "/run/secrets/pi-unraid-codex-lb"
 
 class ValidationError(RuntimeError): pass
 class ValidationBlocked(RuntimeError): pass
@@ -50,7 +51,7 @@ def wait_for_runtime(name, *, timeout=90, poll_interval=2):
             raise ValidationError(f"candidate runtime readiness timeout: {status}")
         time.sleep(poll_interval)
 
-def validate(*, repository, digest, output, state_root, uid=99, gid=100, network="pi-unraid-validator"):
+def validate(*, repository, digest, output, state_root, uid=99, gid=100, network="pi-unraid-validator", codex_secret=None, codex_base_url=None, codex_model=None):
     ref = immutable_ref(repository, digest)
     name = f"paseo-validator-{digest[7:19]}"
     result = {"schema_version": SCHEMA_VERSION, "status": "BLOCKED", "immutable_ref": ref, "digest": digest, "checks": {}}
@@ -85,9 +86,16 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100, network
                 "--read-only","--tmpfs","/tmp:rw,nosuid,nodev","--tmpfs","/run:rw,nosuid,nodev",
                 "-e","TZ=Europe/Zurich","-e","HOME=/home/paseo","-e","PASEO_HOME=/home/paseo/.paseo",
                 "-v",f"{work/'home'}:/home/paseo:rw","-v",f"{work/'projects'}:/projects:rw",
-                "-v",f"{work/'worktrees'}:/worktrees:rw",ref]
+                "-v",f"{work/'worktrees'}:/worktrees:rw"]
+        if codex_secret is not None:
+            secret = Path(codex_secret).resolve()
+            if not secret.is_file(): raise ValidationBlocked("dedicated Codex-LB credential file unavailable")
+            if not codex_base_url or not codex_base_url.rstrip("/").endswith("/v1"): raise ValidationError("Codex-LB base URL must end in /v1")
+            if not codex_model or any(ch.isspace() for ch in codex_model): raise ValidationError("Codex-LB model must be one non-empty model id")
+            argv += ["-e",f"PI_CODEX_LB_BASE_URL={codex_base_url.rstrip(chr(47))}","-e",f"PI_CODEX_LB_MODEL={codex_model}","-v",f"{secret}:{CODEX_SECRET_TARGET}:ro"]
+        argv.append(ref)
         joined = " ".join(argv)
-        for forbidden in ("/var/run/docker.sock","unraid-api.key","codex-lb","/mnt/user/appdata/pi-unraid/paseo-home"):
+        for forbidden in ("/var/run/docker.sock","unraid-api.key","/mnt/user/appdata/pi-unraid/paseo-home"):
             if forbidden in joined:
                 raise ValidationError(f"forbidden production authority: {forbidden}")
         run(argv)
@@ -97,14 +105,25 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100, network
             raise ValidationError("UID:GID mismatch")
         if host.get("NetworkMode") != network:
             raise ValidationError("validator network mismatch")
-        if {m.get("Destination") for m in mounts} != {"/home/paseo","/projects","/worktrees"}:
+        expected_mounts = {"/home/paseo","/projects","/worktrees"} | ({CODEX_SECRET_TARGET} if codex_secret is not None else set())
+        if {m.get("Destination") for m in mounts} != expected_mounts:
             raise ValidationError("unexpected mount surface")
-        if any(not str(m.get("Source","")).startswith(str(work)) for m in mounts):
+        if any(not str(m.get("Source","")).startswith(str(work)) for m in mounts if m.get("Destination") != CODEX_SECRET_TARGET):
             raise ValidationError("non-disposable host mount detected")
+        if codex_secret is not None:
+            sm=[m for m in mounts if m.get("Destination") == CODEX_SECRET_TARGET]
+            if len(sm) != 1 or sm[0].get("RW") is not False: raise ValidationError("Codex-LB credential mount must be read-only")
         env = "\n".join(cfg.get("Env") or []).upper()
         if any(x in env for x in ("UNRAID_API","CODEX_LB_SECRET","GITHUB_TOKEN")):
             raise ValidationError("production/host secret exposed")
         result["checks"].update({"uid_gid":"PASS","mount_isolation":"PASS","network_isolation":"PASS","secret_isolation":"PASS","runtime":"PASS"})
+        if codex_secret is not None:
+            smoke_cmd = "key=$(cat /run/secrets/pi-unraid-codex-lb); case $key in CODEX_LB_API_KEY=*) key=${key#CODEX_LB_API_KEY=};; esac; test -n \"$key\" || exit 22; body=$(printf '{\"model\":\"%s\",\"input\":\"Reply with OK.\",\"max_output_tokens\":8}' \"$PI_CODEX_LB_MODEL\"); code=$(curl -sS --connect-timeout 2 --max-time 10 -o /tmp/codex-smoke.json -w '%{http_code}' -H \"Authorization: Bearer $key\" -H 'Content-Type: application/json' --data \"$body\" \"${PI_CODEX_LB_BASE_URL%/}/responses\") || exit 20; test \"$code\" = 200 || { test \"$code\" = 401 -o \"$code\" = 403 && exit 21; exit 23; }; grep -q '\"id\"' /tmp/codex-smoke.json || exit 23"
+            smoke = run(["docker","exec",name,"sh","-c",smoke_cmd], timeout=30, check=False)
+            if smoke.returncode == 20: raise ValidationBlocked("Codex-LB smoke endpoint unavailable")
+            if smoke.returncode == 21: raise ValidationError("Codex-LB smoke authentication rejected")
+            if smoke.returncode != 0: raise ValidationError("Codex-LB bounded protocol smoke failed")
+            result["checks"]["codex_lb_smoke"] = "PASS"
         result["status"] = "PASS"
     except ValidationBlocked as exc:
         result.update(status="BLOCKED", reason=str(exc))
@@ -128,10 +147,15 @@ def main():
     p.add_argument("--uid", type=int, default=99)
     p.add_argument("--gid", type=int, default=100)
     p.add_argument("--network", default="pi-unraid-validator")
+    p.add_argument("--codex-secret", type=Path)
+    p.add_argument("--codex-base-url")
+    p.add_argument("--codex-model")
     a = p.parse_args()
-    result = validate(repository=a.repository,digest=a.digest,output=a.output,state_root=a.state_root,uid=a.uid,gid=a.gid,network=a.network)
+    result = validate(repository=a.repository,digest=a.digest,output=a.output,state_root=a.state_root,uid=a.uid,gid=a.gid,network=a.network,codex_secret=a.codex_secret,codex_base_url=a.codex_base_url,codex_model=a.codex_model)
     print(json.dumps(result, sort_keys=True))
     return 0 if result["status"] == "PASS" else (3 if result["status"] == "BLOCKED" else 2)
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+[executed on device: Tower (256a948c-39fa-427e-874b-d2662172d16a)]

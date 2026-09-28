@@ -61,6 +61,34 @@ class TowerValidatorTests(unittest.TestCase):
             with self.assertRaisesRegex(V.ValidationError,"unhealthy"):
                 V.wait_for_runtime("candidate", timeout=10, poll_interval=0)
 
+    def test_codex_smoke_uses_dedicated_read_only_mount_and_classifies_failures(self):
+        digest="sha256:"+"a"*64; image_id="sha256:"+"b"*64
+        for smoke_rc, expected in ((0,"PASS"),(20,"BLOCKED"),(21,"FAIL"),(23,"FAIL")):
+            with self.subTest(smoke_rc=smoke_rc), tempfile.TemporaryDirectory() as td:
+                secret=Path(td)/"codex.env"; secret.write_text("CODEX_LB_API_KEY=fixture-not-real\n")
+                calls=[]
+                def fake(argv, timeout=300, check=True):
+                    calls.append(argv)
+                    if argv[:4]==["docker","buildx","imagetools","inspect"]: return mock.Mock(returncode=0,stdout=f"Digest: {digest}\n",stderr="")
+                    if argv[:3]==["docker","image","inspect"]: return mock.Mock(returncode=0,stdout=image_id+"\n",stderr="")
+                    if argv[:2]==["docker","network"]: return mock.Mock(returncode=0,stdout="",stderr="")
+                    if argv[:2]==["docker","inspect"]:
+                        run_call=next(x for x in calls if x[:2]==["docker","run"]); mounts=[]
+                        for i,x in enumerate(run_call):
+                            if x=="-v":
+                                src,dst,mode=run_call[i+1].split(":"); mounts.append({"Source":src,"Destination":dst,"RW":mode!="ro"})
+                        obj={"Config":{"User":"99:100","Env":["HOME=/home/paseo"]},"HostConfig":{"NetworkMode":"pi-unraid-validator"},"Mounts":mounts,"State":{"Status":"running","Health":{"Status":"healthy"}}}
+                        return mock.Mock(returncode=0,stdout=json.dumps([obj]),stderr="")
+                    if argv[:2]==["docker","exec"]: return mock.Mock(returncode=smoke_rc,stdout="",stderr="")
+                    return mock.Mock(returncode=0,stdout="",stderr="")
+                with mock.patch.object(V.shutil,"which",return_value="/usr/bin/docker"), mock.patch.object(V.os,"chown"), mock.patch.object(V,"run",side_effect=fake):
+                    result=V.validate(repository="ghcr.io/elmakus/pi-unraid",digest=digest,output=Path(td)/"out.json",state_root=Path(td)/"state",codex_secret=secret,codex_base_url="http://host.docker.internal:2455/v1",codex_model="fixture-model")
+                self.assertEqual(result["status"],expected)
+                run_call=next(x for x in calls if x[:2]==["docker","run"])
+                self.assertIn(f"{secret.resolve()}:{V.CODEX_SECRET_TARGET}:ro",run_call)
+                self.assertNotIn("fixture-not-real"," ".join(" ".join(x) for x in calls))
+                if expected=="PASS": self.assertEqual(result["checks"]["codex_lb_smoke"],"PASS")
+
     def test_blocked_is_structured(self):
         digest="sha256:"+"a"*64
         with tempfile.TemporaryDirectory() as td, mock.patch.object(V.shutil,"which",return_value=None):
@@ -68,3 +96,5 @@ class TowerValidatorTests(unittest.TestCase):
             self.assertEqual(result["status"],"BLOCKED"); self.assertEqual(json.loads(out.read_text())["status"],"BLOCKED")
 
 if __name__=="__main__": unittest.main()
+
+[executed on device: Tower (256a948c-39fa-427e-874b-d2662172d16a)]
