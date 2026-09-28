@@ -1,6 +1,6 @@
 import json, tempfile, unittest
 from pathlib import Path
-from scripts.paseo_known_good import load, rotate, guard_input
+from scripts.paseo_known_good import load, rotate, guard_input, atomic_write
 
 A="sha256:"+"a"*64; B="sha256:"+"b"*64; C="sha256:"+"c"*64; D="sha256:"+"d"*64
 
@@ -13,6 +13,15 @@ class KnownGoodTests(unittest.TestCase):
             self.assertEqual(rotate(ledger,A),ledger)
             with self.assertRaises(ValueError): rotate(ledger,B)
             with self.assertRaises(ValueError): rotate(ledger,C)
+
+            rotated=rotate(ledger,D)
+            atomic_write(p,rotated)
+            self.assertEqual(load(p),{"current":D,"previous_1":A,"previous_2":B})
+
+            before=p.read_text()
+            persisted=load(p)
+            with self.assertRaises(ValueError): rotate(persisted,A)
+            self.assertEqual(p.read_text(),before)
 
     def test_rejects_malformed_stale_or_duplicate_identity(self):
         with tempfile.TemporaryDirectory() as d:
