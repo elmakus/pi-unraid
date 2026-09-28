@@ -1,6 +1,8 @@
 import copy
 import importlib.util
 import json
+import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -234,6 +236,29 @@ class ManagedComponentLifecycleTests(unittest.TestCase):
         extra["unexpected"] = True
         with self.assertRaises(lifecycle.LifecycleError):
             lifecycle.validate_installation_readback(BASE, extra)
+
+    def test_validate_readback_cli_fails_closed_on_drift(self) -> None:
+        readback = self._readback()
+        readback["installed_component_ids"].remove("specpi")
+        with tempfile.TemporaryDirectory() as td:
+            readback_path = Path(td) / "readback.json"
+            readback_path.write_text(json.dumps(readback))
+            completed = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "validate-readback",
+                    "--readback",
+                    str(readback_path),
+                ],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        self.assertEqual(completed.returncode, 1)
+        payload = json.loads(completed.stdout)
+        self.assertEqual(payload["state"], "RED")
+        self.assertEqual(payload["missing_registered"], ["specpi"])
 
     def test_agent_guidance_routes_durable_changes_through_helper(self) -> None:
         self.assertIn("scripts/managed_component_lifecycle.py", AGENTS)
