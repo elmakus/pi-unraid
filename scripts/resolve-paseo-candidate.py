@@ -24,6 +24,7 @@ from paseo_core_compat import (
     default_gate_definition_hash,
     empty_nogood_cache,
     load_nogood_cache,
+    search_core_candidates,
     search_core_pairs,
     semver_tuple,
 )
@@ -999,12 +1000,16 @@ def resolve_core_live_components(
             nogoods=cache,gate_definition_hash=gate_definition_hash,
             platform_fingerprint=platform_fingerprint,budget=budget,
         )
+        resolved=copy.deepcopy(components)
+        resolved["paseo"]=copy.deepcopy(selected["paseo"])
+        resolved["node"]=copy.deepcopy(selected["node"])
+        resolved["pi"]=copy.deepcopy(selected["pi"])
     except CoreResolutionBlocked:
         raise
     except CoreResolutionError:
         paseo_options,pi_options=_core_options_to_baseline(components,definition)
         try:
-            selected=search_core_pairs(
+            search=search_core_candidates(
                 paseo_options,pi_options,definition=definition,node_floor=NODE_FLOOR,
                 nogoods=cache,gate_definition_hash=gate_definition_hash,
                 platform_fingerprint=platform_fingerprint,budget=budget,
@@ -1014,10 +1019,19 @@ def resolve_core_live_components(
         except CoreResolutionError as e:
             raise ResolutionError(str(e)) from e
 
-    resolved=copy.deepcopy(components)
-    resolved["paseo"]=copy.deepcopy(selected["paseo"])
-    resolved["node"]=copy.deepcopy(selected["node"])
-    resolved["pi"]=copy.deepcopy(selected["pi"])
+        complete=[]
+        for core_candidate in search["candidates"]:
+            candidate=copy.deepcopy(components)
+            candidate["paseo"]=copy.deepcopy(core_candidate["paseo"])
+            candidate["node"]=copy.deepcopy(core_candidate["node"])
+            candidate["pi"]=copy.deepcopy(core_candidate["pi"])
+            complete.append(candidate)
+        domains={
+            "paseo":[item["paseo"]["version"] for item in paseo_options],
+            "pi":[item["pi"]["version"] for item in pi_options],
+        }
+        resolved=select_complete_candidate(complete,domains)["candidate"]
+
     automatic_lag={
         component for component in ("paseo","pi")
         if resolved[component]["version"]!=components[component]["version"]
@@ -1041,38 +1055,13 @@ def resolve_live(
     live_metadata={}
     components=discover_live_components(definition,metadata=live_metadata)
     observed={name: comp["version"] for name, comp in components.items()}
-    automatic_lag=set()
-    if not any(entry["component"] in {"paseo","pi"} for entry in approved):
-        components,automatic_lag=resolve_core_live_components(
-            components,definition,nogoods=core_nogoods,
-            gate_definition_hash=core_gate_definition_hash,
-            platform_fingerprint=core_platform_fingerprint,
-            budget=core_search_budget,
-            pi_node_range=live_metadata.get("pi",{}).get("node_range"),
-        )
-
     accepted=load_json_file(accepted_candidate_path(definition))
     accepted_components=accepted.get("components")
     if not isinstance(accepted_components,dict):
         raise ResolutionError("accepted candidate lacks component baseline")
-    approved_independent={
-        entry["component"] for entry in approved
-        if entry["component"] in independent_component_names(definition)
-    }
-    try:
-        components,independent_lag,_=resolve_independent_components(
-            components,
-            accepted_components,
-            definition,
-            outcomes=independent_outcomes,
-            skip_components=approved_independent,
-        )
-    except IndependentResolutionBlocked:
-        raise
-    except IndependentResolutionError as e:
-        raise ResolutionError(str(e)) from e
-    automatic_lag |= independent_lag
 
+    # Resolve explicit approved pins before automatic fallback/ranking so any
+    # later technical tie-break operates on the actual complete candidate.
     for entry in approved:
         comp,pin=entry["component"],entry["pinned_version"]
         if pin==observed[comp]: continue
@@ -1092,6 +1081,34 @@ def resolve_live(
             components[comp]=pinned_docker(pin)
         else:
             raise ResolutionError(f"approved compatibility exception for {comp} cannot be resolved live")
+
+    approved_independent={
+        entry["component"] for entry in approved
+        if entry["component"] in independent_component_names(definition)
+    }
+    try:
+        components,automatic_lag,_=resolve_independent_components(
+            components,
+            accepted_components,
+            definition,
+            outcomes=independent_outcomes,
+            skip_components=approved_independent,
+        )
+    except IndependentResolutionBlocked:
+        raise
+    except IndependentResolutionError as e:
+        raise ResolutionError(str(e)) from e
+
+    if not any(entry["component"] in {"paseo","pi"} for entry in approved):
+        components,core_lag=resolve_core_live_components(
+            components,definition,nogoods=core_nogoods,
+            gate_definition_hash=core_gate_definition_hash,
+            platform_fingerprint=core_platform_fingerprint,
+            budget=core_search_budget,
+            pi_node_range=live_metadata.get("pi",{}).get("node_range"),
+        )
+        automatic_lag |= core_lag
+
     return assemble_candidate(components, [], observed, approved, definition, automatic_lag)
 
 def check_allowed(mapping, allowed, where):

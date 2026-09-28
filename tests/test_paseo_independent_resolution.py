@@ -153,7 +153,7 @@ class IndependentFallbackTests(unittest.TestCase):
         ), mock.patch.object(
             resolver,
             "resolve_core_live_components",
-            return_value=(copy.deepcopy(latest), set()),
+            side_effect=lambda current, *args, **kwargs: (copy.deepcopy(current), set()),
         ), mock.patch.object(
             resolver, "load_json_file", return_value=accepted_candidate
         ):

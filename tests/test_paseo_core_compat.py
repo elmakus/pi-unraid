@@ -306,6 +306,79 @@ class CoreCompatibilitySearchTests(unittest.TestCase):
         for component in resolver.REQUIRED_COMPONENTS - {"paseo", "node", "pi"}:
             self.assertEqual(resolved[component], latest[component])
 
+    def test_live_core_fallback_ranks_all_compatible_pairs_by_aggregate_lag(self):
+        latest = copy.deepcopy(self.components)
+        newest_paseo = self.paseo_option(
+            "0.10.0", node_version="22.20.0", marker="1"
+        )
+        older_paseo = self.paseo_option(
+            "0.9.2", node_version="24.0.0", marker="2"
+        )
+        newest_pi = self.pi_option("0.90.0", marker="3", node_range=">=24.0.0")
+        middle_pi = self.pi_option("0.89.0", marker="4", node_range=">=25.0.0")
+        older_pi = self.pi_option(
+            "0.87.1", marker="5", node_range=">=22.19.0 <23.0.0"
+        )
+        latest["paseo"] = newest_paseo["paseo"]
+        latest["node"] = newest_paseo["node"]
+        latest["pi"] = newest_pi["pi"]
+
+        with mock.patch.object(
+            resolver,
+            "_core_options_to_baseline",
+            return_value=(
+                [newest_paseo, older_paseo],
+                [newest_pi, middle_pi, older_pi],
+            ),
+        ):
+            resolved, lag = resolver.resolve_core_live_components(
+                latest,
+                self.definition,
+                nogoods=core.empty_nogood_cache(),
+                platform_fingerprint="linux-amd64-test",
+                pi_node_range=">=24.0.0",
+            )
+
+        # Compatible Pareto alternatives are newest-Paseo/old-Pi (lag 0+2)
+        # and old-Paseo/newest-Pi (lag 1+0). The latter must win.
+        self.assertEqual(resolved["paseo"]["version"], "0.9.2")
+        self.assertEqual(resolved["pi"]["version"], "0.90.0")
+        self.assertEqual(lag, {"paseo"})
+        for component in resolver.REQUIRED_COMPONENTS - {"paseo", "node", "pi"}:
+            self.assertEqual(resolved[component], latest[component])
+
+    def test_exhaustive_core_search_preserves_blocked_and_budget_fail_closed(self):
+        paseo = [
+            self.paseo_option("0.10.0", marker="1"),
+            self.paseo_option("0.9.2", marker="2"),
+        ]
+        pi = [
+            self.pi_option("0.90.0", marker="3"),
+            self.pi_option("0.89.0", marker="4"),
+        ]
+        with self.assertRaisesRegex(core.CoreResolutionBlocked, "registry unavailable"):
+            core.search_core_candidates(
+                paseo,
+                pi,
+                definition=self.definition,
+                node_floor=resolver.NODE_FLOOR,
+                platform_fingerprint="linux-amd64-test",
+                gate=lambda p, n, candidate_pi: (
+                    {"status": "compatible"}
+                    if (p["version"], candidate_pi["version"]) == ("0.10.0", "0.90.0")
+                    else {"status": "blocked", "reason": "registry unavailable"}
+                ),
+            )
+        with self.assertRaisesRegex(core.CoreResolutionIncomplete, "RESOLUTION_INCOMPLETE"):
+            core.search_core_candidates(
+                paseo,
+                pi,
+                definition=self.definition,
+                node_floor=resolver.NODE_FLOOR,
+                platform_fingerprint="linux-amd64-test",
+                budget=1,
+            )
+
     def test_transient_transport_failure_is_blocked_not_incompatible(self):
         with mock.patch.object(
             resolver.urllib.request,

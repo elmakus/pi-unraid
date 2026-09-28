@@ -440,3 +440,118 @@ def search_core_pairs(
     raise CoreResolutionError(
         "no compatible core Paseo/Pi pair remains in the bounded domain"
     )
+
+
+def search_core_candidates(
+    paseo_options,
+    pi_options,
+    *,
+    definition,
+    node_floor,
+    nogoods=None,
+    gate=None,
+    gate_id=CORE_GATE_ID,
+    gate_definition_hash=None,
+    platform_fingerprint="linux-amd64",
+    budget=None,
+):
+    """Enumerate every compatible Paseo/Pi pair in the bounded core domains.
+
+    This is the exhaustive companion to search_core_pairs(). It preserves the
+    same exact nogood, BLOCKED and budget semantics but does not stop at the
+    first compatible pair, allowing the caller to apply complete-candidate
+    Pareto/aggregate-lag selection.
+    """
+    cache = validate_nogood_cache(nogoods or empty_nogood_cache())
+    if budget is not None and (
+        not isinstance(budget, int) or isinstance(budget, bool) or budget <= 0
+    ):
+        raise CoreResolutionError("core compatibility search budget must be a positive integer")
+    gate_definition_hash = gate_definition_hash or default_gate_definition_hash(node_floor)
+    contract_hash = core_contract_fingerprint(definition, node_floor)
+
+    p_opts = sorted(
+        list(paseo_options),
+        key=lambda item: semver_tuple(item["paseo"].get("version")),
+        reverse=True,
+    )
+    pi_opts = sorted(
+        list(pi_options),
+        key=lambda item: semver_tuple(item["pi"].get("version")),
+        reverse=True,
+    )
+    if not p_opts or not pi_opts:
+        raise CoreResolutionError("core compatibility search domain is empty")
+    paseo_versions = [item["paseo"].get("version") for item in p_opts]
+    pi_versions = [item["pi"].get("version") for item in pi_opts]
+    if len(set(paseo_versions)) != len(paseo_versions) or len(set(pi_versions)) != len(pi_versions):
+        raise CoreResolutionError("core compatibility search domain contains duplicate versions")
+
+    cached = {entry["key"] for entry in cache["entries"]}
+    compatible = []
+    attempts = 0
+    for paseo_option in p_opts:
+        for pi_option in pi_opts:
+            attempts += 1
+            if budget is not None and attempts > budget:
+                raise CoreResolutionIncomplete(
+                    "RESOLUTION_INCOMPLETE: core compatibility search budget exhausted"
+                )
+            paseo = paseo_option["paseo"]
+            node = paseo_option["node"]
+            pi = pi_option["pi"]
+            try:
+                _static_core_check(
+                    paseo,
+                    node,
+                    pi,
+                    pi_option.get("node_range"),
+                    node_floor,
+                )
+            except CoreIncompatible:
+                continue
+
+            key, identity = nogood_key(
+                paseo,
+                pi,
+                gate_id=gate_id,
+                gate_definition_hash=gate_definition_hash,
+                contract_hash=contract_hash,
+                platform_fingerprint=platform_fingerprint,
+            )
+            if key in cached:
+                continue
+
+            outcome = _normalize_gate_outcome(
+                gate(paseo, node, pi) if gate is not None else None
+            )
+            if outcome["status"] == "compatible":
+                compatible.append(
+                    {
+                        "paseo": paseo,
+                        "node": node,
+                        "pi": pi,
+                    }
+                )
+                continue
+            if outcome["status"] == "blocked":
+                raise CoreResolutionBlocked(
+                    str(outcome.get("reason") or "core compatibility gate is BLOCKED")
+                )
+            if record_nogood(
+                cache,
+                key=key,
+                identity=identity,
+                evidence=outcome["evidence"],
+            ):
+                cached.add(key)
+
+    if not compatible:
+        raise CoreResolutionError(
+            "no compatible core Paseo/Pi pair remains in the bounded domain"
+        )
+    return {
+        "candidates": compatible,
+        "nogood_cache": cache,
+        "attempts": attempts,
+    }
