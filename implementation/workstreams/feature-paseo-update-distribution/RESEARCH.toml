@@ -1,30 +1,30 @@
 workstream_id = "feature-paseo-update-distribution"
-state = "active"
+state = "consumed"
 origin_role = "brainstorming"
 origin_subject = "paseo-update-distribution@6"
 return_target = "brainstorming"
-return_reconciliation = "pending"
-return_result = ""
-finding = ""
-limitations = ""
-conflicts = ""
+return_reconciliation = "applied"
+return_result = "elmakus/project-research:projects/pi-unraid/production_updates/paseo_pi_update_distribution/FINAL_SYNTHESIS.md@f2b0bd9d1a9c4c0635ad73b80e5f87b71a5d12db"
+finding = "Selected direction is feasible as a hybrid: GitHub-hosted discovery/build/tests, immutable GHCR digest plus mutable accepted channel, narrow Tower validator, and a durable Tower transaction guard around the user-triggered Unraid cutover. Ordinary rollback-safe candidates require exact direct A->C->A persistent-state proof. Stock DockerMan remains update-discovery/user gesture but is not itself the transaction engine."
+limitations = "Installed Tower DockerMan version still needs exact implementation-time binding; no live production DockerMan update or GHCR promotion was performed; smoke key was not created; future irreversible state migrations require separate handling; GHCR tags are mutable; native-button transaction binding must be proven on target Unraid."
+conflicts = "Resolved: stock DockerMan lacks transactional hooks, but a pre-armed host guard may preserve the stock click if target-version binding is provable; otherwise one Update+Verify action is the minimal fallback. Codex-LB server-side enforced_model capability was verified by targeted evidence. Exactly two previous known-good identities belong in the production ledger, not as a total registry-manifest cap."
 
 [[sources]]
 class = "official_upstream"
-status = "pending"
+status = "checked"
 weight = "primary"
 
 [[sources]]
 class = "project_runtime"
-status = "pending"
+status = "checked"
 weight = "direct"
 
 [[sources]]
 class = "tracker_discussion"
-status = "pending"
+status = "checked"
 weight = "supporting"
 
 [[sources]]
 class = "practitioner_community"
-status = "pending"
+status = "checked"
 weight = "supporting"
