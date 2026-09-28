@@ -31,7 +31,7 @@ class Tests(unittest.TestCase):
  def test_failed_local_probe_rolls_back(self):
   d,p,g=self.fx(); seen=[]
   with d:
-   self.assertEqual(run_transaction(p,g['binding_digest'],[CoreProbe('exact-digest',lambda:False)],seen.append,lambda _:True)['state'],'recovered'); self.assertEqual(seen,[A])
+   self.assertEqual(run_transaction(p,g['binding_digest'],[CoreProbe('exact-digest',lambda:False)]+self.probes()[1:],seen.append,lambda _:True)['state'],'recovered'); self.assertEqual(seen,[A])
  def test_transient_remote_outage_nonblocking_by_default(self):
   d,p,g=self.fx()
   with d:
@@ -41,7 +41,7 @@ class Tests(unittest.TestCase):
   d,p,g=self.fx(); seen=[]
   with d:
    def outage(): raise RemoteServiceUnavailable()
-   self.assertEqual(run_transaction(p,g['binding_digest'],[CoreProbe('remote',outage,remote=True,remote_blocking=True)],seen.append,lambda _:True)['state'],'recovered'); self.assertEqual(seen,[A])
+   self.assertEqual(run_transaction(p,g['binding_digest'],self.probes()+[CoreProbe('remote',outage,remote=True,remote_blocking=True)],seen.append,lambda _:True)['state'],'recovered'); self.assertEqual(seen,[A])
  def test_stale_binding_fails_without_restore(self):
   d,p,g=self.fx(); seen=[]
   with d:
