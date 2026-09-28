@@ -1,0 +1,83 @@
+name: Paseo exact candidate build
+
+on:
+  pull_request:
+    paths:
+      - candidates/paseo-update/candidate.json
+      - candidates/paseo-update/evidence.json
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: paseo-candidate-build-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.head_ref == 'automation/paseo-update-candidate' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch) ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/automation/paseo-update-candidate')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Verify predecessor and candidate handoff
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse 25719c4caffa7940898ec723e2a099f0fa3ad412:implementation/workstreams/feature-paseo-update-distribution/results/M03-T01.md)" = "b967d7c65055b5fc9ba79b6faae0502f1fcd1bdb"
+          source_parent="$(git rev-parse HEAD^)"
+          git fetch origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          git merge-base --is-ancestor "$source_parent" "refs/remotes/origin/$DEFAULT_BRANCH"
+          test "$(git diff --name-only HEAD^ HEAD | sort)" = "$(printf '%s\n' candidates/paseo-update/candidate.json candidates/paseo-update/evidence.json | sort)"
+          python3 scripts/paseo_candidate_build.py prepare \
+            --candidate candidates/paseo-update/candidate.json \
+            --handoff-evidence candidates/paseo-update/evidence.json \
+            --accepted config/paseo-candidate.json \
+            --source-root "$GITHUB_WORKSPACE" \
+            --stage-dir "$RUNNER_TEMP/paseo-candidate-context" \
+            --source-head "$GITHUB_SHA" \
+            --source-parent "$source_parent" \
+            --expected-source-ref "refs/heads/$DEFAULT_BRANCH"
+      - name: Build once and run exact-image core smoke
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/paseo-tested-image"
+          python3 scripts/paseo_buildx.py build \
+            --candidate "$RUNNER_TEMP/paseo-candidate-context/config/paseo-candidate.json" \
+            --context "$RUNNER_TEMP/paseo-candidate-context" \
+            --record "$RUNNER_TEMP/paseo-tested-image/build-record.json" \
+            --metadata "$RUNNER_TEMP/paseo-tested-image/build-metadata.json" \
+            --builder pi-unraid-paseo-ci \
+            --state-dir "$RUNNER_TEMP/paseo-buildx-state" \
+            --with-smoke \
+            --smoke-profile core
+      - name: Preserve the exact tested image
+        run: |
+          set -euo pipefail
+          python3 scripts/paseo_candidate_build.py package \
+            --candidate "$RUNNER_TEMP/paseo-candidate-context/config/paseo-candidate.json" \
+            --handoff-evidence candidates/paseo-update/evidence.json \
+            --build-record "$RUNNER_TEMP/paseo-tested-image/build-record.json" \
+            --archive "$RUNNER_TEMP/paseo-tested-image/image.tar" \
+            --evidence "$RUNNER_TEMP/paseo-tested-image/tested-image-evidence.json" \
+            --source-head "$GITHUB_SHA"
+      - name: Upload exact tested-image handoff
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-tested-candidate-${{ github.event.pull_request.head.sha || github.sha }}
+          path: ${{ runner.temp }}/paseo-tested-image/
+          if-no-files-found: error
+          retention-days: 14
+

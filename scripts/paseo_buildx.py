@@ -413,20 +413,35 @@ def load_build_record(path: Path) -> dict:
     return record
 
 
-def smoke_suite(tag: str, candidate_path: str) -> list[tuple[str, list[str]]]:
-    """The complete disposable smoke suite for one built tag, in order."""
-    return [
-        ("image_provenance", [sys.executable, str(SMOKE_SCRIPT), tag, candidate_path]),
-        ("persistence_ownership", ["bash", str(COMPOSE_SMOKE), tag]),
-        ("instruction_plane", ["bash", str(INSTRUCTION_SMOKE), tag]),
-        ("global_capabilities", ["bash", str(CAPABILITY_SMOKE), tag]),
+def smoke_suite(
+    tag: str, candidate_path: str, smoke_root: Path = ROOT, profile: str = "full"
+) -> list[tuple[str, list[str]]]:
+    """Return bounded smoke for one exact image.
+
+    full preserves the historical complete disposable acceptance suite. core is
+    the M03 update-candidate gate: it proves image/runtime/instruction invariants
+    without promoting optional extension feature behavior into a blocking gate.
+    """
+    if profile not in {"full", "core"}:
+        raise BuildxError(f"unsupported smoke profile: {profile}")
+    scripts = smoke_root / "scripts"
+    suite = [
+        ("image_provenance", [sys.executable, str(scripts / "smoke_paseo_image.py"), tag, candidate_path]),
+        ("persistence_ownership", ["bash", str(scripts / "verify-compose-foundation.sh"), tag]),
+        ("instruction_plane", ["bash", str(scripts / "verify-pi-instruction-plane.sh"), tag]),
     ]
+    if profile == "full":
+        suite.append(("global_capabilities", ["bash", str(scripts / "verify-pi-global-capabilities.sh"), tag]))
+    return suite
 
 
-def run_smoke_suite(tag: str, candidate_path: str, per_smoke_timeout: int) -> dict:
-    """Run the complete suite fail-fast; returns the test-phase detail."""
+def run_smoke_suite(
+    tag: str, candidate_path: str, per_smoke_timeout: int,
+    smoke_root: Path = ROOT, profile: str = "full"
+) -> dict:
+    """Run the selected bounded suite fail-fast and return phase detail."""
     smokes: list[dict] = []
-    for name, argv in smoke_suite(tag, candidate_path):
+    for name, argv in smoke_suite(tag, candidate_path, smoke_root, profile):
         print(f"--- smoke: {name} ---", flush=True)
         begin = time.monotonic()
         try:
@@ -444,7 +459,7 @@ def run_smoke_suite(tag: str, candidate_path: str, per_smoke_timeout: int) -> di
             if not proc.stdout.endswith("\n"):
                 sys.stdout.write("\n")
         smokes.append({"name": name, "status": "ok", "duration_ms": duration_ms})
-    return {"smokes": smokes}
+    return {"profile": profile, "smokes": smokes}
 
 
 def cmd_build(args: argparse.Namespace) -> int:
@@ -585,7 +600,9 @@ def cmd_build(args: argparse.Namespace) -> int:
     if args.with_smoke:
         begin = time.monotonic()
         try:
-            detail = run_smoke_suite(tag, str(candidate_path), args.smoke_timeout)
+            detail = run_smoke_suite(
+                tag, str(candidate_path), args.smoke_timeout, context_dir, args.smoke_profile
+            )
             recorder.record("test", "ok", int((time.monotonic() - begin) * 1000), detail)
         except (BuildxError, subprocess.TimeoutExpired) as exc:
             recorder.record("test", "failed", int((time.monotonic() - begin) * 1000),
@@ -637,7 +654,9 @@ def cmd_test(args: argparse.Namespace) -> int:
         return EXIT_VALIDATION
     begin = time.monotonic()
     try:
-        detail = run_smoke_suite(tag, candidate_path, args.smoke_timeout)
+        detail = run_smoke_suite(
+            tag, candidate_path, args.smoke_timeout, Path(record.get("context") or ROOT), args.smoke_profile
+        )
     except (BuildxError, subprocess.TimeoutExpired) as exc:
         record["phases"]["test"] = {
             "status": "failed",
@@ -747,7 +766,9 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--build-timeout", type=int, default=3600)
     build.add_argument("--smoke-timeout", type=int, default=600)
     build.add_argument("--with-smoke", action="store_true",
-                       help="run the complete disposable smoke suite as the test phase")
+                       help="run the selected disposable smoke suite as the test phase")
+    build.add_argument("--smoke-profile", default="full", choices=("full", "core"),
+                       help="full historical suite or bounded M03 core candidate gate")
     build.add_argument("--with-prune", action="store_true",
                        help="run the bounded prune after successful build/smoke (requires --with-smoke)")
 
@@ -755,6 +776,7 @@ def build_parser() -> argparse.ArgumentParser:
     test.add_argument("--record", required=True, help="build record to test and update")
     test.add_argument("--smoke-timeout", type=int, default=600,
                       help="per-smoke timeout in seconds")
+    test.add_argument("--smoke-profile", default="full", choices=("full", "core"))
 
     prune = sub.add_parser("prune", help="bounded post-success cache prune only")
     prune.add_argument("--record", required=True,
