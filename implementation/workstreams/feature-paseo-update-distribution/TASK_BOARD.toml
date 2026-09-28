@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 5
+revision = 6
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -35,6 +35,12 @@ status = "in_progress"
 [cards.contract]
 class = "task_card"
 path = "implementation/workstreams/feature-paseo-update-distribution/cards/M01-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M01-T02.md"
+commit = "851e5775a863c24e797b99b091e6ca7c46fb8baa"
+blob = "23221119f90d2852044ca278bdb6f45ab805554f"
 
 [[jit_triggers]]
 id = "after-M01-T02-materialize-M01-T03"
