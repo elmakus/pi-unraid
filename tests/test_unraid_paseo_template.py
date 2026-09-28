@@ -24,11 +24,14 @@ class UnraidPaseoTemplateTests(unittest.TestCase):
         self.assertEqual(configs["/home/paseo"].text, "/mnt/user/appdata/pi-unraid/paseo-home")
         self.assertEqual(configs["/projects"].text, "/mnt/user/projects")
         self.assertEqual(configs["/worktrees"].text, "/mnt/user/pi-worktrees")
+        self.assertEqual(configs["/etc/passwd"].text, "/mnt/user/appdata/pi-unraid/m07-t02/passwd")
+        self.assertEqual(configs["/etc/passwd"].attrib["Mode"], "ro")
         self.assertEqual(configs["/run/secrets/pi-unraid-codex-lb"].attrib["Mode"], "ro")
         self.assertEqual(configs["/run/secrets/unraid-api.key"].attrib["Mode"], "ro")
         extra = root.findtext("ExtraParams")
         self.assertIn("--user=99:100", extra)
         self.assertIn("--shm-size=1g", extra)
+        self.assertIn("--add-host=host.docker.internal:host-gateway", extra)
 
     def test_update_ready_is_exact_digest_inequality(self):
         self.assertFalse(docker_man_update_ready(DIGEST_A, DIGEST_A))
