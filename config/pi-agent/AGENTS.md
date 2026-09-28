@@ -8,6 +8,7 @@ These instructions define the global Pi environment boundary. They are not proje
 - After the user explicitly selects a project, load the project-recovery skill before any managed mutation and reconstruct the current canonical Git/Project Workflow state from durable sources.
 - Durable repository/Project Workflow state outranks Paseo UI/session/history and other convenience state.
 - For direct Main/Pi ad-hoc mutation in this environment, do not write on the integration/main branch; use an appropriate legal branch/worktree.
+- For durable Pi extension, developer-tool, or derived-component add/remove, use `scripts/managed_component_lifecycle.py`; do not manually edit managed registry membership. Direct live-container installs are temporary unless adopted through that helper.
 
 ## Progressive skills
 
