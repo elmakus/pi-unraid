@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M04-T02"
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "RED"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M04-T02-R01.md"
 
 [subject]
 class = "git_blob"
