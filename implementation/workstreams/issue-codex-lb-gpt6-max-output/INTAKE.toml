@@ -1,0 +1,12 @@
+workstream_id = "issue-codex-lb-gpt6-max-output"
+kind = "issue"
+state = "complete"
+diagnosis_revision = 1
+repair_subject = "repair:codex-lb-gpt6-max-output-128k:v1"
+diagnosis_prior_art_subject = "repair:codex-lb-gpt6-max-output-128k:v1"
+diagnosis_prior_art_result = "research/CODEX_LB_GPT6_MAX_OUTPUT_R1.md"
+response_kind = "authorization"
+response_observed = true
+alignment_state = "authorized"
+alignment_subject = "repair:codex-lb-gpt6-max-output-128k:v1"
+micro_fix_candidate = true

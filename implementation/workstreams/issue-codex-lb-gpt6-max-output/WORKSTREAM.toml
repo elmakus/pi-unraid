@@ -1,0 +1,21 @@
+kind = "issue"
+workstream_id = "issue-codex-lb-gpt6-max-output"
+branch = "fix/codex-lb-gpt6-max-output"
+created_from = "5f59c8555d4b38943495fa3545c5367b2dc10739"
+integration_target = "main"
+authority = [
+  { class = "authority", path = "requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md" },
+  { class = "authority", path = "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md" },
+]
+
+[intake]
+class = "intake"
+path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/INTAKE.toml"
+
+[research]
+class = "research"
+path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/RESEARCH.toml"
+
+[tracker]
+class = "tracker"
+path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/TRACKER.toml"

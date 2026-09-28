@@ -1,0 +1,9 @@
+workstream_id = "issue-codex-lb-gpt6-max-output"
+provider = "github"
+repository = "elmakus/pi-unraid"
+dedup_key = "project-workflow:issue-codex-lb-gpt6-max-output"
+state = "discovery"
+issue_number = 0
+candidate_issue_numbers = []
+readback_state = "pending"
+final_pr = 0
