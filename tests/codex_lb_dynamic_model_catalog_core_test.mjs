@@ -123,6 +123,42 @@ const offline = await offlineProvider.refreshModels({
 assert.deepEqual(offline.map((model) => model.id), ["alpha", "beta"]);
 assert.equal(networkCalled, false);
 
+async function assertFailurePreservesStored(testProvider, pattern) {
+  let publishCount = 0;
+  await assert.rejects(
+    testProvider.refreshModels({
+      allowNetwork: true,
+      credential: { type: "api_key", key: "fixture-secret-never-log" },
+      signal: new AbortController().signal,
+      stored,
+      async publish() {
+        publishCount += 1;
+        return true;
+      },
+    }),
+    pattern,
+  );
+  assert.equal(publishCount, 0);
+}
+
+const invalidJsonProvider = createDynamicProviderConfig(bootstrap, {
+  fetchFn: async () => new Response("{", { status: 200 }),
+});
+await assertFailurePreservesStored(invalidJsonProvider, /not valid JSON/);
+
+const invalidShapeProvider = createDynamicProviderConfig(bootstrap, {
+  fetchFn: async () => new Response(JSON.stringify({ object: "list", data: "not-an-array" }), { status: 200 }),
+});
+await assertFailurePreservesStored(invalidShapeProvider, /not an OpenAI-compatible catalog/);
+
+const timeoutProvider = createDynamicProviderConfig(bootstrap, {
+  timeoutMs: 5,
+  fetchFn: async (_url, options) => new Promise((_resolve, reject) => {
+    options.signal.addEventListener("abort", () => reject(new Error("aborted by timeout")), { once: true });
+  }),
+});
+await assertFailurePreservesStored(timeoutProvider, /model catalog request failed/);
+
 let badPublishCount = 0;
 const badProvider = createDynamicProviderConfig(bootstrap, {
   fetchFn: async () => new Response(JSON.stringify({ data: [{ id: "bad id" }] }), { status: 200 }),
