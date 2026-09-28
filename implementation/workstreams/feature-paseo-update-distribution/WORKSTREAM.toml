@@ -35,3 +35,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/DEFINITION.
 [planning]
 class = "planning"
 path = "implementation/workstreams/feature-paseo-update-distribution/PLANNING.toml"
+
+[plan_review]
+class = "plan_review"
+path = "implementation/workstreams/feature-paseo-update-distribution/PLAN_REVIEW.toml"
