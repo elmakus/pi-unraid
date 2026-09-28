@@ -1,0 +1,21 @@
+kind = "feature"
+workstream_id = "feature-paseo-update-distribution"
+branch = "feat/paseo-update-distribution"
+created_from = "fc7a470a7330839cbaf8eaf0c2914323981d6901"
+integration_target = "main"
+authority = [
+  { class = "authority", path = "requirements/PASEO_GUI_RUNTIME.md" },
+  { class = "authority", path = "decisions/ADR_PGR_004_UPDATE_BUILD_ROLLBACK.md" },
+]
+
+[intake]
+class = "intake"
+path = "implementation/workstreams/feature-paseo-update-distribution/INTAKE.toml"
+
+[tracker]
+class = "tracker"
+path = "implementation/workstreams/feature-paseo-update-distribution/TRACKER.toml"
+
+[brainstorm]
+class = "brainstorm"
+path = "implementation/workstreams/feature-paseo-update-distribution/BRAINSTORM.toml"
