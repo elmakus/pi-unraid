@@ -1,7 +1,7 @@
 # M04-T02 — Codex-LB smoke plumbing evidence
 
 Date: 2026-09-28
-Implementation subject: `57237155423dab3359e87c54cd0bddafca2bc2f1`
+Implementation subject: `7e463fe08208f0297ce56d6788ab89b985af2452`
 
 Implemented the bounded Codex-LB smoke path as an opt-in extension of the existing disposable Tower validator.
 
@@ -34,3 +34,20 @@ Correction verification on Tower from a fresh non-temporary checkout with full G
 - `python3 -m unittest discover -s tests -p 'test_*.py' -q`: 456/456 GREEN;
 - `git diff --check`: GREEN;
 - direct malformed HTTP-200 fixture body `{"id":` against the exact structural parser: fail-closed GREEN (`MALFORMED_FAIL_CLOSED_OK`).
+
+
+## R02 correction
+
+Independent review R02 found that the R01 production parser correction lacked the durable focused regression coverage required by the Card: the test asserted parser text rather than executing malformed-response validation, did not cover missing credential classification, and did not assert exactly one successful smoke execution.
+
+Correction implementation subject: `7e463fe08208f0297ce56d6788ab89b985af2452`.
+
+The focused validator test now executes the exact structural Node parser embedded in the production smoke against malformed HTTP-200 content and requires a non-zero result, covers an unavailable dedicated credential file as structured BLOCKED, and asserts exactly one `docker exec` smoke execution on success.
+
+Correction verification on Tower:
+- `python3 -m unittest tests.test_paseo_tower_validator -v`: 7/7 GREEN;
+- `python3 -m py_compile scripts/paseo_tower_validator.py tests/test_paseo_tower_validator.py`: GREEN;
+- `git diff --check`: GREEN;
+- full-history checkout outside the system temporary directory (`/root/pi-unraid-m04-r02`): `python3 -m unittest discover -s tests -p 'test_*.py' -q`: 457/457 GREEN.
+
+No real Codex-LB credential was read or used and no production runtime state was mutated.
