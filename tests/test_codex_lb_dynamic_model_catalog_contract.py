@@ -169,6 +169,9 @@ class CodexLbDynamicModelCatalogContractTests(unittest.TestCase):
         self.assertIn('pi.on("session_shutdown"', extension)
         self.assertIn("ctx.modelRegistry.refresh({", core)
         self.assertIn("providers: [providerId]", core)
+        self.assertIn("supported_reasoning_levels", core)
+        self.assertIn("thinkingLevelMap", core)
+        self.assertIn("reasoning: false", core)
         self.assertNotIn("setModel", extension + core)
         for hardcoded in (
             "gpt-6-astra",

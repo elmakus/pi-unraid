@@ -10,6 +10,8 @@ export const DEFAULT_DISCOVERY_TIMEOUT_MS = 5_000;
 
 const ZERO_COST = Object.freeze({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
 const API_KEY_REFS = new Set(["$CODEX_LB_API_KEY", "${CODEX_LB_API_KEY}"]);
+const PI_THINKING_LEVELS = Object.freeze(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
+const PI_THINKING_LEVEL_SET = new Set(PI_THINKING_LEVELS);
 
 function fail(message) {
   throw new Error(`Codex-LB dynamic catalog: ${message}`);
@@ -82,27 +84,117 @@ export function conservativeModelDefinition(id) {
   };
 }
 
+function positiveInteger(...values) {
+  return values.find((value) => Number.isInteger(value) && value > 0);
+}
+
+function verifiedThinkingLevelMap(item) {
+  const raw = item?.metadata?.supported_reasoning_levels;
+  if (!Array.isArray(raw)) return undefined;
+  const supported = new Set();
+  for (const entry of raw) {
+    const effort = entry && typeof entry === "object" ? entry.effort : undefined;
+    if (typeof effort === "string" && PI_THINKING_LEVEL_SET.has(effort)) supported.add(effort);
+  }
+  if (supported.size === 0) return undefined;
+  return Object.fromEntries(
+    PI_THINKING_LEVELS.map((level) => [level, supported.has(level) ? level : null]),
+  );
+}
+
+function verifiedReasoningSupport(item, thinkingLevelMap) {
+  return Boolean(
+    thinkingLevelMap ||
+    item?.supportsReasoning === true ||
+    item?.supports_reasoning === true ||
+    item?.capabilities?.supports_reasoning === true
+  );
+}
+
+function modelDefinitionFromCatalogItem(item) {
+  const base = conservativeModelDefinition(item.id);
+  const thinkingLevelMap = verifiedThinkingLevelMap(item);
+  const reasoning = verifiedReasoningSupport(item, thinkingLevelMap);
+  const contextWindow = positiveInteger(
+    item.contextWindow,
+    item.context_length,
+    item?.capabilities?.context_length,
+    item?.metadata?.context_window,
+    item?.metadata?.input_context_window,
+  ) ?? base.contextWindow;
+  const maxTokens = positiveInteger(
+    item.maxOutputTokens,
+    item.max_output_tokens,
+    item?.capabilities?.max_output_tokens,
+    item?.metadata?.max_output_tokens,
+  ) ?? base.maxTokens;
+  return {
+    ...base,
+    reasoning,
+    ...(thinkingLevelMap ? { thinkingLevelMap } : {}),
+    contextWindow,
+    maxTokens,
+  };
+}
+
+export function definitionsFromCatalog(payload) {
+  const ids = parseCatalog(payload);
+  const firstById = new Map();
+  for (const item of payload.data) {
+    if (!firstById.has(item.id)) firstById.set(item.id, item);
+  }
+  return ids.map((id) => modelDefinitionFromCatalogItem(firstById.get(id)));
+}
+
 function storedModelDefinition(model, baseUrl) {
   return {
-    ...conservativeModelDefinition(model.id),
+    ...model,
+    cost: { ...ZERO_COST },
     provider: PROVIDER_ID,
     api: PROVIDER_API,
     baseUrl,
   };
 }
 
+function sanitizeStoredThinkingLevelMap(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const result = {};
+  for (const level of PI_THINKING_LEVELS) {
+    const mapped = value[level];
+    if (mapped === undefined) continue;
+    if (mapped !== null && (typeof mapped !== "string" || !PI_THINKING_LEVEL_SET.has(mapped))) return undefined;
+    result[level] = mapped;
+  }
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function definitionFromStored(model) {
+  const base = conservativeModelDefinition(model.id);
+  const thinkingLevelMap = sanitizeStoredThinkingLevelMap(model.thinkingLevelMap);
+  const reasoning = model.reasoning === true;
+  const contextWindow = positiveInteger(model.contextWindow) ?? base.contextWindow;
+  const maxTokens = positiveInteger(model.maxTokens) ?? base.maxTokens;
+  return {
+    ...base,
+    reasoning,
+    ...(reasoning && thinkingLevelMap ? { thinkingLevelMap } : {}),
+    contextWindow,
+    maxTokens,
+  };
+}
+
 function definitionsFromStored(stored) {
   if (!stored || !Array.isArray(stored.models)) return [];
-  const ids = [];
+  const models = new Map();
   for (const model of stored.models) {
     if (!model || typeof model !== "object" || model.provider !== PROVIDER_ID || !validModelId(model.id)) {
       return [];
     }
-    ids.push(model.id);
+    if (!models.has(model.id)) models.set(model.id, definitionFromStored(model));
   }
-  return [...new Set(ids)]
-    .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-    .map(conservativeModelDefinition);
+  return [...models.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([, model]) => model);
 }
 
 function staticDefinitions(ids) {
@@ -247,7 +339,7 @@ export function createRefreshModels({
     } catch {
       fail("models response is not valid JSON");
     }
-    const definitions = parseCatalog(payload).map(conservativeModelDefinition);
+    const definitions = definitionsFromCatalog(payload);
     const lastModifiedRaw = headerValue(response.headers, "last-modified");
     const lastModified = lastModifiedRaw ? Date.parse(lastModifiedRaw) : Number.NaN;
     const etag = headerValue(response.headers, "etag");

@@ -16,6 +16,14 @@
 - Paseo remains the owner of daemon startup/user-drop behavior; the wrapper may only inject the dedicated project credential then delegate.
 - Pi children launched by Paseo inherit the daemon environment; no Paseo server source patch and no Pi source patch is permitted.
 
+## Verified model capability metadata
+
+- Dynamic catalog discovery may expose reasoning/thinking controls only from explicit Codex-LB `/v1/models` capability metadata; model IDs themselves are never used to infer capabilities.
+- When `supported_reasoning_levels` is explicitly supplied, Pi `thinkingLevelMap` must represent exactly those known levels and mark omitted levels unsupported.
+- Explicit positive context/output limits may be adopted; missing or unusable fields retain conservative defaults.
+- Persisted last-known-good catalog entries must retain the sanitized verified capability metadata so offline/cache-only startup does not silently downgrade a previously verified reasoning model.
+- If verified reasoning metadata is absent, the model remains conservative `reasoning=false`.
+
 ## Real LLM test policy
 
 - Any test, smoke, acceptance probe or verification that intentionally causes a real LLM inference MUST use provider/model `codex-lb/gpt-6-luna` and thinking/reasoning effort `low`.
