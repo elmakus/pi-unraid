@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 48
+revision = 49
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -193,8 +193,8 @@ path = "implementation/workstreams/feature-paseo-update-distribution/cards/M03-T
 [cards.result]
 class = "result"
 path = "implementation/workstreams/feature-paseo-update-distribution/results/M03-T03.md"
-commit = "368006fee9174932e78d273bb2b441ff2df62c71"
-blob = "e62506a60dbee2623a482349914c27ee73f5cfb0"
+commit = "55b65d4f14aee716b522fd8d2821094680ebf8da"
+blob = "5e03c80ca96a63513d3aac41cd072574deece4b4"
 
 [[cards.review_attempts]]
 class = "review_attempt"
@@ -203,3 +203,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M03
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M03-T03-R02.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M03-T03-R03.toml"
