@@ -1,0 +1,20 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+card_id = "M01-T01"
+attempt = "R03"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "9c1c31cf5fa51f68235040e8fcc7a5212feca55a"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/results/M01-T01.md"
+blob = "f9c201415f2f4693a8b9d5d3f20c876e752b4b3b"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/cards/M01-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending R03 is reserved for a fresh independent reviewer because the current context materially repaired and reconciled the corrected M01-T01 subject after R02 RED."
