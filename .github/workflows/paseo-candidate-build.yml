@@ -80,4 +80,3 @@ jobs:
           path: ${{ runner.temp }}/paseo-tested-image/
           if-no-files-found: error
           retention-days: 14
-
