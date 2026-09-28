@@ -3,6 +3,7 @@
 from __future__ import annotations
 import argparse, fcntl, hashlib, json, re, socket, subprocess, sys, tempfile
 from pathlib import Path
+from scripts.paseo_transaction_guard import GuardError, validate as validate_guard_readback
 
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 SCHEMA_VERSION = 1
@@ -50,6 +51,10 @@ def validate_rollback_identity(value: str) -> str:
     return require_digest(value, "rollback identity")
 
 def validate_production_gate(candidate: str, expected: str, final_gate: dict | None, guard: dict | None) -> None:
+    try:
+        guard = validate_guard_readback(guard)
+    except (GuardError, OSError, TypeError, ValueError) as exc:
+        raise PromotionError("production accepted promotion requires validated transaction guard readback") from exc
     if not final_gate or final_gate.get("status") != "GREEN":
         raise PromotionError("production accepted promotion requires exact GREEN final-gate evidence")
     if final_gate.get("candidate_digest") != candidate:
@@ -131,6 +136,6 @@ def main() -> int:
             final_gate=load_json(a.final_gate) if a.final_gate else None,
             guard=load_json(a.guard) if a.guard else None)
         print(json.dumps(result,sort_keys=True)); return 0
-    except (PromotionError,OSError,TypeError,ValueError) as exc:
+    except (PromotionError,GuardError,OSError,TypeError,ValueError) as exc:
         print(f"promotion failed: {exc}",file=sys.stderr); return 2
 if __name__=="__main__": raise SystemExit(main())
