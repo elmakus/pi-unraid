@@ -1,5 +1,5 @@
 workstream_id = "feature-codex-lb-dynamic-model-catalog"
-revision = 11
+revision = 12
 
 [execution_ref]
 branch = "feat/codex-lb-dynamic-model-catalog"
@@ -35,7 +35,7 @@ path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/review
 
 [[cards]]
 id = "M01-T02"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
