@@ -16,10 +16,15 @@ class StateRoundTripTests(unittest.TestCase):
     def test_roundtrip_uses_candidate_then_previous_and_preserves_marker(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); src=self.baseline(root); calls=[]; cand="sha256:"+"a"*64; prev="sha256:"+"b"*64
-            def probe(image,home,name): calls.append((image,str(home))); return True
+            def probe(image,home,name,candidate_state=None):
+                calls.append((image,str(home),candidate_state))
+                if candidate_state is not None:
+                    marker=Path(home)/".paseo"/"state-roundtrip-candidate.json"
+                    marker.write_text(json.dumps(candidate_state)+"\n")
+                return True
             with mock.patch.object(M.shutil,"which",return_value="/usr/bin/docker"), mock.patch.object(M,"image_readback",side_effect=lambda x:x), mock.patch.object(M,"runtime_probe",side_effect=probe), mock.patch.object(M.os,"chown"):
                 r=M.prove(baseline=src,candidate=cand,previous=prev,state_root=root/"state",output=root/"out.json")
-            self.assertEqual(r["status"],"PASS"); self.assertEqual([x[0] for x in calls],[cand,prev]); self.assertEqual(r["checks"]["direct_skip_path"],"PASS")
+            self.assertEqual(r["status"],"PASS"); self.assertEqual([x[0] for x in calls],[cand,prev]); self.assertIsNotNone(calls[0][2]); self.assertIsNone(calls[1][2]); self.assertEqual(r["checks"]["direct_skip_path"],"PASS")
     def test_irreversible_is_blocked_before_runtime(self):
         with tempfile.TemporaryDirectory() as td:
             root=Path(td); src=self.baseline(root); cand="sha256:"+"a"*64; prev="sha256:"+"b"*64
