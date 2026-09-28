@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R8`
+Revision: `R9`
 Status: `active`
 
 ## Problem / goal
@@ -116,26 +116,49 @@ Accepted:
 - The user will provide a dedicated Codex-LB smoke API key. Key creation/model forcing/quota policy is operator-owned in Codex-LB; the update system only consumes the supplied dedicated secret.
 - A desired future release that cannot pass rollback-safe `A -> C -> A` state proof is held out of the ordinary update channel and requires a separate explicit maintenance procedure.
 
-### Compatibility complexity reduction — proposed classification
+### Compatibility policy — accepted simplification
 
-Do not put every versioned tool into combinatorial compatibility search. Use separate classes:
+Compatibility combination search is intentionally narrow.
 
-1. **Compatibility-search group** — solver may test alternate version combinations/backtrack:
-   - Paseo + Pi + SpecPi + pi-mcp-adapter as the primary runtime/API/plugin compatibility group.
-   - Node is not an independent choice; it is derived from the exact Paseo image and only checked against required runtime floors/constraints.
+1. **Core compatibility gate**
+   - Only Paseo and Pi participate in version-combination compatibility search.
+   - Node is derived from the exact Paseo image and is checked only against the runtime/version constraints required by Pi.
+   - The candidate must prove that the Paseo -> Pi RPC/provider path starts and works mechanically.
 
-2. **Derived pair** — no independent combinatorial search:
-   - Playwright + Chromium. Chromium is exactly derived from Playwright. Treat the pair as one version decision unit and run its browser smoke. If the newest Playwright pair fails, hold back that pair without recombining unrelated runtime components.
+2. **Pi extensions are not compatibility-gating components**
+   - SpecPi, pi-mcp-adapter and future ordinary Pi extensions do not participate in Paseo/Pi version backtracking.
+   - Resolve/update each extension independently to its newest stable version.
+   - If the newest extension cannot be fetched/installed/built at all, retain that extension's previous accepted version without blocking unrelated component updates.
+   - If it installs but later exposes an extension-specific functional problem, that problem does not by itself block the core Paseo/Pi update channel.
+   - Extension-specific failures may be diagnosed during normal use unless later evidence shows a particular extension can destabilize the core runtime strongly enough to justify promotion into the compatibility gate.
 
-3. **Independent smoke-only components** — no cross-component combination search:
-   - GitHub CLI;
-   - Docker CLI;
-   - Docker Compose.
-   Resolve newest stable independently, install/build, run a small deterministic functional/version probe, and hold back only the failing component when necessary. Do not enumerate combinations with Paseo/Pi/SpecPi/MCP.
+3. **Derived components**
+   - Chromium remains derived from the selected Playwright version. Treat Playwright+Chromium as one update unit, not a combinatorial compatibility group.
+   - Run only the browser/build smoke needed to prove that selected pair is usable.
 
-4. **Non-independent / repository-owned environment surfaces** — no upstream compatibility solver:
-   - generic base tooling package graph;
-   - Pi instruction plane / managed repository tree.
-   These are validated as part of the image/runtime contract when repository/base-image changes occur, not independently version-searched by the update resolver.
+4. **Independent tools**
+   - GitHub CLI, Docker CLI, Docker Compose and future ordinary developer tools do not enter cross-component version search.
+   - Update independently; require install/build success and only a small deterministic functional/version probe where justified.
+   - A failing newest version may fall back to that tool's previous accepted version without causing unrelated components to roll back.
 
-Every final candidate still receives one whole-environment integration smoke. The classification controls only which components participate in compatibility backtracking/version-combination search; it does not remove basic verification from the final candidate.
+5. **Whole-image sanity**
+   - Every final candidate still has one bounded whole-environment smoke for core startup/invariants.
+   - This is not permission to turn optional extension/tool functionality into a blocking compatibility matrix.
+
+### Managed component registry lifecycle
+
+The update inventory/managed-component registry is the durable source of truth for what the image intentionally carries and what the update system must track.
+
+- Adding a managed Pi extension must add its registry/inventory entry in the same managed change that adds the extension to the image/runtime declaration.
+- Adding a managed developer tool must likewise add its registry/inventory entry in the same managed change.
+- Removing a managed extension/tool from the image/runtime declaration must remove its registry/inventory entry in the same managed change.
+- The add/remove workflow must be transactional at repository level: no accepted state may intentionally contain "installed but not registered" or "registered but no longer installed".
+- Build/readback validation must detect registry/runtime drift and fail the managed change rather than silently adopting it.
+- Future managed components default to the least complex update class:
+  - ordinary Pi extension -> independent extension update, non-core compatibility gate;
+  - ordinary developer tool -> independent tool update;
+  - derived artifact -> follows its owning component;
+  - only a component with demonstrated core startup/API coupling may be promoted into the Paseo/Pi compatibility-search group.
+- Experimental or ad-hoc live changes inside a running container are not durable registration events. To keep a component, it must be adopted through the managed add path so the repo declaration and registry become authoritative together.
+
+The intended operator/agent UX is a single managed add/remove operation rather than editing two unrelated files manually. The exact CLI/helper shape belongs to Definition/Planning, but it must update both installation intent and registry membership atomically and then rely on the normal candidate build/update pipeline.
