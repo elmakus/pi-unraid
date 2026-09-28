@@ -1,6 +1,6 @@
 import tempfile,unittest
 from pathlib import Path
-from scripts.paseo_dockerman_binding import DockerManBindingError,observe_stock_update
+from scripts.paseo_dockerman_binding import DockerManBindingError,observe_stock_update,wait_for_stock_update
 from scripts.paseo_immediate_acceptance import CoreProbe
 from scripts.paseo_transaction_guard import arm,load
 A='sha256:'+'a'*64; B='sha256:'+'b'*64; C='sha256:'+'c'*64
@@ -16,11 +16,23 @@ class Tests(unittest.TestCase):
   with d:
    with self.assertRaises(DockerManBindingError): observe_stock_update(p,g['binding_digest'],lambda:A,self.probes(),lambda _:None,lambda _:True)
    self.assertEqual(load(p)['state'],'armed')
- def test_inspect_failure_fails_closed(self):
+ def test_waiter_converges_through_stop_remove_create_window(self):
+  d,p,g=self.fx(); seq=iter([A,OSError('missing'),B])
+  def inspect():
+   x=next(seq)
+   if isinstance(x,Exception): raise x
+   return x
+  with d: self.assertEqual(wait_for_stock_update(p,g['binding_digest'],inspect,self.probes(),lambda _:self.fail(),lambda _:True,attempts=3,interval=0,sleeper=lambda _:None)['state'],'committed')
+ def test_waiter_restart_resumes_from_durable_armed_guard(self):
   d,p,g=self.fx()
   with d:
-   def bad(): raise OSError('inspect failed')
-   with self.assertRaises(DockerManBindingError): observe_stock_update(p,g['binding_digest'],bad,self.probes(),lambda _:None,lambda _:True)
+   with self.assertRaises(DockerManBindingError): wait_for_stock_update(p,g['binding_digest'],lambda:A,self.probes(),lambda _:None,lambda _:True,attempts=1,interval=0)
+   self.assertEqual(load(p)['state'],'armed')
+   self.assertEqual(wait_for_stock_update(p,g['binding_digest'],lambda:B,self.probes(),lambda _:self.fail(),lambda _:True,attempts=1,interval=0)['state'],'committed')
+ def test_waiter_rejects_ambiguous_third_digest(self):
+  d,p,g=self.fx()
+  with d:
+   with self.assertRaises(DockerManBindingError): wait_for_stock_update(p,g['binding_digest'],lambda:C,self.probes(),lambda _:None,lambda _:True,attempts=1,interval=0)
    self.assertEqual(load(p)['state'],'armed')
  def test_restart_readback_is_idempotent_after_commit(self):
   d,p,g=self.fx()
