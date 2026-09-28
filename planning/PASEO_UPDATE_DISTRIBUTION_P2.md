@@ -131,7 +131,7 @@ Goal: prove all Tower-specific facts without touching active production.
   - implement dedicated secret mount/read path and bounded one-call protocol smoke;
   - tests use a disposable/fake credential fixture until final HA;
   - no normal agent credential enters CI or candidate image;
-  - real user-supplied smoke key is deliberately deferred to M07.
+  - real user-supplied smoke key is deliberately deferred to M08.
 
 - **M04-T03 A->C->A state clone**
   - reuse/extend staged HOME evidence to clone representative current persistent state;
@@ -139,7 +139,7 @@ Goal: prove all Tower-specific facts without touching active production.
   - direct skip path must be tested against actual current baseline, not only adjacent candidates;
   - irreversible transition is BLOCKED from ordinary channel.
 
-Exit: PUD-REQ-020..021, 030..032 technically implemented with fixture secret and disposable state.
+Exit: PUD-REQ-020..021 mechanics/plumbing and PUD-REQ-030..032 disposable transition proof are implemented; final PUD-REQ-020..021 acceptance with the dedicated real key remains deferred to M08.
 
 ### M05 — Promotion machinery, Unraid template and production ledger
 
@@ -222,7 +222,7 @@ Goal: perform only the genuinely human/operator-dependent final steps, with one 
 - **M08-T01 Dedicated Codex-LB key admission and real Tower smoke**
   - user supplies the dedicated API key;
   - store only in approved Tower-local secret location;
-  - run one bounded real smoke against the exact candidate using server-side operator policy;
+  - run one bounded real smoke through the Tower disposable validator against the exact candidate digest using server-side operator policy, without mutating the active production container;
   - no key value enters Git/evidence/logs;
   - production `:accepted` remains unchanged on RED/BLOCKED.
 
@@ -239,6 +239,7 @@ Goal: perform only the genuinely human/operator-dependent final steps, with one 
   - no production container restart occurs yet; the guard remains armed while the user chooses cutover time.
 
 - **M08-T04 User-triggered production update transaction**
+  - immediately before the click, read back that the guard is still armed for the exact accepted candidate, predecessor/config binding and rollback anchor; any mismatch blocks cutover;
   - user chooses the moment and invokes the proven stock Update path or the previously-selected `Update + Verify` fallback;
   - GREEN path commits new current and rotates current/previous_1/previous_2;
   - if immediate RED occurs, automatic rollback+recovery evidence must complete without requiring a second manual rescue action.
