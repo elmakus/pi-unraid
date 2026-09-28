@@ -12,7 +12,7 @@ workstream_root = "implementation/workstreams"
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: operate a reproducible Pi Coding Agent environment on Unraid with Paseo as the production GUI/runtime, durable project/worktree storage, bounded host control, reproducible global capabilities and rollback/recovery evidence.
-- High-level status: **Phase 1 R3, the Paseo/Pi GUI runtime scope and the dynamic Codex-LB model-catalog scope are complete and integrated into `main`.** Phase 1 was integrated through PR #1; Paseo/Pi through PR #4; dynamic Codex-LB model discovery through PR #8 with all five Cards terminal and final M03-T01 REQUIRED independent review GREEN. Production Paseo remains accepted on the frozen immutable image with the instruction plane in sync, dynamic Codex-LB provider state and bounded rollback anchors. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
+- High-level status: **Phase 1 R3, the Paseo/Pi GUI runtime scope, dynamic Codex-LB model discovery and the permanent Paseo-to-Pi Codex-LB credential repair are complete and integrated into `main`.** Phase 1 was integrated through PR #1; Paseo/Pi through PR #4; dynamic Codex-LB discovery through PR #8; the runtime credential propagation and Luna/low-only real-LLM test policy through PR #12 with REQUIRED independent review GREEN. Production Paseo is healthy on the accepted repaired image, exposes the live nine-model Codex-LB catalog without manual secret sourcing, and retains bounded rollback anchors. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
 
 ## Execution policy
 
@@ -34,6 +34,11 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
 - Dynamic catalog final scope reconciliation: `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/results/M03-T01.md`
 - Dynamic catalog final independent review: `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/reviews/M03-T01-R01.toml`
 - Dynamic catalog post-merge closure evidence: `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/evidence/WORKSTREAM_CLOSE.md`
+- Completed Paseo Codex-LB environment repair workstream: `implementation/workstreams/issue-paseo-codex-lb-env-propagation/WORKSTREAM.toml`
+- Paseo Codex-LB environment repair result: `implementation/workstreams/issue-paseo-codex-lb-env-propagation/results/M01-T01.md`
+- Paseo Codex-LB environment repair independent review: `implementation/workstreams/issue-paseo-codex-lb-env-propagation/reviews/M01-T01-R01.toml`
+- Real LLM test policy: `docs/LLM_TEST_POLICY.md`
+- Paseo Codex-LB repair post-merge closure evidence: `implementation/workstreams/issue-paseo-codex-lb-env-propagation/evidence/WORKSTREAM_CLOSE.md`
 - Approved requirements: `requirements/PI_UNRAID_BOOTSTRAP.md`
 - Accepted decisions:
   - `decisions/PIB_ADR_001_PHASE1_SCOPE.md`
@@ -80,6 +85,17 @@ The latest user authority supersedes the former Codex/Astra Max planner assignme
 - Tracker state: Issue #7 is CLOSED / COMPLETED after explicit post-merge reconciliation; the merged PR body contained literal escaped newline characters, so GitHub did not register its intended automatic closing linkage
 - Scope boundary: no automatic model selection/failover was introduced, and the separate `feature-paseo-update-distribution` workstream was not modified by this feature scope
 
+## Paseo Codex-LB runtime environment and LLM-test policy state
+
+- Workstream: `issue-paseo-codex-lb-env-propagation`
+- Repair subject: `repair:paseo-codex-lb-runtime-env-and-llm-test-policy:v1`
+- Implementation state: M01-T01 terminal; REQUIRED independent review `M01-T01-R01` GREEN
+- Integrated source: PR #12, exact source head `ae0d580aa13aae8ee67064c0a12802d62de4c959`, merge commit `12fae1f7f444afb96e3da9bc56618be383432c86`
+- Production state: healthy on repaired image `sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de`; Paseo enumerates all nine current Codex-LB models without manual secret sourcing; raw `CODEX_LB_API_KEY` is not persisted in Docker configured environment
+- Real LLM test rule: all real inference tests use `codex-lb/gpt-6-luna` with thinking `low`; `gpt-6-astra` is forbidden and fallback is disabled
+- Policy authority: `docs/LLM_TEST_POLICY.md`, `config/pi-agent/policies/LLM_TEST_POLICY.md`, `config/pi-agent/policies/llm-test-policy.json`, `config/pi-agent/AGENTS.md`, `config/pi-agent/bin/run-llm-test.sh`
+- Tracker state: Issue #10 `CLOSED / COMPLETED` after PR #12 integration
+
 ## Workflow
 
 - Workflow repository: `elmakus/chatgpt-codex-project-workflow`
@@ -91,4 +107,4 @@ This file is a high-level integrated-project router/index, not live execution st
 
 The historical brainstorming record originally accumulated on `main` before the branch-first managed-change contract was applied. The managed Phase 1 continuation was recovered onto `feat/pi-unraid-bootstrap`, completed under the namespaced workstream package and merged back to `main` through PR #1; GitHub then automatically removed the source branch. Terminal recovery truth now lives in the target-side namespaced workstream package.
 
-Master Plan R3 is approved after independent Plan Review GREEN. Phase 1 has no remaining implementation, review or Close obligation. The later Paseo/Pi GUI runtime scope was executed as its own V2 workstream and integrated through PR #4. The dynamic Codex-LB model-catalog scope was subsequently executed as `feature-codex-lb-dynamic-model-catalog`, integrated through PR #8, and its target-side recovery package now lives under `implementation/workstreams/feature-codex-lb-dynamic-model-catalog/`. Both completed scopes are recoverable from `main`; their automatically removed source branches must not be recreated for bookkeeping.
+Master Plan R3 is approved after independent Plan Review GREEN. Phase 1 has no remaining implementation, review or Close obligation. The later Paseo/Pi GUI runtime scope was integrated through PR #4, dynamic Codex-LB model discovery through PR #8, and the permanent Paseo Codex-LB environment propagation repair plus Luna/low-only real-LLM test policy through PR #12. Their target-side recovery packages live under their respective namespaced workstreams on `main`; automatically removed source branches must not be recreated for bookkeeping.
