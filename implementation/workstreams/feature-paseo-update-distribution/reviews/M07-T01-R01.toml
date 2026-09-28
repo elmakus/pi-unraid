@@ -1,0 +1,8 @@
+review_id = "M07-T01-R01"
+card_id = "M07-T01"
+status = "pending"
+verdict = ""
+subject_commit = "e4bf3f978e4f4d64799e921d6dbeeb03c3069f44"
+result_path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T01.md"
+result_commit = "55dc9bc992b6eae889b9d9fed3967f1c39a3b2f2"
+result_blob = "3377076e47000b72289bc9532a09381d5f4b2c90"
