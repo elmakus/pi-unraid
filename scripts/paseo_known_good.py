@@ -31,7 +31,10 @@ def atomic_write(path, data):
 
 def rotate(ledger, new):
     digest(new)
-    if new == ledger["current"]: return dict(ledger)
+    if new == ledger["current"]:
+        return dict(ledger)
+    if new in (ledger["previous_1"], ledger["previous_2"]):
+        raise ValueError("stale known-good identity cannot become a new current")
     return {"current":new,"previous_1":ledger["current"],"previous_2":ledger["previous_1"]}
 
 def guard_input(candidate, ledger, config_sha256, rollback_anchor):
