@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R6`
+Revision: `R7`
 Status: `active`
 
 ## Problem / goal
@@ -77,3 +77,32 @@ Research must determine the cleanest Unraid-native/bounded-host realization and 
 ## Research trigger
 
 After the remaining product choices are sufficiently bounded, route agent-findable implementation facts to formal Research. Candidate topics include Unraid DockerMan/Community Applications update semantics, CA Auto Update behavior, GHCR/tag strategy, health-gated rollback feasibility, extensible resolver/inventory design, and compatibility policy for coupled components.
+
+
+## Formal Research reconciliation — R7
+
+Integrated formal Research result:
+`elmakus/project-research:projects/pi-unraid/production_updates/paseo_pi_update_distribution/FINAL_SYNTHESIS.md@f2b0bd9d1a9c4c0635ad73b80e5f87b71a5d12db`
+
+The 12-lane Research wave found the selected direction feasible and refined the implementation boundary:
+
+- DockerMan/Community Applications may remain the user-visible update-discovery surface and normal manual cutover gesture, but DockerMan is not itself a project transaction engine.
+- Accepted production identity is the immutable OCI digest. One mutable GHCR channel such as `:accepted` signals only fully accepted updates to Unraid.
+- The smallest architecture is hybrid: daily GitHub-hosted discovery/resolution/build/tests; exact-digest GHCR publication; narrow Tower-local disposable validation; then accepted-channel promotion.
+- Tower validation includes production-shaped checks, exact direct state-transition proof and the real dedicated Codex-LB smoke. GitHub-hosted CI must not receive production secrets.
+- A pre-armed durable Tower transaction guard must bind the user-triggered cutover to the exact candidate and exact previous known-good runtime, then commit GREEN or automatically rollback+verify on immediate RED.
+- Automatic rollback authority ends after the immediate acceptance transaction reaches GREEN.
+- Ordinary Update Ready requires a coherent disposable `A -> C -> A` proof against representative current persistent state. An irreversible migration that breaks rollback cannot use the ordinary update channel.
+- Production rollback ledger is exactly: current + previous_1 + previous_2 immutable known-good digests. Registry/build retention may be broader.
+- Direct skipping to the newest accepted candidate is allowed only when the actual current baseline -> newest candidate transition is explicitly proven.
+- Resolver should use typed inventory/source adapters plus graph-aware newest-first bounded backtracking and narrowly scoped content-addressed known-bad facts. A universal SAT solver is not justified now.
+- pi-mcp-adapter needs a deterministic local MCP fixture with an actual tool round-trip; command discovery alone is insufficient.
+- Codex-LB server-side per-key model forcing/usage restrictions are verified by Research; the dedicated smoke key remains operator-managed.
+- Existing resolver/build/smoke/HOME/staged-transaction assets are substantially reusable, while the legacy Git/Compose production updater should not remain the normal production path.
+
+### Remaining owner decisions after Research
+
+1. Freshness tie-break when multiple compatible environments are Pareto-maximal but incomparable.
+2. Whether to allow one project/plugin `Update + Verify` action in Unraid if exact crash-safe binding to the stock DockerMan Update button cannot be proven on the installed version.
+3. Operator settings for the dedicated Codex-LB smoke key: exact cheap model, quota/token/window limits and Tower-local secret placement.
+4. Policy for a future desired release with an irreversible migration that cannot pass `A -> C -> A`.
