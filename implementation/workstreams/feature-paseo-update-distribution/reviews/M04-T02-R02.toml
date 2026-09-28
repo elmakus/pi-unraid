@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M04-T02"
+attempt = "R02"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "9c1c5939950a8c9bcfd44087a7cca83f30529c41"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M04-T02.md"
+blob = "b5e7213a6db3528da17f724ec91e309c6d781989"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M04-T02.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending fresh independent review. The context that performed the R01 corrective repair is not eligible to issue this verdict."
