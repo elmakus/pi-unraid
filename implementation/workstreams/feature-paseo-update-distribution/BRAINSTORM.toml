@@ -1,6 +1,6 @@
 workstream_id = "feature-paseo-update-distribution"
 scope_id = "paseo-update-distribution"
-revision = 2
+revision = 3
 state = "active"
 challenge_audit = "pending"
 explicit_user_stop = false
