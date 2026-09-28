@@ -19,3 +19,7 @@ path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/RESEARCH.toml"
 [tracker]
 class = "tracker"
 path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/TRACKER.toml"
+
+[task_board]
+class = "task_board"
+path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/TASK_BOARD.toml"
