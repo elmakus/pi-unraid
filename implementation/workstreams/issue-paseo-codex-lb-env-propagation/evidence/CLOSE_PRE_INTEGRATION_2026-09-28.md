@@ -42,3 +42,9 @@ No real LLM inference was executed during independent review or Close refresh.
 - The scope-completing PR may use closing linkage to Issue `#10` because the exact accepted repair is complete and integrates to default branch `main`.
 
 No production/runtime mutation is performed by Close integration bookkeeping. The exact merge subject must retain the workstream manifest, Intake/Research/tracker, stable Card, exact result, production evidence, REQUIRED review and this Close refresh so recovery does not depend on source-branch survival.
+
+## Final PR correlation
+
+- Final scope-completing PR: `#12`.
+- GitHub readback confirms OPEN, base `main`, head `fix/paseo-codex-lb-runtime-env`, not draft.
+- GitHub `closingIssuesReferences` explicitly contains Issue `#10`; automatic closure is therefore expected after successful merge.
