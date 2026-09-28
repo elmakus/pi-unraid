@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M01-T02"
+attempt = "R02"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "1a8cf6c639a92e4328abf47479dcba6726869ca6"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M01-T02.md"
+blob = "32c0ed61f9622d77c31d5740cca4d196b43c1b2b"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M01-T02.md"
+
+[independence]
+materially_produced_or_repaired_subject = true
+basis = "The current context materially repaired the M01-T02 implementation after R01 RED and reconciled the exact repaired result subject, so it must not issue the independent R02 verdict. A fresh independent context must review the frozen subject."
