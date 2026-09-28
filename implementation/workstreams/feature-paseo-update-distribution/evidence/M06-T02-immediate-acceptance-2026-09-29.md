@@ -12,3 +12,14 @@ Implementation subject: `3ce2d829972227abc1752d243901b3c1572fb8b0`
 - Full repository unit suite: 489/489 GREEN.
 - `git diff --check`: GREEN.
 - Read-only production baseline: `pi-unraid-paseo-1` running/healthy on `sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de`; real transaction guard absent. No production accepted-channel move, restart, cutover or rollback was performed.
+
+## R01 correction
+
+- R01 found that the GREEN path could commit with an omitted required core-probe set.
+- Corrected transaction API now fails closed before leaving `armed` unless all five required local core probes are present exactly once; remote probes remain additive and preserve the candidate-contract blocking policy.
+- Added empty/missing/duplicate probe regression coverage and repaired RED-path fixtures to retain the complete required core set.
+- Corrected implementation subject: `4f4cea1fd03100a0bca5353bf46bd91e6526a442`.
+- Tower non-temporary checkout focused immediate-acceptance + transaction-guard suite: 12/12 GREEN.
+- Full repository unit suite: 490/490 GREEN.
+- `git diff --check`: GREEN (command chain exited 0).
+- No production mutation was performed by this correction; the prior read-only production baseline remains the production evidence for this Card.
