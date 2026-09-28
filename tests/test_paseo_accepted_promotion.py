@@ -57,7 +57,7 @@ class PromotionTests(unittest.TestCase):
     def test_production_rejects_outside_tower_writer_domain(self):
         gate={"status":"GREEN","candidate_digest":B,"guard_binding_digest":D}
         guard={"state":"armed","candidate_digest":B,"previous_digest":A,"rollback_digest":A,"config_digest":D,"binding_digest":D}
-        with tempfile.TemporaryDirectory() as td, mock.patch.object(P.socket,"gethostname",return_value="not-tower"), mock.patch.object(P,"inspect_digest") as inspect, mock.patch.object(P,"run_checked") as run:
+        with tempfile.TemporaryDirectory() as td, mock.patch.object(P,"validate_guard_readback",return_value=guard), mock.patch.object(P.socket,"gethostname",return_value="not-tower"), mock.patch.object(P,"inspect_digest") as inspect, mock.patch.object(P,"run_checked") as run:
             with self.assertRaisesRegex(P.PromotionError,"Tower writer domain"):
                 P.promote(repository="ghcr.io/elmakus/pi-unraid",alias="accepted",candidate_digest=B,expected_current_digest=A,output_path=Path(td)/"o",final_gate=gate,guard=guard)
             inspect.assert_not_called(); run.assert_not_called()
@@ -65,7 +65,7 @@ class PromotionTests(unittest.TestCase):
     def test_production_rejects_lock_outside_tower_domain(self):
         gate={"status":"GREEN","candidate_digest":B,"guard_binding_digest":D}
         guard={"state":"armed","candidate_digest":B,"previous_digest":A,"rollback_digest":A,"config_digest":D,"binding_digest":D}
-        with tempfile.TemporaryDirectory() as td, mock.patch.object(P.socket,"gethostname",return_value="Tower"), mock.patch.object(P,"inspect_digest") as inspect, mock.patch.object(P,"run_checked") as run:
+        with tempfile.TemporaryDirectory() as td, mock.patch.object(P,"validate_guard_readback",return_value=guard), mock.patch.object(P.socket,"gethostname",return_value="Tower"), mock.patch.object(P,"inspect_digest") as inspect, mock.patch.object(P,"run_checked") as run:
             with self.assertRaisesRegex(P.PromotionError,"lock must remain"):
                 P.promote(repository="ghcr.io/elmakus/pi-unraid",alias="accepted",candidate_digest=B,expected_current_digest=A,output_path=Path(td)/"o",final_gate=gate,guard=guard,lock_path=Path(td)/"foreign.lock")
             inspect.assert_not_called(); run.assert_not_called()
