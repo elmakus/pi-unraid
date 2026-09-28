@@ -102,6 +102,37 @@ class CodexLbDynamicModelCatalogContractTests(unittest.TestCase):
             self.assertEqual(models.read_bytes(), original)
             self.assertFalse(state.exists())
 
+    def test_reconciler_fails_closed_on_invalid_base_url(self) -> None:
+        for base_url in ("ftp://host.invalid/v1", "not-a-url/v1", "http://user:pass@host.invalid/v1"):
+            with self.subTest(base_url=base_url), tempfile.TemporaryDirectory() as tmp:
+                root = Path(tmp)
+                models = root / "models.json"
+                state = root / "state"
+                doc = provider_doc()
+                doc["providers"]["codex-lb"]["baseUrl"] = base_url
+                original = (json.dumps(doc, indent=2) + "\\n").encode()
+                models.write_bytes(original)
+
+                with self.assertRaises(reconciler.ReconcileError):
+                    reconciler.migrate(models, state)
+                self.assertEqual(models.read_bytes(), original)
+                self.assertFalse(state.exists())
+
+    def test_reconciler_rejects_control_character_model_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            models = root / "models.json"
+            state = root / "state"
+            doc = provider_doc()
+            doc["providers"]["codex-lb"]["models"] = [{"id": "bad\\u0000id"}]
+            original = (json.dumps(doc, indent=2) + "\\n").encode()
+            models.write_bytes(original)
+
+            with self.assertRaises(reconciler.ReconcileError):
+                reconciler.migrate(models, state)
+            self.assertEqual(models.read_bytes(), original)
+            self.assertFalse(state.exists())
+
     def test_rollback_refuses_post_migration_user_change(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
