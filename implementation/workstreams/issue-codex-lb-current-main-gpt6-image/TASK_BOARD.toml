@@ -1,5 +1,5 @@
 workstream_id = "issue-codex-lb-current-main-gpt6-image"
-revision = 2
+revision = 3
 
 [execution_ref]
 branch = "fix/codex-lb-current-main-gpt6-image"
@@ -11,3 +11,9 @@ status = "in_progress"
 [cards.contract]
 class = "task_card"
 path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/cards/M01-T01.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/results/M01-T01.md"
+commit = "64572cc44629c696790df0d6738705efa41db16a"
+blob = "d538b0cf1c176e9b2dfc82db3e12b4cee4abc44b"
