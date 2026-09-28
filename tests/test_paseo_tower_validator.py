@@ -1,5 +1,5 @@
 from __future__ import annotations
-import importlib.util, json, tempfile, unittest
+import importlib.util, json, subprocess, tempfile, unittest
 from pathlib import Path
 from unittest import mock
 
@@ -90,7 +90,34 @@ class TowerValidatorTests(unittest.TestCase):
                 exec_call=next(x for x in calls if x[:2]==["docker","exec"])
                 self.assertIn("JSON.parse", exec_call[-1])
                 self.assertNotIn("grep -q", exec_call[-1])
-                if expected=="PASS": self.assertEqual(result["checks"]["codex_lb_smoke"],"PASS")
+                if expected=="PASS":
+                    self.assertEqual(result["checks"]["codex_lb_smoke"],"PASS")
+                    self.assertEqual(sum(1 for x in calls if x[:2]==["docker","exec"]), 1)
+
+                # Execute the exact structural parser embedded in the production smoke
+                # against malformed HTTP-200 content; it must fail closed.
+                if smoke_rc == 0:
+                    marker = "node -e '"
+                    parser = exec_call[-1].split(marker, 1)[1].split("' || exit 23", 1)[0]
+                    malformed = Path(td)/"malformed.json"
+                    malformed.write_text('{"id":', encoding="utf-8")
+                    parser = parser.replace("/tmp/codex-smoke.json", str(malformed))
+                    parsed = subprocess.run(["node","-e",parser], text=True, capture_output=True)
+                    self.assertNotEqual(parsed.returncode, 0)
+
+    def test_codex_smoke_missing_credential_is_blocked(self):
+        digest="sha256:"+"a"*64; image_id="sha256:"+"b"*64
+        with tempfile.TemporaryDirectory() as td:
+            def fake(argv, timeout=300, check=True):
+                if argv[:4]==["docker","buildx","imagetools","inspect"]: return mock.Mock(returncode=0,stdout=f"Digest: {digest}\n",stderr="")
+                if argv[:3]==["docker","image","inspect"]: return mock.Mock(returncode=0,stdout=image_id+"\n",stderr="")
+                if argv[:2]==["docker","network"]: return mock.Mock(returncode=0,stdout="",stderr="")
+                return mock.Mock(returncode=0,stdout="",stderr="")
+            missing=Path(td)/"missing-codex.env"
+            with mock.patch.object(V.shutil,"which",return_value="/usr/bin/docker"), mock.patch.object(V.os,"chown"), mock.patch.object(V,"run",side_effect=fake):
+                result=V.validate(repository="ghcr.io/elmakus/pi-unraid",digest=digest,output=Path(td)/"out.json",state_root=Path(td)/"state",codex_secret=missing,codex_base_url="http://host.docker.internal:2455/v1",codex_model="fixture-model")
+            self.assertEqual(result["status"],"BLOCKED")
+            self.assertEqual(result["reason"],"dedicated Codex-LB credential file unavailable")
 
     def test_blocked_is_structured(self):
         digest="sha256:"+"a"*64
