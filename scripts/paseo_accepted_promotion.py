@@ -49,7 +49,7 @@ def inspect_digest(ref: str) -> str:
 def validate_rollback_identity(value: str) -> str:
     return require_digest(value, "rollback identity")
 
-def validate_production_gate(candidate: str, final_gate: dict | None, guard: dict | None) -> None:
+def validate_production_gate(candidate: str, expected: str, final_gate: dict | None, guard: dict | None) -> None:
     if not final_gate or final_gate.get("status") != "GREEN":
         raise PromotionError("production accepted promotion requires exact GREEN final-gate evidence")
     if final_gate.get("candidate_digest") != candidate:
@@ -58,6 +58,8 @@ def validate_production_gate(candidate: str, final_gate: dict | None, guard: dic
         raise PromotionError("production accepted promotion requires matching armed transaction guard readback")
     for key in ("previous_digest", "rollback_digest"):
         require_digest(str(guard.get(key) or ""), f"guard {key}")
+    if guard.get("previous_digest") != expected or guard.get("rollback_digest") != expected:
+        raise PromotionError("armed guard predecessor/rollback identity mismatch")
     config_digest = str(guard.get("config_digest") or "")
     require_digest(config_digest, "guard config_digest")
     if final_gate.get("guard_binding_digest") != guard.get("binding_digest"):
@@ -89,7 +91,7 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
     expected = require_digest(expected_current_digest, "expected current digest")
     production = alias == "accepted"
     if production:
-        validate_production_gate(candidate, final_gate, guard)
+        validate_production_gate(candidate, expected, final_gate, guard)
     elif alias == "accepted" or alias.endswith("/accepted"):
         raise PromotionError("reserved production accepted alias")
     ref = f"{repository}:{alias}"
