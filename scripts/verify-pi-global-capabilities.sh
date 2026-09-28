@@ -32,6 +32,24 @@ docker run --rm --user 0:0 --entrypoint chown \
 
 bash "$repo_root/scripts/configure-pi-instruction-plane.sh" \
   apply "$image" "$fixture/home" "$uid" "$gid" >/dev/null
+
+# The instruction plane includes the dynamic Codex-LB catalog extension. Seed
+# only its non-secret dynamic provider bootstrap so the offline compatibility
+# smoke can load extensions without performing network/LLM work.
+cat >"$fixture/home/.pi/agent/models.json" <<'JSON'
+{
+  "providers": {
+    "codex-lb": {
+      "api": "openai-responses",
+      "apiKey": "${CODEX_LB_API_KEY}",
+      "baseUrl": "http://host.docker.internal:2455/v1"
+    }
+  }
+}
+JSON
+chown "$uid:$gid" "$fixture/home/.pi/agent/models.json"
+chmod 0600 "$fixture/home/.pi/agent/models.json"
+
 instruction_hash="$(sha256sum "$fixture/home/.pi/agent/AGENTS.md" | awk '{print $1}')"
 provider_hash="$(sha256sum "$fixture/home/.pi/agent/provider-state.json" | awk '{print $1}')"
 
