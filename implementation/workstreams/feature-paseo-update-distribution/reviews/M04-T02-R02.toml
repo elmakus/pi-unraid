@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M04-T02"
 attempt = "R02"
-verdict = "pending"
-evidence_path = ""
+verdict = "RED"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M04-T02-R02.md"
 
 [subject]
 class = "git_blob"
@@ -17,4 +17,4 @@ path = "implementation/workstreams/feature-paseo-update-distribution/cards/M04-T
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "Pending fresh independent review. The context that performed the R01 corrective repair is not eligible to issue this verdict."
+basis = "Fresh independent review of the exact R02 subject. This context did not materially produce or repair the reviewed subject."
