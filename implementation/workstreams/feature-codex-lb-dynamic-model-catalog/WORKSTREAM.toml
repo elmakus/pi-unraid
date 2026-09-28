@@ -1,0 +1,25 @@
+kind = "feature"
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+branch = "feat/codex-lb-dynamic-model-catalog"
+created_from = "fc7a470a7330839cbaf8eaf0c2914323981d6901"
+integration_target = "main"
+authority = [
+  { class = "authority", path = "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md" },
+  { class = "authority", path = "requirements/PASEO_GUI_RUNTIME.md" },
+]
+
+[intake]
+class = "intake"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/INTAKE.toml"
+
+[tracker]
+class = "tracker"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/TRACKER.toml"
+
+[brainstorm]
+class = "brainstorm"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/BRAINSTORM.toml"
+
+[research]
+class = "research"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/RESEARCH.toml"
