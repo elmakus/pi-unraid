@@ -1,0 +1,20 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+card_id = "M02-T02"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "f7bff14d7813cec30051e85c0434156f5d9e85df"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/results/M02-T02.md"
+blob = "082e2c41d532462bdab5b00421bd93c72a118fe2"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/cards/M02-T02.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending R01 is reserved for a fresh independent reviewer because the current execution context materially produced the M02-T02 implementation/result subject and performed the production activation."
