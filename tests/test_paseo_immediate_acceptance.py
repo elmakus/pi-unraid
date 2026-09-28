@@ -13,6 +13,12 @@ class Tests(unittest.TestCase):
    out=run_transaction(p,g['binding_digest'],self.probes(),lambda _:self.fail(),lambda _:True); self.assertEqual(out['state'],'committed')
    with self.assertRaises(GuardError): transition(p,'rolling-back',g['binding_digest'])
    self.assertEqual(run_transaction(p,g['binding_digest'],[],lambda _:None,lambda _:True)['state'],'committed')
+ def test_missing_or_duplicate_required_probe_fails_closed(self):
+  for probes in ([], self.probes()[:-1], self.probes()+[CoreProbe('health',lambda:True)]):
+   d,p,g=self.fx()
+   with d:
+    with self.assertRaises(AcceptanceError): run_transaction(p,g['binding_digest'],probes,lambda _:self.fail(),lambda _:True)
+    self.assertEqual(load(p)['state'],'armed')
  def test_injected_red_restores_exact_predecessor_and_recovers(self):
   d,p,g=self.fx(); seen=[]
   with d:
