@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Serialized exact-digest promotion writer for Paseo update channels."""
 from __future__ import annotations
-import argparse, json, re, subprocess, sys
+import argparse, fcntl, hashlib, json, re, subprocess, sys, tempfile
 from pathlib import Path
 
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -61,9 +61,14 @@ def validate_production_gate(candidate: str, final_gate: dict | None, guard: dic
     if final_gate.get("guard_binding_digest") != guard.get("binding_digest"):
         raise PromotionError("final-gate/guard binding mismatch")
 
+def promotion_lock_path(repository: str, alias: str) -> Path:
+    key = hashlib.sha256(f"{repository}:{alias}".encode("utf-8")).hexdigest()
+    return Path(tempfile.gettempdir()) / f"paseo-accepted-promotion-{key}.lock"
+
 def promote(*, repository: str, alias: str, candidate_digest: str,
             expected_current_digest: str, output_path: Path,
-            final_gate: dict | None = None, guard: dict | None = None) -> dict:
+            final_gate: dict | None = None, guard: dict | None = None,
+            lock_path: Path | None = None) -> dict:
     candidate = require_digest(candidate_digest, "candidate digest")
     expected = require_digest(expected_current_digest, "expected current digest")
     production = alias == "accepted"
@@ -73,16 +78,20 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
         raise PromotionError("reserved production accepted alias")
     ref = f"{repository}:{alias}"
     immutable = f"{repository}@{candidate}"
-    first = inspect_digest(ref)
-    if first != expected:
-        raise PromotionError("stale/superseded promotion attempt: current alias digest changed")
-    second = inspect_digest(ref)
-    if second != expected:
-        raise PromotionError("promotion race detected before write")
-    run_checked(["docker", "buildx", "imagetools", "create", "-t", ref, immutable])
-    readback = inspect_digest(ref)
-    if readback != candidate:
-        raise PromotionError("registry digest mismatch after promotion")
+    lock_file = lock_path or promotion_lock_path(repository, alias)
+    lock_file.parent.mkdir(parents=True, exist_ok=True)
+    with lock_file.open("a+", encoding="utf-8") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        first = inspect_digest(ref)
+        if first != expected:
+            raise PromotionError("stale/superseded promotion attempt: current alias digest changed")
+        second = inspect_digest(ref)
+        if second != expected:
+            raise PromotionError("promotion race detected before write")
+        run_checked(["docker", "buildx", "imagetools", "create", "-t", ref, immutable])
+        readback = inspect_digest(ref)
+        if readback != candidate:
+            raise PromotionError("registry digest mismatch after promotion")
     result = {"schema_version": SCHEMA_VERSION, "status": "promoted", "alias": alias,
               "production": production, "previous_digest": expected,
               "candidate_digest": candidate, "readback_digest": readback,
