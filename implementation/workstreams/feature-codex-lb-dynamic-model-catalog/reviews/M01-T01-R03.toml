@@ -1,8 +1,8 @@
 workstream_id = "feature-codex-lb-dynamic-model-catalog"
 card_id = "M01-T01"
 attempt = "R03"
-verdict = "pending"
-evidence_path = ""
+verdict = "red"
+evidence_path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/evidence/M01-T01-R03-independent-review-2026-09-28.md"
 
 [subject]
 class = "git_blob"
@@ -17,4 +17,4 @@ path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/cards/
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "Pending R03 is reserved for a fresh independent reviewer because the current context materially repaired and reconciled the corrected M01-T01 subject after R02 RED."
+basis = "R03 independently inspected the exact immutable corrected result subject, its named implementation subject, exact Card acceptance and accepted authority; the reviewer did not materially produce or repair the reviewed subject."
