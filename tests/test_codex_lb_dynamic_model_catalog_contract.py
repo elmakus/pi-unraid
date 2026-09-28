@@ -103,14 +103,21 @@ class CodexLbDynamicModelCatalogContractTests(unittest.TestCase):
             self.assertFalse(state.exists())
 
     def test_reconciler_fails_closed_on_invalid_base_url(self) -> None:
-        for base_url in ("ftp://host.invalid/v1", "not-a-url/v1", "http://user:pass@host.invalid/v1"):
+        for base_url in (
+            "ftp://host.invalid/v1",
+            "not-a-url/v1",
+            "http://user:pass@host.invalid/v1",
+            "http://host.invalid:abc/v1",
+            "http://host.invalid:99999/v1",
+            "http://:123/v1",
+        ):
             with self.subTest(base_url=base_url), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
                 models = root / "models.json"
                 state = root / "state"
                 doc = provider_doc()
                 doc["providers"]["codex-lb"]["baseUrl"] = base_url
-                original = (json.dumps(doc, indent=2) + "\\n").encode()
+                original = (json.dumps(doc, indent=2) + "\n").encode()
                 models.write_bytes(original)
 
                 with self.assertRaises(reconciler.ReconcileError):
@@ -124,8 +131,8 @@ class CodexLbDynamicModelCatalogContractTests(unittest.TestCase):
             models = root / "models.json"
             state = root / "state"
             doc = provider_doc()
-            doc["providers"]["codex-lb"]["models"] = [{"id": "bad\\u0000id"}]
-            original = (json.dumps(doc, indent=2) + "\\n").encode()
+            doc["providers"]["codex-lb"]["models"] = [{"id": "bad\u0000id"}]
+            original = (json.dumps(doc, indent=2) + "\n").encode()
             models.write_bytes(original)
 
             with self.assertRaises(reconciler.ReconcileError):
