@@ -2,8 +2,8 @@ workstream_id = "feature-paseo-update-distribution"
 plan_revision = "P1"
 planning_cycle = 1
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "red"
+evidence_path = "planning/reviews/PASEO_UPDATE_DISTRIBUTION_P1_R01.md"
 
 [subject]
 class = "git_blob"
