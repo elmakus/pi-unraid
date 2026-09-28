@@ -39,3 +39,9 @@ The workstream delta contains no path in the separate `feature-paseo-update-dist
 No production, HOME, container, image, Codex-LB service, OAuth/account-routing or separate update/distribution state was changed during Close refresh.
 
 The exact merge subject must retain this workstream package, stable Cards, results, review/evidence history, M03 final reconciliation and this Close refresh so target-side recovery does not depend on source-branch survival.
+
+## Final PR correlation
+
+- Final scope-completing PR: `#8`.
+- PR readback after creation: OPEN, base `main`, head `feat/codex-lb-dynamic-model-catalog`, exact initial head `b5ae01c39da06b679527891047447e2aef4838b3`, not draft.
+- PR body carries closing linkage `Closes #7`; Issue closure will be read back only after durable accepted integration.

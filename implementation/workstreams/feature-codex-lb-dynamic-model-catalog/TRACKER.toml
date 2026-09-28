@@ -6,4 +6,4 @@ state = "linked"
 issue_number = 7
 candidate_issue_numbers = []
 readback_state = "verified"
-final_pr = 0
+final_pr = 8
