@@ -59,3 +59,28 @@ def wait_for_stock_update(guard_path: Path, binding: str,
         if n + 1 < attempts:
             sleeper(interval)
     raise DockerManBindingError('candidate not observed before binding timeout')
+
+
+def update_and_verify(guard_path: Path, binding: str,
+                      trigger_update: Callable[[], None],
+                      inspect_digest: Callable[[], str],
+                      probes: list[CoreProbe],
+                      restore_predecessor: Callable[[str], None],
+                      verify_recovery: Callable[[str], bool],
+                      *, attempts: int = 120, interval: float = 1.0,
+                      sleeper: Callable[[float], None] = sleep) -> dict:
+    """Single Update + Verify fallback action.
+
+    The action owns both sides of the lifecycle: validate the durable armed guard,
+    trigger the update only after that validation, then remain attached to the
+    restartable observer until immediate acceptance reaches a terminal result.
+    """
+    g=load(guard_path)
+    if g['binding_digest'] != binding:
+        raise DockerManBindingError('stale transaction binding')
+    if g['state'] != 'armed':
+        raise DockerManBindingError('Update + Verify requires an armed guard')
+    trigger_update()
+    return wait_for_stock_update(
+        guard_path,binding,inspect_digest,probes,restore_predecessor,verify_recovery,
+        attempts=attempts,interval=interval,sleeper=sleeper)
