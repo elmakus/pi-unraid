@@ -11,6 +11,8 @@ class KnownGoodTests(unittest.TestCase):
             ledger=load(p)
             self.assertEqual(rotate(ledger,D),{"current":D,"previous_1":A,"previous_2":B})
             self.assertEqual(rotate(ledger,A),ledger)
+            with self.assertRaises(ValueError): rotate(ledger,B)
+            with self.assertRaises(ValueError): rotate(ledger,C)
 
     def test_rejects_malformed_stale_or_duplicate_identity(self):
         with tempfile.TemporaryDirectory() as d:
