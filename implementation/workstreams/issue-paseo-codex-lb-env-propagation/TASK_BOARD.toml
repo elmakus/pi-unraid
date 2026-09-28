@@ -1,12 +1,12 @@
 workstream_id = "issue-paseo-codex-lb-env-propagation"
-revision = 4
+revision = 5
 
 [execution_ref]
 branch = "fix/paseo-codex-lb-runtime-env"
 
 [[cards]]
 id = "M01-T01"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
