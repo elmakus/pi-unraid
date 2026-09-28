@@ -36,7 +36,11 @@
         "install_class": "upstream_parent_image",
         "update_class": "core_pair",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "core_component",
+          "locator": "oci:ghcr.io/getpaseo/paseo"
+        }
       }
     },
     {
@@ -70,7 +74,11 @@
         "install_class": "upstream_parent_image",
         "update_class": "derived",
         "derived_owner": "paseo",
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "derived_component",
+          "locator": "derived:paseo"
+        }
       }
     },
     {
@@ -104,7 +112,11 @@
         "install_class": "npm_global",
         "update_class": "core_pair",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "core_component",
+          "locator": "npm:@earendil-works/pi-coding-agent"
+        }
       }
     },
     {
@@ -138,7 +150,11 @@
         "install_class": "npm_global",
         "update_class": "independent",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "developer_tool",
+          "locator": "npm:playwright"
+        }
       }
     },
     {
@@ -174,7 +190,11 @@
         "install_class": "playwright_managed_browser",
         "update_class": "derived",
         "derived_owner": "playwright",
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "derived_component",
+          "locator": "derived:playwright"
+        }
       }
     },
     {
@@ -208,7 +228,11 @@
         "install_class": "pinned_binary",
         "update_class": "independent",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "developer_tool",
+          "locator": "github_release:cli/cli"
+        }
       }
     },
     {
@@ -242,7 +266,11 @@
         "install_class": "pinned_binary",
         "update_class": "independent",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "developer_tool",
+          "locator": "github_tag:docker/cli"
+        }
       }
     },
     {
@@ -278,7 +306,11 @@
         "install_class": "pinned_cli_plugin",
         "update_class": "independent",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "developer_tool",
+          "locator": "github_release:docker/compose"
+        }
       }
     },
     {
@@ -308,7 +340,11 @@
         "install_class": "pi_global_extension",
         "update_class": "independent",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "pi_extension",
+          "locator": "npm:specpi"
+        }
       }
     },
     {
@@ -338,7 +374,11 @@
         "install_class": "pi_global_extension",
         "update_class": "independent",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "pi_extension",
+          "locator": "npm:pi-mcp-adapter"
+        }
       }
     },
     {
@@ -375,7 +415,11 @@
         "install_class": "child_image_package_graph",
         "update_class": "derived",
         "derived_owner": "paseo",
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "derived_component",
+          "locator": "derived:paseo"
+        }
       }
     },
     {
@@ -405,7 +449,11 @@
         "install_class": "repository_managed_home_install",
         "update_class": "repository_managed",
         "derived_owner": null,
-        "probe_ref": "probe"
+        "probe_ref": "probe",
+        "installation_intent": {
+          "class": "repository_managed",
+          "locator": "repository_tree:config/pi-home"
+        }
       }
     }
   ]

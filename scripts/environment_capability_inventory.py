@@ -77,6 +77,7 @@ MANAGED_UPDATE_KEYS = {
     "update_class",
     "derived_owner",
     "probe_ref",
+    "installation_intent",
 }
 
 
@@ -213,6 +214,28 @@ def validate_definition(definition: dict) -> None:
             raise InventoryError(f"managed update class is invalid: {capability_id}")
         if managed.get("probe_ref") != "probe":
             raise InventoryError(f"managed probe reference is invalid: {capability_id}")
+
+        intent = managed.get("installation_intent")
+        if (not isinstance(intent, dict) or set(intent) != {"class", "locator"} or intent.get("class") not in {"core_component", "pi_extension", "developer_tool", "derived_component", "repository_managed"} or not isinstance(intent.get("locator"), str) or not intent["locator"]):
+            raise InventoryError(f"managed installation intent is invalid: {capability_id}")
+        intent_class = intent["class"]
+        if intent_class == "derived_component" and managed.get("update_class") != "derived":
+            raise InventoryError(f"derived installation intent disagrees with update class: {capability_id}")
+        if intent_class == "pi_extension" and (
+            managed.get("install_class") != "pi_global_extension"
+            or managed.get("source", {}).get("kind") != "npm"
+            or managed.get("update_class") != "independent"
+        ):
+            raise InventoryError(f"Pi extension installation intent is inconsistent: {capability_id}")
+        if intent_class == "developer_tool" and (
+            managed.get("update_class") != "independent"
+            or managed.get("source", {}).get("kind") == "derived"
+        ):
+            raise InventoryError(f"developer-tool installation intent is inconsistent: {capability_id}")
+        if intent_class == "core_component" and managed.get("update_class") != "core_pair":
+            raise InventoryError(f"core installation intent disagrees with update class: {capability_id}")
+        if intent_class == "repository_managed" and managed.get("update_class") != "repository_managed":
+            raise InventoryError(f"repository installation intent disagrees with update class: {capability_id}")
 
         owner = managed.get("derived_owner")
         if update_class == "derived":
