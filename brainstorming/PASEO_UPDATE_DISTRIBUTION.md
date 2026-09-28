@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R4`
+Revision: `R5`
 Status: `active`
 
 ## Problem / goal
@@ -20,6 +20,10 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 5. The update inventory must be extensible and data-driven rather than hard-coded to the initial component set. Adding a future supported tool/extension to inventory should enroll it in discovery/candidate lifecycle without creating a bespoke scheduler workflow.
 6. Codex-LB end-to-end smoke uses a dedicated user-managed API key whose server-side policy forces a low-cost smoke model; normal agent credentials are not exposed to the update pipeline.
 7. Production cutover must not be unattended because an automatic container restart could interrupt active Paseo/Pi agent work. Only a fully GREEN accepted image may become update-ready; the actual production restart/cutover is initiated by the user from the Unraid Docker UI.
+8. Keep exactly two previous known-good production images available for rollback.
+9. Do not add a separate candidate changelog/UX surface for now; keep the user-facing flow minimal.
+10. If multiple accepted candidates accumulate before the user updates, expose only the newest accepted compatible candidate as the normal update target; intermediate accepted candidates do not need sequential installation.
+11. Major versions do not receive a special product policy. They follow the same compatibility/build/test gates as any other version; avoid a separate major-version approval mechanism unless later evidence proves it necessary.
 
 ## Current component set
 
@@ -55,6 +59,10 @@ The Codex-LB smoke is an automated protocol/integration probe, not an LLM judgme
 ### Compatibility-aware partial advancement
 
 The resolver must maximize freshness subject to compatibility and acceptance constraints. A newly released version may be held back independently when it is incompatible or fails its required checks; unrelated compatible components should still be allowed to advance in the same coordinated candidate. Production still receives exactly one fully frozen, fully tested environment candidate.
+
+### Post-update verification direction
+
+After the user clicks Update and the new container starts, perform a bounded mechanical health/readback check. Do not automatically trigger another production restart merely because that post-update check fails. The exact user-visible failure/rollback mechanism remains open for Research because it depends on what Unraid DockerMan can expose cleanly without adding a custom operational UI.
 
 ## Research trigger
 
