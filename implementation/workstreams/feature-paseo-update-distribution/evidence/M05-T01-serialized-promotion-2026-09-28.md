@@ -1,7 +1,7 @@
 # M05-T01 execution evidence — serialized promotion writer
 
 Date: 2026-09-28
-Implementation subject: aebe0096074338c48ba5fc43a32e4d7920158098
+Implementation subject: 65fc270af94b69ab75fd2485a2fb569bf6500e3f
 Branch: feat/paseo-update-distribution
 
 ## Implemented
@@ -15,14 +15,18 @@ Branch: feat/paseo-update-distribution
 
 Independent review M05-T01-R01 found that double registry readback alone left a race between the second read and the write. The writer now takes an exclusive per-repository/alias OS file lock before the authoritative read-check-write-readback sequence. The production topology for this project-owned writer is a single Tower-side writer domain; the lock additionally serializes competing local processes. A focused contention test starts two writers from the same expected digest and proves the winner is the only process that issues a mutation while the loser re-reads the winner digest and fails closed.
 
-## Verification
-Checkout: `/mnt/user/pw-m05-t01-checkout` on Tower (outside the system temporary directory), exact subject `aebe0096074338c48ba5fc43a32e4d7920158098`.
+## R02 correction
 
-- Focused M05-T01 tests: 8/8 GREEN.
-- Full repository unit suite: 469/469 GREEN.
+Independent review M05-T01-R02 confirmed the local serialization but found that the Tower-only writer topology was documentary rather than structural. Production `:accepted` admission is now explicitly restricted to host `Tower`, and any production lock must resolve beneath `/mnt/user/appdata/pi-unraid/update-state`; out-of-domain hosts and lock paths fail before any registry inspect or mutation. Non-production fixture promotion retains the temporary per-alias lock. Two focused admission tests prove both fail-closed boundaries without touching production.
+
+## Verification
+Checkout: `/mnt/user/pw-m05-t01-checkout` on Tower (outside the system temporary directory), exact subject `65fc270af94b69ab75fd2485a2fb569bf6500e3f`.
+
+- Focused M05-T01 tests: 10/10 GREEN.
+- Full repository unit suite: 471/471 GREEN.
 - `python3 -m py_compile scripts/paseo_accepted_promotion.py tests/test_paseo_accepted_promotion.py`: GREEN.
 - `git diff --check`: GREEN.
-- Focused coverage includes non-production promotion/readback, stale current-digest rejection, second-read newer-candidate race rejection, two concurrent writers contending from the same expected digest with only the winner permitted to mutate, production rejection without GREEN final evidence, production rejection without exact matching armed guard, post-promotion digest mismatch, and mutable rollback-tag rejection.
+- Focused coverage includes non-production promotion/readback, stale current-digest rejection, second-read newer-candidate race rejection, two concurrent writers contending from the same expected digest with only the winner permitted to mutate, production rejection without GREEN final evidence, production rejection without exact matching armed guard, production rejection outside the Tower writer domain, production rejection with a lock outside the Tower state root, post-promotion digest mismatch, and mutable rollback-tag rejection.
 
 ## Registry exercise
 A bounded attempt was made to seed only `ghcr.io/elmakus/pi-unraid:m05-t01-fixture` from immutable digest `sha256:22673ae79a31da54a1e539adbb2ba5dd1f4c2d33944421fb47eba15efc9b9ec3`. GHCR rejected the write with HTTP 401 before alias creation/movement because the Tower Docker client has no package-write credential. No credential was exposed or requested, and no retry/bypass was attempted.
