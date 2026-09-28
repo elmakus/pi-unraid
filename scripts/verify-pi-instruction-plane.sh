@@ -54,6 +54,23 @@ test ! -e "$fixture/home/.pi/agent/skills/unraid-admin/SKILL.md"
 
 bash "$repo_root/scripts/configure-pi-instruction-plane.sh" apply "$image" "$fixture/home" "$uid" "$gid" >/dev/null
 
+# The managed instruction plane now includes the dynamic Codex-LB provider
+# extension. Give the disposable HOME the minimal accepted dynamic provider
+# bootstrap; this smoke does not perform a real model inference or carry a key.
+docker run --rm --user "$uid:$gid" \
+  -v "$fixture/home:/home/paseo" \
+  "$image" python3 -c '
+import json
+from pathlib import Path
+path=Path("/home/paseo/.pi/agent/models.json")
+path.write_text(json.dumps({"providers":{"codex-lb":{
+    "api":"openai-responses",
+    "apiKey":"${CODEX_LB_API_KEY}",
+    "baseUrl":"http://host.docker.internal:2455/v1"
+}}}, indent=2) + "\n")
+path.chmod(0o600)
+'
+
 tree_hash() {
   docker run --rm --user "$uid:$gid" \
     -v "$fixture/home:/home/paseo:ro" \
