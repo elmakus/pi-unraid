@@ -1,8 +1,20 @@
-review_id = "M07-T01-R01"
+workstream_id = "feature-paseo-update-distribution"
 card_id = "M07-T01"
-status = "pending"
-verdict = ""
-subject_commit = "e4bf3f978e4f4d64799e921d6dbeeb03c3069f44"
-result_path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T01.md"
-result_commit = "55dc9bc992b6eae889b9d9fed3967f1c39a3b2f2"
-result_blob = "3377076e47000b72289bc9532a09381d5f4b2c90"
+attempt = "R01"
+verdict = "RED"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T01-R01.md"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "55dc9bc992b6eae889b9d9fed3967f1c39a3b2f2"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T01.md"
+blob = "3377076e47000b72289bc9532a09381d5f4b2c90"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R01 independently reviewed the exact M07-T01 result and implementation subject against the stable Card, binding requirements/ADR and retained rehearsal evidence; this context did not materially produce or repair the reviewed subject."
