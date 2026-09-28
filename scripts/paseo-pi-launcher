@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+provider="${PI_UNRAID_PROVIDER_HELPER:-/usr/local/bin/pi-unraid-provider}"
+real_pi="${PI_UNRAID_REAL_PI_COMMAND:-/usr/local/bin/pi}"
+
+fail() {
+  printf 'pi-unraid Paseo Pi launcher: %s\n' "$*" >&2
+  exit 1
+}
+
+[ -x "$provider" ] || fail "provider helper is unavailable: $provider"
+[ -x "$real_pi" ] || fail "real Pi command is unavailable: $real_pi"
+[ "$real_pi" != "$0" ] || fail "real Pi command resolves to the launcher itself"
+
+exec "$provider" exec "$real_pi" "$@"

@@ -108,7 +108,15 @@ def check_candidate_identity(root: Path) -> tuple[dict, list[str]]:
 
 
 def parse_compose_shape(text: str) -> dict:
-    targets = re.findall(r"(?m)^\s+target: (\S+)\s*$", text)
+    # Workspace/bind targets are absolute paths; Compose secret targets are names
+    # and are tracked separately below.
+    targets = re.findall(r"(?m)^\s+target: (/\S+)\s*$", text)
+    codex_file_secret = all(marker in text for marker in (
+        "source: codex_lb_client",
+        "target: pi-unraid-codex-lb",
+        "codex_lb_client:",
+        "PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb",
+    ))
     return {
         "paseo_service": re.search(r"(?m)^  paseo:\s*$", text) is not None,
         "legacy_pi_service": re.search(r"(?m)^  pi:\s*$", text) is not None,
@@ -130,6 +138,7 @@ def parse_compose_shape(text: str) -> dict:
         "entrypoint_override": re.search(
             r"(?m)^\s+(entrypoint|command|healthcheck):\s*", text) is not None,
         "secrets_block": re.search(r"(?m)^\s+secrets:\s*$", text) is not None,
+        "approved_codex_file_secret": codex_file_secret,
         "rpc_wiring": "rpc" in text.lower(),
     }
 
@@ -154,8 +163,12 @@ def check_compose_shape(shape: dict) -> list[str]:
         violations.append("bounded log rotation missing")
     if shape["forbidden_present"]:
         violations.append(f"forbidden runtime keys: {shape['forbidden_present']}")
-    if shape["ports_block"] or shape["entrypoint_override"] or shape["secrets_block"]:
-        violations.append("ports/entrypoint/secrets override present")
+    if shape["ports_block"] or shape["entrypoint_override"]:
+        violations.append("ports/entrypoint override present")
+    if shape["secrets_block"] and not shape["approved_codex_file_secret"]:
+        violations.append("unapproved secrets override present")
+    if not shape["approved_codex_file_secret"]:
+        violations.append("approved Codex-LB file secret wiring missing")
     if shape["rpc_wiring"]:
         violations.append("permanent RPC wiring must not exist in compose")
     return violations
@@ -267,8 +280,11 @@ def build_readback(root: Path) -> dict:
             "no_cpu_ram_caps": not shape["forbidden_present"],
             "bounded_logs": shape["log_max_size"] and shape["log_max_file"],
             "no_ports_entrypoint_secrets": not (
-                shape["ports_block"] or shape["entrypoint_override"] or shape["secrets_block"]
+                shape["ports_block"]
+                or shape["entrypoint_override"]
+                or (shape["secrets_block"] and not shape["approved_codex_file_secret"])
             ),
+            "approved_codex_file_secret": shape["approved_codex_file_secret"],
         },
         "instruction_plane": instruction,
         "rpc": rpc,

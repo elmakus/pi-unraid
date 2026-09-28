@@ -33,6 +33,7 @@ class PaseoRelayAuthContractTests(unittest.TestCase):
             "GITHUB_TOKEN",
             "MUSE_API_KEY",
             "CODEX_API_KEY",
+            "CODEX_LB_API_KEY:",
         ):
             self.assertNotIn(forbidden, COMPOSE)
 

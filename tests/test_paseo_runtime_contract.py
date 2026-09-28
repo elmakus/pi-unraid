@@ -18,10 +18,7 @@ class PaseoRuntimeContractTests(unittest.TestCase):
             "/home/pi",
             "PI_UID",
             "PI_GID",
-            "PI_CODEX_LB_",
             "pi-unraid-service",
-            "codex_lb_client",
-            "host.docker.internal",
         ):
             self.assertNotIn(forbidden, COMPOSE)
 
@@ -53,7 +50,14 @@ class PaseoRuntimeContractTests(unittest.TestCase):
     def test_no_raw_port_or_entrypoint_override(self) -> None:
         self.assertNotRegex(COMPOSE, r"(?m)^\s+ports:\s*$")
         self.assertNotRegex(COMPOSE, r"(?m)^\s+(entrypoint|command|healthcheck):\s*")
-        self.assertNotRegex(COMPOSE, r"(?m)^\s+secrets:\s*$")
+
+    def test_codex_lb_file_secret_and_pi_command_are_bounded(self) -> None:
+        self.assertIn("PI_COMMAND: /usr/local/bin/paseo-pi-launcher", COMPOSE)
+        self.assertIn("PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb", COMPOSE)
+        self.assertIn("source: codex_lb_client", COMPOSE)
+        self.assertIn("target: pi-unraid-codex-lb", COMPOSE)
+        self.assertIn('"host.docker.internal:host-gateway"', COMPOSE)
+        self.assertNotIn("CODEX_LB_API_KEY:", COMPOSE)
 
     def test_worktree_root_has_reproducible_native_config_path(self) -> None:
         self.assertIn(

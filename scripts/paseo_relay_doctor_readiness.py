@@ -70,6 +70,7 @@ SECRET_ENV_TOKENS = (
     "GITHUB_TOKEN",
     "MUSE_API_KEY",
     "CODEX_API_KEY",
+    "CODEX_LB_API_KEY",
 )
 
 HIGH_CONFIDENCE_SECRET_PATTERNS = (
@@ -226,9 +227,26 @@ def check_runtime_network_shape(root: Path) -> tuple[dict, list[str]]:
     ports_block = re.search(r"(?m)^\s+ports:\s*$", compose) is not None
     if ports_block:
         violations.append("compose must not publish public ports")
-    secrets_block = re.search(r"(?m)^\s+secrets:\s*$", compose) is not None
+    secrets_block = re.search(r"(?m)^secrets:\s*$", compose) is not None
+    codex_secret_markers = (
+        "source: codex_lb_client",
+        "target: pi-unraid-codex-lb",
+        "codex_lb_client:",
+        "PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb",
+    )
+    codex_secret_wiring = all(marker in compose for marker in codex_secret_markers)
     if secrets_block:
-        violations.append("compose must not carry a secrets block")
+        top_level = re.search(r"(?ms)^secrets:\s*\n(?P<body>(?:^[ \t]+.*\n?)*)", compose)
+        top_names = re.findall(
+            r"(?m)^  ([A-Za-z0-9_.-]+):\s*$",
+            top_level.group("body") if top_level else "",
+        )
+        if top_names != ["codex_lb_client"] or not codex_secret_wiring:
+            violations.append(
+                "compose secrets must be exactly the approved Codex-LB file-backed secret"
+            )
+    elif codex_secret_wiring:
+        violations.append("Codex-LB secret wiring is incomplete")
     leaked_env = [token for token in SECRET_ENV_TOKENS if token in compose]
     if leaked_env:
         violations.append(f"secret environment wiring in compose: {leaked_env}")
@@ -250,6 +268,7 @@ def check_runtime_network_shape(root: Path) -> tuple[dict, list[str]]:
         "public_ports": 0 if not ports_block else None,
         "ports_published": ports_block,
         "secret_env_wiring": leaked_env,
+        "file_secret_wiring": codex_secret_wiring,
         "forbidden_keys": forbidden,
     }
     return report, violations

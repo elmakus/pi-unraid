@@ -162,11 +162,12 @@ class RelayDoctorReadinessContractTests(unittest.TestCase):
                        '"daemon_identity_persisted":true'):
             self.assertIn(marker, SMOKE)
 
-    def test_zero_public_ports_and_no_secrets_block(self) -> None:
+    def test_zero_public_ports_and_only_bounded_codex_file_secret(self) -> None:
         report, violations = FLOW.check_runtime_network_shape(ROOT)
         self.assertEqual(violations, [])
         self.assertEqual(report["public_ports"], 0)
         self.assertIs(report["ports_published"], False)
+        self.assertIs(report["file_secret_wiring"], True)
         self.assertNotIn("ports:", COMPOSE)
 
     def test_no_secret_env_or_forbidden_runtime_keys(self) -> None:
@@ -175,7 +176,7 @@ class RelayDoctorReadinessContractTests(unittest.TestCase):
         self.assertEqual(report["forbidden_keys"], [])
         for token in ("PASEO_PASSWORD", "OPENAI_API_KEY", "ANTHROPIC_API_KEY",
                       "GITHUB_TOKEN", "MUSE_API_KEY", "CODEX_API_KEY",
-                      "/var/run/docker.sock"):
+                      "CODEX_LB_API_KEY:", "/var/run/docker.sock"):
             self.assertNotIn(token, COMPOSE)
 
     def test_runtime_identity_shape_preserved(self) -> None:

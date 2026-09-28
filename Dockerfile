@@ -103,6 +103,11 @@ RUN set -eux; \
     test "$(docker compose version --short)" = "${PI_UNRAID_DOCKER_COMPOSE_VERSION}"; \
     rm -f /tmp/docker-compose
 
+# Install repository-owned Pi launch helpers late in the image graph so
+# auth-launcher-only fixes do not invalidate heavy browser/tool layers.
+COPY --chmod=0755 scripts/pi-unraid-provider /usr/local/bin/pi-unraid-provider
+COPY --chmod=0755 scripts/paseo-pi-launcher /usr/local/bin/paseo-pi-launcher
+
 # Intentionally inherit Paseo's HOME=/home/paseo, root-capable setup entrypoint,
 # gosu drop to the non-root paseo user, server command, healthcheck and volume
 # contract from the exact parent image. Do not add USER/ENTRYPOINT/CMD here.

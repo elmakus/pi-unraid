@@ -46,14 +46,20 @@ if not isinstance(providers, dict):
 existing = providers.get("codex-lb")
 if existing is not None:
     models = existing.get("models") if isinstance(existing, dict) else None
+    models_compatible = (
+        models is None
+        or (
+            isinstance(models, list)
+            and any(isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] for item in models)
+        )
+    )
     compatible = (
         isinstance(existing, dict)
         and existing.get("api") == "openai-responses"
         and isinstance(existing.get("baseUrl"), str)
         and existing["baseUrl"].rstrip("/").endswith("/v1")
         and existing.get("apiKey") in ("$CODEX_LB_API_KEY", "${CODEX_LB_API_KEY}")
-        and isinstance(models, list)
-        and any(isinstance(item, dict) and isinstance(item.get("id"), str) and item["id"] for item in models)
+        and models_compatible
     )
     if not compatible:
         print("pi-unraid provider: existing codex-lb provider conflicts with the required Responses/secret-reference contract; preserved unchanged", file=sys.stderr)
@@ -103,14 +109,20 @@ except Exception:
 
 provider = doc.get("providers", {}).get("codex-lb") if isinstance(doc, dict) else None
 models = provider.get("models") if isinstance(provider, dict) else None
+models_compatible = (
+    models is None
+    or (
+        isinstance(models, list)
+        and any(isinstance(item, dict) and item.get("id") for item in models)
+    )
+)
 if not (
     isinstance(provider, dict)
     and provider.get("api") == "openai-responses"
     and provider.get("apiKey") in ("$CODEX_LB_API_KEY", "${CODEX_LB_API_KEY}")
     and isinstance(provider.get("baseUrl"), str)
     and provider["baseUrl"].rstrip("/").endswith("/v1")
-    and isinstance(models, list)
-    and any(isinstance(item, dict) and item.get("id") for item in models)
+    and models_compatible
 ):
     print("pi-unraid provider: provider configuration does not satisfy the codex-lb contract", file=sys.stderr)
     raise SystemExit(31)
