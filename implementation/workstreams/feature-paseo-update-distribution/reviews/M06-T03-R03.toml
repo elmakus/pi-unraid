@@ -1,7 +1,8 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M06-T03"
 attempt = "R03"
-verdict = "pending"
+verdict = "RED"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M06-T03-R03.md"
 
 [subject]
 class = "git_blob"
@@ -13,3 +14,7 @@ blob = "ba7e408c9a40736b833a7d7f1faf25d01e69a93e"
 [acceptance]
 class = "task_card"
 path = "implementation/workstreams/feature-paseo-update-distribution/cards/M06-T03.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R03 independently reviewed the exact repaired M06-T03 result and implementation subject against the stable Card, prior R01/R02 findings and binding authority; this context did not materially produce or repair the reviewed subject."
