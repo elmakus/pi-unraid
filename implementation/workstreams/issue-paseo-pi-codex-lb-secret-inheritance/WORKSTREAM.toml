@@ -21,3 +21,7 @@ path = "implementation/workstreams/issue-paseo-pi-codex-lb-secret-inheritance/RE
 [tracker]
 class = "tracker"
 path = "implementation/workstreams/issue-paseo-pi-codex-lb-secret-inheritance/TRACKER.toml"
+
+[task_board]
+class = "task_board"
+path = "implementation/workstreams/issue-paseo-pi-codex-lb-secret-inheritance/TASK_BOARD.toml"

@@ -1,0 +1,13 @@
+workstream_id = "issue-paseo-pi-codex-lb-secret-inheritance"
+revision = 1
+
+[execution_ref]
+branch = "fix/paseo-pi-codex-lb-env"
+
+[[cards]]
+id = "M01-T01"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/issue-paseo-pi-codex-lb-secret-inheritance/cards/M01-T01.md"
