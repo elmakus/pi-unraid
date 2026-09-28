@@ -1,7 +1,7 @@
 # Close — pre-integration refresh
 
-Date: 2026-09-28  
-Workstream: `feature-codex-lb-dynamic-model-catalog`  
+Date: 2026-09-28
+Workstream: `feature-codex-lb-dynamic-model-catalog`
 Integration target: `main`
 
 ## Target refresh
