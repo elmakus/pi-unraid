@@ -22,12 +22,12 @@ def run_transaction(guard_path: Path, binding: str, probes: list[CoreProbe],
                     verify_recovery: Callable[[str], bool],
                     *, inject_red: bool = False) -> dict:
     g=load(guard_path)
-    names=[probe.name for probe in probes if not probe.remote]
-    if set(names) != REQUIRED_CORE_PROBES or len(names) != len(REQUIRED_CORE_PROBES):
-        raise AcceptanceError('required local core probes are incomplete or duplicated')
     if g['state']=='committed': return {'status':'GREEN','state':'committed','binding_digest':g['binding_digest']}
     if g['state']=='recovered': return {'status':'RED','state':'recovered','binding_digest':g['binding_digest']}
     if g['binding_digest'] != binding: raise AcceptanceError('stale transaction binding')
+    names=[probe.name for probe in probes if not probe.remote]
+    if set(names) != REQUIRED_CORE_PROBES or len(names) != len(REQUIRED_CORE_PROBES):
+        raise AcceptanceError('required local core probes are incomplete or duplicated')
     if g['state']=='armed': g=transition(guard_path,'observed',binding)
     if g['state']=='observed': g=transition(guard_path,'validating',binding)
     if g['state']!='validating': raise AcceptanceError('transaction is not validating')
