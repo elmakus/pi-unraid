@@ -33,7 +33,7 @@ def image_readback(image):
     got=run(["docker","image","inspect",image,"--format","{{.Id}}"]).stdout.strip()
     if got!=image: raise ProofError("immutable image ID readback mismatch")
     return got
-def runtime_probe(image,home,name):
+def runtime_probe(image,home,name,candidate_state=None):
     run(["docker","rm","-f",name],check=False)
     argv=["docker","run","-d","--name",name,"--user","99:100","--network","none",
           "--read-only","--tmpfs","/tmp:rw,nosuid,nodev","--tmpfs","/run:rw,nosuid,nodev",
@@ -50,6 +50,11 @@ def runtime_probe(image,home,name):
         time.sleep(1)
     else: raise ProofError("runtime readiness timeout")
     probe=run(["docker","exec",name,"sh","-lc","paseo daemon status --home /home/paseo/.paseo --json >/tmp/status.json 2>/dev/null || paseo ls --home /home/paseo/.paseo --json >/tmp/status.json 2>/dev/null; test -s /tmp/status.json"])
+    if candidate_state is not None:
+        payload=json.dumps(candidate_state,separators=(",",":"))+"\\n"
+        run(["docker","exec","-i",name,"sh","-c","cat > /home/paseo/.paseo/state-roundtrip-candidate.json"],check=True).returncode
+        # Write through the running candidate container, never from the validator host.
+        run(["docker","exec",name,"sh","-c",f"printf %s {json.dumps(payload)} > /home/paseo/.paseo/state-roundtrip-candidate.json"])
     run(["docker","rm","-f",name],check=False)
     return probe.returncode==0
 def prove(*,baseline,candidate,previous,state_root,output,inject_irreversible=False):
@@ -72,10 +77,10 @@ def prove(*,baseline,candidate,previous,state_root,output,inject_irreversible=Fa
             result.update(status="BLOCKED",reason="irreversible/incompatible persistent-state transition detected")
             result["checks"]["irreversible_transition"]="BLOCKED"; return result
         n1="paseo-state-candidate-"+candidate[7:15]; names.append(n1)
-        if not runtime_probe(candidate,home,n1): raise ProofError("candidate could not open accepted baseline clone")
+        candidate_state={"producer_image_id":candidate,"kind":"representative-candidate-state"}
+        if not runtime_probe(candidate,home,n1,candidate_state=candidate_state): raise ProofError("candidate could not open accepted baseline clone")
         marker=home/".paseo"/"state-roundtrip-candidate.json"
-        marker.write_text(json.dumps({"producer_image_id":candidate,"kind":"representative-candidate-state"})+"\n")
-        os.chown(marker,99,100)
+        if not marker.is_file(): raise ProofError("candidate runtime did not persist representative state")
         result["candidate_state_sha256"]=digest_file(marker); result["checks"]["candidate_state_mutation"]="PASS"
         n2="paseo-state-previous-"+previous[7:15]; names.append(n2)
         if not runtime_probe(previous,home,n2): raise ProofError("previous runtime could not reopen candidate-modified state")
