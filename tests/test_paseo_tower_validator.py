@@ -16,7 +16,9 @@ class TowerValidatorTests(unittest.TestCase):
     def test_pass_is_disposable_and_secret_free(self):
         digest="sha256:"+"a"*64; image_id="sha256:"+"b"*64
         with tempfile.TemporaryDirectory() as td:
+            inspect_calls = 0
             def fake(argv, timeout=300, check=True):
+                nonlocal inspect_calls
                 if argv[:4]==["docker","buildx","imagetools","inspect"]: return mock.Mock(returncode=0,stdout=f"Digest: {digest}\n",stderr="")
                 if argv[:3]==["docker","image","inspect"]: return mock.Mock(returncode=0,stdout=image_id+"\n",stderr="")
                 if argv[:2]==["docker","network"]: return mock.Mock(returncode=0,stdout="",stderr="")
@@ -26,13 +28,16 @@ class TowerValidatorTests(unittest.TestCase):
                     for i,x in enumerate(run_call):
                         if x=="-v":
                             src,dst,_=run_call[i+1].split(":"); mounts.append({"Source":src,"Destination":dst})
-                    obj={"Config":{"User":"99:100","Env":["TZ=Europe/Zurich","HOME=/home/paseo"]},"HostConfig":{"NetworkMode":"pi-unraid-validator"},"Mounts":mounts,"State":{"Status":"running"}}
+                    inspect_calls += 1
+                    health = "starting" if inspect_calls == 1 else "healthy"
+                    obj={"Config":{"User":"99:100","Env":["TZ=Europe/Zurich","HOME=/home/paseo"]},"HostConfig":{"NetworkMode":"pi-unraid-validator"},"Mounts":mounts,"State":{"Status":"running","Health":{"Status":health}}}
                     return mock.Mock(returncode=0,stdout=json.dumps([obj]),stderr="")
                 return mock.Mock(returncode=0,stdout="",stderr="")
             with mock.patch.object(V.shutil,"which",return_value="/usr/bin/docker"), mock.patch.object(V.os,"chown"), mock.patch.object(V,"run",side_effect=fake) as runner:
                 out=Path(td)/"result.json"
                 result=V.validate(repository="ghcr.io/elmakus/pi-unraid",digest=digest,output=out,state_root=Path(td))
             self.assertEqual(result["status"],"PASS")
+            self.assertGreaterEqual(inspect_calls, 2)
             run_call=next(c.args[0] for c in runner.call_args_list if c.args[0][:2]==["docker","run"])
             joined=" ".join(run_call)
             self.assertNotIn("/var/run/docker.sock",joined); self.assertNotIn("codex-lb",joined); self.assertNotIn("unraid-api.key",joined)
