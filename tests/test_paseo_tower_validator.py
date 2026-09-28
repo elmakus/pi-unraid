@@ -47,8 +47,8 @@ class TowerValidatorTests(unittest.TestCase):
         digest="sha256:"+"a"*64; image_id="sha256:"+"b"*64
         with tempfile.TemporaryDirectory() as td:
             def fake(argv, timeout=300, check=True):
-                if argv[:4]==["docker","buildx","imagetools","inspect"]: return mock.Mock(returncode=0,stdout=f"Name: x\\nDigest:    {digest}\\n",stderr="")
-                if argv[:3]==["docker","image","inspect"]: return mock.Mock(returncode=0,stdout=image_id+"\\n",stderr="")
+                if argv[:4]==["docker","buildx","imagetools","inspect"]: return mock.Mock(returncode=0,stdout=f"Name: x\nDigest:    {digest}\n",stderr="")
+                if argv[:3]==["docker","image","inspect"]: return mock.Mock(returncode=0,stdout=image_id+"\n",stderr="")
                 if argv[:2]==["docker","network"]: return mock.Mock(returncode=0,stdout="",stderr="")
                 if argv[:2]==["docker","inspect"]:
                     obj={"Config":{"User":"99:100","Env":["HOME=/home/paseo"]},"HostConfig":{"NetworkMode":"pi-unraid-validator"},"Mounts":[],"State":{"Status":"running","Health":{"Status":"healthy"}}}
