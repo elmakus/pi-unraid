@@ -1,16 +1,16 @@
 workstream_id = "feature-paseo-update-distribution"
-plan_revision = "P1"
-planning_cycle = 1
+plan_revision = "P2"
+planning_cycle = 2
 attempt = "R01"
-verdict = "red"
-evidence_path = "planning/reviews/PASEO_UPDATE_DISTRIBUTION_P1_R01.md"
+verdict = "pending"
+evidence_path = ""
 
 [subject]
 class = "git_blob"
 repository = "elmakus/pi-unraid"
-commit = "077097ac2a0f5f3c01b42cf59f7536fecac69211"
-path = "planning/PASEO_UPDATE_DISTRIBUTION_P1.md"
-blob = "b0441ddcd9b95e3d4b44ce7d81bd397953320e51"
+commit = "719255ffc9c7509debfda6d3c37401eb37984efe"
+path = "planning/PASEO_UPDATE_DISTRIBUTION_P2.md"
+blob = "adfe9ffb027a921e3191b086b726c8f3f73a048a"
 
 [acceptance]
 class = "authority"
@@ -18,4 +18,4 @@ path = "requirements/PASEO_UPDATE_DISTRIBUTION.md"
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "R01 is performed in the fresh independent review context entered specifically for Premium B / independent Plan Review; this context did not materially author or repair the exact frozen P1 subject."
+basis = "R01 is performed in the fresh independent review context entered specifically for Premium B / independent Plan Review; this context did not materially author or repair the exact frozen P2 subject."
