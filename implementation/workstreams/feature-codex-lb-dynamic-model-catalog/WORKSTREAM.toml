@@ -6,6 +6,8 @@ integration_target = "main"
 authority = [
   { class = "authority", path = "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md" },
   { class = "authority", path = "requirements/PASEO_GUI_RUNTIME.md" },
+  { class = "authority", path = "requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md" },
+  { class = "authority", path = "decisions/CLDMC_ADR_001_DYNAMIC_PROVIDER_DISCOVERY.md" },
 ]
 
 [intake]
@@ -23,3 +25,7 @@ path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/BRAINS
 [research]
 class = "research"
 path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/RESEARCH.toml"
+
+[definition]
+class = "definition"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/DEFINITION.toml"
