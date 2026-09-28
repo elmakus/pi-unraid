@@ -14,7 +14,7 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 ## Accepted exploratory choices
 
 1. Detection, candidate creation, PR creation, build and automated testing should run automatically after an update is discovered. Automation stops before production cutover: the user explicitly triggers the production update from the normal Unraid Docker UI when convenient.
-2. Updates are coordinated as one complete environment candidate, but candidate resolution is compatibility-aware rather than all-or-nothing. The target is the newest compatible combination across all managed components. If one newly released component version is incompatible while another independent update is compatible, the compatible update may advance while the problematic component remains on its previous accepted version.
+2. Updates are coordinated as one complete environment candidate, but compatibility combination search is intentionally narrow: only the core Paseo↔Pi runtime pair participates in version backtracking, with Node derived from Paseo and checked only against Pi runtime constraints. Extensions and ordinary developer tools update independently; a failing newest version may remain on its previous accepted version without forcing unrelated components to roll back.
 3. GHCR plus an Unraid Docker Template / Community Apps style UX is the preferred normal production distribution/management direction. Compose remains available for development, testing, recovery and fallback unless later evidence changes that decision.
 4. Version discovery should run daily.
 5. The update inventory must be extensible and data-driven rather than hard-coded to the initial component set. Adding a future supported tool/extension to inventory should enroll it in discovery/candidate lifecycle without creating a bespoke scheduler workflow.
@@ -176,3 +176,21 @@ The human operator does not need to invoke component-management helpers directly
 - Agents must not implement a durable managed change by directly editing only the image/Dockerfile/package install command while skipping registry lifecycle.
 - Direct live-container installation is permitted only as explicitly temporary experimentation/diagnosis; it is not durable state and must not silently become managed inventory.
 - Definition/Planning should provide machine-checkable guidance/tests so an agent can discover and use the correct helper automatically without the user needing to remember registry mechanics.
+
+
+## Final challenge audit — R10
+
+Status: **GREEN**
+
+The completion challenge found no remaining material product/strategy decision and no contradiction that requires owner input.
+
+Reconciled points:
+- the earlier broad phrase "newest compatible combination across all managed components" is superseded by the accepted R9/R10 rule that only Paseo<->Pi participates in compatibility combination search;
+- SpecPi, pi-mcp-adapter, future ordinary Pi extensions and developer tools remain independently updated managed components, not core compatibility gates;
+- optional extension/tool malfunction does not block core Update Ready merely because its feature later fails during normal use, provided the final candidate still satisfies core startup/invariant checks;
+- durable add/remove operations are agent-operated through the managed-component lifecycle so installation intent and registry membership cannot intentionally drift;
+- Research recommendations for stronger extension-specific compatibility probes are historical evidence and do not override the later explicit owner decision to keep those probes outside the blocking compatibility gate;
+- Codex-LB smoke key provisioning remains an operator prerequisite at implementation/deployment time, not an unresolved Brainstorming choice;
+- irreversible future persistent-state migration remains a separately handled maintenance class rather than weakening the ordinary rollback contract.
+
+No additional adaptive-grilling round has material expected decision value. The exact current promotion subject is `paseo-update-distribution@10`.
