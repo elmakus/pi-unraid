@@ -1,5 +1,5 @@
 workstream_id = "feature-codex-lb-dynamic-model-catalog"
-revision = 23
+revision = 24
 
 [execution_ref]
 branch = "feat/codex-lb-dynamic-model-catalog"
@@ -106,7 +106,7 @@ condition = "The exact reviewed staged-HOME migration and rollback result is req
 
 [[cards]]
 id = "M03-T01"
-status = "ready"
+status = "in_progress"
 
 [cards.contract]
 class = "task_card"
