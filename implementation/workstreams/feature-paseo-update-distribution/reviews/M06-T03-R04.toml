@@ -1,0 +1,15 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M06-T03"
+attempt = "R04"
+verdict = "pending"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "478152f796f8bf0ca98924160b6c6b0fe9c43df9"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M06-T03.md"
+blob = "71a3620cc7c0590d090403965a60631650f0072e"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M06-T03.md"
