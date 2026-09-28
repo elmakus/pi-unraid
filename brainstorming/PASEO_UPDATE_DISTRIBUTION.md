@@ -18,6 +18,7 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 3. GHCR plus an Unraid Docker Template / Community Apps style UX is the preferred normal production distribution/management direction. Compose remains available for development, testing, recovery and fallback unless later evidence changes that decision.
 4. Version discovery should run daily.
 5. The update inventory must be extensible and data-driven rather than hard-coded to the initial component set. Adding a future supported tool/extension to inventory should enroll it in discovery/candidate lifecycle without creating a bespoke scheduler workflow.
+6. Production promotion should be guarded and unattended: only an accepted fully GREEN image may be promoted automatically; Tower then performs bounded post-deploy health/readback checks and automatically restores the previous known-good image if production acceptance fails.
 
 ## Current component set
 
@@ -38,13 +39,9 @@ Future component classes may include npm packages/extensions, GitHub releases/bi
 
 ### Production promotion policy
 
-Options currently under discussion:
+Accepted exploratory direction: guarded unattended promotion. The update path must not deploy merely because an upstream release or a mutable image tag changed. It may deploy only a coordinated candidate that completed the required build/test/acceptance path. Production promotion then performs bounded post-deploy health/readback checks and automatically restores the previous known-good image if acceptance fails.
 
-- manual promotion: everything through GREEN is automatic, user clicks Update in Unraid;
-- simple unattended promotion: Unraid automatically updates when a new accepted image/tag is published;
-- guarded unattended promotion: accepted image is automatically deployed, post-deploy health/readback gates run, and the previous known-good image is automatically restored on failure.
-
-Current recommendation pending user decision: guarded unattended promotion, provided Research confirms a clean Unraid-native or bounded host-side realization without weakening the existing rollback/recovery guarantees.
+Research must determine the cleanest realization on Unraid (native DockerMan/CA mechanism versus a bounded host-side updater or hybrid) without weakening the existing rollback/recovery guarantees.
 
 ## Research trigger
 
