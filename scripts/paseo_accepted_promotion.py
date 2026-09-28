@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Serialized exact-digest promotion writer for Paseo update channels."""
 from __future__ import annotations
-import argparse, fcntl, hashlib, json, re, subprocess, sys, tempfile
+import argparse, fcntl, hashlib, json, re, socket, subprocess, sys, tempfile
 from pathlib import Path
 
 DIGEST = re.compile(r"^sha256:[0-9a-f]{64}$")
 SCHEMA_VERSION = 1
+PRODUCTION_WRITER_HOST = "Tower"
+PRODUCTION_LOCK_ROOT = Path("/mnt/user/appdata/pi-unraid/update-state")
 
 class PromotionError(RuntimeError):
     pass
@@ -61,9 +63,23 @@ def validate_production_gate(candidate: str, final_gate: dict | None, guard: dic
     if final_gate.get("guard_binding_digest") != guard.get("binding_digest"):
         raise PromotionError("final-gate/guard binding mismatch")
 
-def promotion_lock_path(repository: str, alias: str) -> Path:
+def promotion_lock_path(repository: str, alias: str, *, production: bool = False) -> Path:
     key = hashlib.sha256(f"{repository}:{alias}".encode("utf-8")).hexdigest()
-    return Path(tempfile.gettempdir()) / f"paseo-accepted-promotion-{key}.lock"
+    root = PRODUCTION_LOCK_ROOT if production else Path(tempfile.gettempdir())
+    return root / f"paseo-accepted-promotion-{key}.lock"
+
+def validate_writer_domain(*, production: bool, lock_path: Path | None) -> Path:
+    if not production:
+        return lock_path if lock_path is not None else Path()
+    if socket.gethostname() != PRODUCTION_WRITER_HOST:
+        raise PromotionError("production accepted promotion is restricted to the Tower writer domain")
+    expected_root = PRODUCTION_LOCK_ROOT.resolve()
+    selected = (lock_path or promotion_lock_path("", "accepted", production=True)).resolve()
+    try:
+        selected.relative_to(expected_root)
+    except ValueError as exc:
+        raise PromotionError("production promotion lock must remain inside the Tower writer domain") from exc
+    return selected
 
 def promote(*, repository: str, alias: str, candidate_digest: str,
             expected_current_digest: str, output_path: Path,
@@ -78,7 +94,8 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
         raise PromotionError("reserved production accepted alias")
     ref = f"{repository}:{alias}"
     immutable = f"{repository}@{candidate}"
-    lock_file = lock_path or promotion_lock_path(repository, alias)
+    domain_lock = validate_writer_domain(production=production, lock_path=lock_path)
+    lock_file = domain_lock if production else (lock_path or promotion_lock_path(repository, alias))
     lock_file.parent.mkdir(parents=True, exist_ok=True)
     with lock_file.open("a+", encoding="utf-8") as lock:
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
