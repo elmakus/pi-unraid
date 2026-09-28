@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R2`
+Revision: `R3`
 Status: `active`
 
 ## Problem / goal
@@ -13,12 +13,12 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 
 ## Accepted exploratory choices
 
-1. Detection, candidate creation, PR creation, build and automated testing should run automatically after an update is discovered. Production promotion policy remains under discussion.
+1. Detection, candidate creation, PR creation, build and automated testing should run automatically after an update is discovered. Automation stops before production cutover: the user explicitly triggers the production update from the normal Unraid Docker UI when convenient.
 2. Updates are coordinated as one complete environment candidate, but candidate resolution is compatibility-aware rather than all-or-nothing. The target is the newest compatible combination across all managed components. If one newly released component version is incompatible while another independent update is compatible, the compatible update may advance while the problematic component remains on its previous accepted version.
 3. GHCR plus an Unraid Docker Template / Community Apps style UX is the preferred normal production distribution/management direction. Compose remains available for development, testing, recovery and fallback unless later evidence changes that decision.
 4. Version discovery should run daily.
 5. The update inventory must be extensible and data-driven rather than hard-coded to the initial component set. Adding a future supported tool/extension to inventory should enroll it in discovery/candidate lifecycle without creating a bespoke scheduler workflow.
-6. Production promotion should be guarded and unattended: only an accepted fully GREEN image may be promoted automatically; Tower then performs bounded post-deploy health/readback checks and automatically restores the previous known-good image if production acceptance fails.
+6. Production cutover must not be unattended because an automatic container restart could interrupt active Paseo/Pi agent work. Only a fully GREEN accepted image may become update-ready; the actual production restart/cutover is initiated by the user from the Unraid Docker UI.
 
 ## Current component set
 
@@ -39,9 +39,17 @@ Future component classes may include npm packages/extensions, GitHub releases/bi
 
 ### Production promotion policy
 
-Accepted exploratory direction: guarded unattended promotion. The update path must not deploy merely because an upstream release or a mutable image tag changed. It may deploy only a coordinated candidate that completed the required build/test/acceptance path. Production promotion then performs bounded post-deploy health/readback checks and automatically restores the previous known-good image if acceptance fails.
+Accepted exploratory direction: manual user-triggered production cutover from the normal Unraid Docker UI. Upstream release discovery, candidate resolution, CI build/tests, disposable validation and publication/update-readiness remain automated, but no automation may restart the production Paseo container merely because a new candidate became GREEN.
 
-Research must determine the cleanest realization on Unraid (native DockerMan/CA mechanism versus a bounded host-side updater or hybrid) without weakening the existing rollback/recovery guarantees.
+Preferred acceptance shape before the user sees an update-ready production image:
+
+- GitHub/CI mechanical build and compatibility tests;
+- a disposable candidate validation on Tower using the real production integration boundaries without mutating the active production container;
+- one minimal real Codex-LB model round-trip using a separately configurable low-cost smoke-test model when available;
+- only after those checks are GREEN, publish/promote the accepted image/tag that Unraid can detect as an available update;
+- user chooses the safe moment and clicks Update in Unraid.
+
+The Codex-LB smoke is an automated protocol/integration probe, not an LLM judgment. Its model should be independently configurable from the user's normal agent model, optimized for minimum cost/latency, with a tiny prompt/output budget. Research should verify the cleanest supported model-selection mechanism and the exact Unraid update/readback/rollback realization.
 
 ### Compatibility-aware partial advancement
 
