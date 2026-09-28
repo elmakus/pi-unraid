@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M01-T03"
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "green"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/evidence/M01-T03-R01-independent-review-2026-09-28.md"
 
 [subject]
 class = "git_blob"
@@ -16,5 +16,5 @@ class = "task_card"
 path = "implementation/workstreams/feature-paseo-update-distribution/cards/M01-T03.md"
 
 [independence]
-materially_produced_or_repaired_subject = true
-basis = "The current context materially produced the exact M01-T03 implementation, evidence and frozen result subject, so it must not issue the independent R01 verdict. A fresh independent context must review the frozen subject."
+materially_produced_or_repaired_subject = false
+basis = "R01 was performed by a fresh independent context that did not materially produce or repair the exact M01-T03 implementation, evidence, frozen result subject or attempt before verdict; it independently inspected the stable Card, binding authority, exact M01-T02 dependency, implementation diff, tests and frozen subject."
