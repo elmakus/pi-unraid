@@ -87,6 +87,13 @@ class PiInstructionPlaneContractTests(unittest.TestCase):
             re.search(r"(?i)(password|token|api[_-]?key)\s*[:=]\s*[^\s]+", corpus)
         )
 
+    def test_managed_bin_namespace_is_deployed_executable_and_mode_checked(self) -> None:
+        self.assertIn('return 0o755 if rel.parts and rel.parts[0] == "bin" else 0o644', INSTALLER)
+        self.assertIn('st_mode & 0o777) == managed_mode(rel)', INSTALLER)
+        self.assertIn('managed_mode(rel)', INSTALLER)
+        launcher = SOURCE / "bin" / "run-llm-test.sh"
+        self.assertTrue(launcher.is_file())
+
     def test_disposable_smoke_covers_rollback_and_recreation(self) -> None:
         self.assertIn("preexisting-local-instructions", SMOKE)
         self.assertIn(" rollback ", SMOKE)

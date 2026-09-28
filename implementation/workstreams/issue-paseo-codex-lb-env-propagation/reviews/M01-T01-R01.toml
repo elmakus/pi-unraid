@@ -1,0 +1,20 @@
+workstream_id = "issue-paseo-codex-lb-env-propagation"
+card_id = "M01-T01"
+attempt = "R01"
+verdict = "green"
+evidence_path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/evidence/M01-T01-R01-independent-review-2026-09-28.md"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "fad7a0289dcf226e542c056bc7b0254f639ed776"
+path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/results/M01-T01.md"
+blob = "2c06f36f79f8e151684e4d5f486ab2f1f90e9f50"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/cards/M01-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending R01 is reserved for a fresh independent reviewer because the current execution context materially produced and repaired the M01-T01 implementation and accepted result subject."

@@ -1,0 +1,12 @@
+workstream_id = "issue-paseo-codex-lb-env-propagation"
+kind = "issue"
+state = "complete"
+diagnosis_revision = 1
+repair_subject = "repair:paseo-codex-lb-runtime-env-and-llm-test-policy:v1"
+diagnosis_prior_art_subject = "repair:paseo-codex-lb-runtime-env-and-llm-test-policy:v1"
+diagnosis_prior_art_result = "research/PASEO_CODEX_LB_ENV_PROPAGATION_R1.md"
+response_kind = "authorization"
+response_observed = true
+alignment_state = "authorized"
+alignment_subject = "repair:paseo-codex-lb-runtime-env-and-llm-test-policy:v1"
+micro_fix_candidate = true

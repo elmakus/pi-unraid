@@ -164,10 +164,14 @@ class CodexLbDynamicModelCatalogContractTests(unittest.TestCase):
         extension = EXTENSION.read_text()
         core = CORE.read_text()
         self.assertIn('pi.registerProvider(PROVIDER_ID', extension)
-        self.assertIn('pi.on("session_start"', extension)
+        self.assertIn('pi.on("session_start", async', extension)
+        self.assertIn("await refresher.refreshNow(ctx)", extension)
         self.assertIn('pi.on("session_shutdown"', extension)
         self.assertIn("ctx.modelRegistry.refresh({", core)
         self.assertIn("providers: [providerId]", core)
+        self.assertIn("supported_reasoning_levels", core)
+        self.assertIn("thinkingLevelMap", core)
+        self.assertIn("reasoning: false", core)
         self.assertNotIn("setModel", extension + core)
         for hardcoded in (
             "gpt-6-astra",

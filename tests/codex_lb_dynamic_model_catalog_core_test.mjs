@@ -6,6 +6,7 @@ import path from "node:path";
 import {
   conservativeModelDefinition,
   createDynamicProviderConfig,
+  definitionsFromCatalog,
   createSessionRefreshController,
   loadBootstrapConfig,
   parseCatalog,
@@ -60,6 +61,41 @@ assert.deepEqual(conservativeModelDefinition("alpha"), {
   maxTokens: 16384,
 });
 
+const verifiedDefinition = definitionsFromCatalog({
+  data: [{
+    id: "verified-reasoning-model",
+    supports_reasoning: true,
+    context_length: 272000,
+    metadata: {
+      supported_reasoning_levels: [
+        { effort: "low" },
+        { effort: "medium" },
+        { effort: "high" },
+        { effort: "xhigh" },
+        { effort: "max" },
+      ],
+    },
+  }],
+})[0];
+assert.equal(verifiedDefinition.reasoning, true);
+assert.equal(verifiedDefinition.contextWindow, 272000);
+assert.equal(verifiedDefinition.maxTokens, 16384);
+assert.deepEqual(verifiedDefinition.thinkingLevelMap, {
+  off: null,
+  minimal: null,
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "xhigh",
+  max: "max",
+});
+const unverifiedDefinition = definitionsFromCatalog({
+  data: [{ id: "verified-reasoning-model" }],
+})[0];
+assert.equal(unverifiedDefinition.reasoning, false);
+assert.equal(unverifiedDefinition.thinkingLevelMap, undefined);
+assert.equal(unverifiedDefinition.contextWindow, 128000);
+
 const published = [];
 let seenAuth;
 const provider = createDynamicProviderConfig(bootstrap, {
@@ -68,7 +104,18 @@ const provider = createDynamicProviderConfig(bootstrap, {
     seenAuth = options.headers.authorization;
     assert.equal(url, "http://codex-lb.test/v1/models");
     return new Response(
-      JSON.stringify({ object: "list", data: [{ id: "beta" }, { id: "alpha" }, { id: "beta" }] }),
+      JSON.stringify({
+        object: "list",
+        data: [
+          {
+            id: "beta",
+            capabilities: { supports_reasoning: true, context_length: 256000 },
+            metadata: { supported_reasoning_levels: [{ effort: "low" }, { effort: "high" }] },
+          },
+          { id: "alpha" },
+          { id: "beta" },
+        ],
+      }),
       {
         status: 200,
         headers: {
@@ -93,6 +140,12 @@ const ctx = {
 };
 const refreshed = await provider.refreshModels(ctx);
 assert.deepEqual(refreshed.map((model) => model.id), ["alpha", "beta"]);
+const refreshedBeta = refreshed.find((model) => model.id === "beta");
+assert.equal(refreshedBeta.reasoning, true);
+assert.equal(refreshedBeta.contextWindow, 256000);
+assert.equal(refreshedBeta.thinkingLevelMap.low, "low");
+assert.equal(refreshedBeta.thinkingLevelMap.medium, null);
+assert.equal(refreshedBeta.thinkingLevelMap.high, "high");
 assert.equal(seenAuth, "Bearer fixture-secret-never-log");
 assert.equal(published.length, 1);
 assert.deepEqual(published[0].persist.models.map((model) => model.id), ["alpha", "beta"]);
@@ -121,7 +174,28 @@ const offline = await offlineProvider.refreshModels({
   },
 });
 assert.deepEqual(offline.map((model) => model.id), ["alpha", "beta"]);
+const offlineBeta = offline.find((model) => model.id === "beta");
+assert.equal(offlineBeta.reasoning, true);
+assert.equal(offlineBeta.contextWindow, 256000);
+assert.equal(offlineBeta.thinkingLevelMap.low, "low");
+assert.equal(offlineBeta.thinkingLevelMap.medium, null);
 assert.equal(networkCalled, false);
+
+let validatorSeen;
+const fullRefreshProvider = createDynamicProviderConfig(bootstrap, {
+  fetchFn: async (_url, options) => {
+    validatorSeen = options.headers["if-none-match"];
+    return new Response(JSON.stringify({ data: [{ id: "beta" }] }), { status: 200 });
+  },
+});
+await fullRefreshProvider.refreshModels({
+  allowNetwork: true,
+  credential: { type: "api_key", key: "fixture-secret-never-log" },
+  signal: new AbortController().signal,
+  stored,
+  async publish() { return true; },
+});
+assert.equal(validatorSeen, undefined);
 
 async function assertFailurePreservesStored(testProvider, pattern) {
   let publishCount = 0;

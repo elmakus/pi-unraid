@@ -15,6 +15,14 @@ These instructions define the global Pi environment boundary. They are not proje
 - Use unraid-admin for Unraid environment/host-administration context. Its knowledge does not itself authorize a mutation.
 - Detailed guidance belongs in skill references so this global file stays compact.
 
+## Real LLM test policy
+
+- Any smoke, regression, acceptance or other test that intentionally causes a real LLM inference MUST use `~/.pi/agent/bin/run-llm-test.sh`.
+- The only permitted real-test profile is provider `codex-lb`, model `gpt-6-luna`, thinking/reasoning `low`.
+- NEVER use `gpt-6-astra` for a real LLM test. If Luna is unavailable, the test is blocked/failed; do not fall back to Astra or another model.
+- Catalog listing, metadata/auth/health checks and synthetic fixtures that do not cause inference are not real LLM tests and may contain other model IDs as data.
+- `~/.pi/agent/policies/LLM_TEST_POLICY.md` and `~/.pi/agent/policies/llm-test-policy.json` are the detailed human/machine contracts.
+
 ## Authority and secrets
 
 - Project Workflow owns managed workflow legality, durable state, review semantics, branch/write scope, and real user stops.

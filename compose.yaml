@@ -9,6 +9,12 @@ services:
     shm_size: "1gb"
     environment:
       TZ: Europe/Zurich
+      PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    secrets:
+      - source: codex_lb_client
+        target: pi-unraid-codex-lb
     stdin_open: true
     tty: true
     volumes:
@@ -32,3 +38,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+secrets:
+  codex_lb_client:
+    file: "${PI_CODEX_LB_SECRET_SOURCE:-/mnt/user/appdata/pi-unraid/secrets/codex-lb.env}"

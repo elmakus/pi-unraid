@@ -42,10 +42,20 @@ def safe_files(source: Path) -> list[Path]:
     return files
 
 
+def managed_mode(rel: Path) -> int:
+    # Files delivered through the managed bin/ namespace are executable tools;
+    # every other instruction-plane file is data/instructions and stays 0644.
+    # Do not infer mode from the host filesystem because Unraid/share mounts may
+    # normalize checkout permissions independently of the Git executable bit.
+    return 0o755 if rel.parts and rel.parts[0] == "bin" else 0o644
+
+
 def digest_source(source: Path, files: list[Path]) -> str:
     digest = hashlib.sha256()
     for rel in files:
         digest.update(rel.as_posix().encode())
+        digest.update(b"\0")
+        digest.update(f"{managed_mode(rel):04o}".encode())
         digest.update(b"\0")
         digest.update((source / rel).read_bytes())
         digest.update(b"\0")
@@ -90,6 +100,7 @@ def target_matches(source: Path, agent: Path, files: list[Path]) -> bool:
     return all(
         (agent / rel).is_file()
         and not (agent / rel).is_symlink()
+        and ((agent / rel).stat().st_mode & 0o777) == managed_mode(rel)
         and (agent / rel).read_bytes() == (source / rel).read_bytes()
         for rel in files
     )
@@ -168,7 +179,7 @@ def apply(source: Path, home: Path) -> dict:
             fail(f"refusing to replace non-file target: {target}")
         if target.is_symlink():
             fail(f"refusing to replace symlink target: {target}")
-        atomic_write(target, (source / rel).read_bytes(), 0o644)
+        atomic_write(target, (source / rel).read_bytes(), managed_mode(rel))
 
     write_json(
         current_path,

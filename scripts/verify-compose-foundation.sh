@@ -17,6 +17,7 @@ export PASEO_GID="$gid"
 export PASEO_HOME_HOST="$fixture/home"
 export PASEO_PROJECTS_HOST="$fixture/projects"
 export PASEO_WORKTREES_HOST="$fixture/worktrees"
+export PI_CODEX_LB_SECRET_SOURCE=/dev/null
 
 dc() {
   docker compose -p "$project" -f "$repo_root/compose.yaml" -f "$fixture/compose.fixture.yaml" "$@"
@@ -151,13 +152,13 @@ test "$(docker run --rm --user 0:0 --entrypoint stat \
   "$image" -c '%a' /fixture/home/.paseo/daemon-keypair.json)" = "600"
 
 mounts="$(docker inspect -f '{{range .Mounts}}{{.Destination}};{{end}}' "$cid")"
-for target in /home/paseo /projects /worktrees; do
+for target in /home/paseo /projects /worktrees /run/secrets/pi-unraid-codex-lb; do
   case "$mounts" in
     *"$target;"*) ;;
     *) printf 'missing expected Compose mount %s in %s\n' "$target" "$mounts" >&2; exit 1 ;;
   esac
 done
-test "$(printf '%s' "$mounts" | tr ';' '\n' | sed '/^$/d' | wc -l | tr -d ' ')" = "3"
+test "$(printf '%s' "$mounts" | tr ';' '\n' | sed '/^$/d' | wc -l | tr -d ' ')" = "4"
 test "$(docker inspect -f '{{.HostConfig.Privileged}}' "$cid")" = "false"
 test "$(docker inspect -f '{{.HostConfig.ShmSize}}' "$cid")" = "1073741824"
 test "$(docker inspect -f '{{.HostConfig.Memory}}' "$cid")" = "0"

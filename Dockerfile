@@ -103,7 +103,16 @@ RUN set -eux; \
     test "$(docker compose version --short)" = "${PI_UNRAID_DOCKER_COMPOSE_VERSION}"; \
     rm -f /tmp/docker-compose
 
-# Intentionally inherit Paseo's HOME=/home/paseo, root-capable setup entrypoint,
-# gosu drop to the non-root paseo user, server command, healthcheck and volume
-# contract from the exact parent image. Do not add USER/ENTRYPOINT/CMD here.
+# Preserve the pinned upstream ENTRYPOINT identity while inserting one bounded
+# project-owned prelude: load the dedicated Codex-LB secret into the daemon
+# process environment, then exec the untouched upstream Paseo entrypoint.
+COPY --chmod=0755 scripts/paseo-codex-lb-entrypoint.sh /usr/local/bin/pi-unraid-paseo-entrypoint
+RUN set -eux; \
+    test -x /usr/local/bin/paseo-docker-entrypoint; \
+    install -d -m 0755 /usr/local/libexec/pi-unraid; \
+    mv /usr/local/bin/paseo-docker-entrypoint /usr/local/libexec/pi-unraid/paseo-docker-entrypoint.upstream; \
+    ln -s /usr/local/bin/pi-unraid-paseo-entrypoint /usr/local/bin/paseo-docker-entrypoint
+
+# Continue to inherit Paseo's USER/CMD/healthcheck and all other startup
+# semantics from the exact parent image. No Dockerfile ENTRYPOINT override.
 WORKDIR /workspace
