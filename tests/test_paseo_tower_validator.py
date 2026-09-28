@@ -38,6 +38,24 @@ class TowerValidatorTests(unittest.TestCase):
             self.assertNotIn("/var/run/docker.sock",joined); self.assertNotIn("codex-lb",joined); self.assertNotIn("unraid-api.key",joined)
             self.assertIn("--read-only",run_call)
 
+    def test_runtime_waits_from_starting_to_healthy(self):
+        states = iter([
+            {"State":{"Status":"running","Health":{"Status":"starting"}}},
+            {"State":{"Status":"running","Health":{"Status":"healthy"}}},
+        ])
+        with mock.patch.object(V,"run",side_effect=lambda argv, **kwargs: mock.Mock(stdout=json.dumps([next(states)]))), \
+             mock.patch.object(V.time,"monotonic",side_effect=[0, 0]), \
+             mock.patch.object(V.time,"sleep") as sleeper:
+            obj = V.wait_for_runtime("candidate", timeout=10, poll_interval=0)
+        self.assertEqual(obj["State"]["Health"]["Status"],"healthy")
+        sleeper.assert_called_once_with(0)
+
+    def test_runtime_rejects_terminal_unhealthy(self):
+        payload={"State":{"Status":"running","Health":{"Status":"unhealthy"}}}
+        with mock.patch.object(V,"run",return_value=mock.Mock(stdout=json.dumps([payload]))):
+            with self.assertRaisesRegex(V.ValidationError,"unhealthy"):
+                V.wait_for_runtime("candidate", timeout=10, poll_interval=0)
+
     def test_blocked_is_structured(self):
         digest="sha256:"+"a"*64
         with tempfile.TemporaryDirectory() as td, mock.patch.object(V.shutil,"which",return_value=None):
