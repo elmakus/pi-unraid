@@ -21,3 +21,7 @@ path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/RESEARCH
 [tracker]
 class = "tracker"
 path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/TRACKER.toml"
+
+[task_board]
+class = "task_board"
+path = "implementation/workstreams/issue-paseo-codex-lb-env-propagation/TASK_BOARD.toml"
