@@ -110,6 +110,10 @@ class CodexLbDynamicModelCatalogContractTests(unittest.TestCase):
             "http://host.invalid:abc/v1",
             "http://host.invalid:99999/v1",
             "http://:123/v1",
+            "http://%5chost.invalid/v1",
+            "http://%2fhost.invalid/v1",
+            "http://example.com%00/v1",
+            "http://[v1.fe80::]/v1",
         ):
             with self.subTest(base_url=base_url), tempfile.TemporaryDirectory() as tmp:
                 root = Path(tmp)
