@@ -87,6 +87,9 @@ class TowerValidatorTests(unittest.TestCase):
                 run_call=next(x for x in calls if x[:2]==["docker","run"])
                 self.assertIn(f"{secret.resolve()}:{V.CODEX_SECRET_TARGET}:ro",run_call)
                 self.assertNotIn("fixture-not-real"," ".join(" ".join(x) for x in calls))
+                exec_call=next(x for x in calls if x[:2]==["docker","exec"])
+                self.assertIn("JSON.parse", exec_call[-1])
+                self.assertNotIn("grep -q", exec_call[-1])
                 if expected=="PASS": self.assertEqual(result["checks"]["codex_lb_smoke"],"PASS")
 
     def test_blocked_is_structured(self):
@@ -96,5 +99,3 @@ class TowerValidatorTests(unittest.TestCase):
             self.assertEqual(result["status"],"BLOCKED"); self.assertEqual(json.loads(out.read_text())["status"],"BLOCKED")
 
 if __name__=="__main__": unittest.main()
-
-[executed on device: Tower (256a948c-39fa-427e-874b-d2662172d16a)]
