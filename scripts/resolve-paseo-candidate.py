@@ -150,6 +150,72 @@ def _exact_source(component, immutable):
     if not SHA40.fullmatch(str(source.get("commit",""))):
         raise ResolutionError(f"{component} immutable source commit is missing")
     return source
+def validate_component_provenance(component,payload):
+    if component not in COMPONENT_KEYS:
+        raise ResolutionError(f"unsupported candidate component: {component}")
+    version=payload.get("version")
+    check_channel_substitution(version,f"{component} discovery version")
+
+    if component in EXPECTED_NPM_PACKAGE:
+        npmdata=payload.get("npm",{})
+        if npmdata.get("package")!=EXPECTED_NPM_PACKAGE[component]:
+            raise ResolutionError(f"{component} npm package substitution rejected")
+        if not str(npmdata.get("integrity","")).startswith("sha512-") or not re.fullmatch(r"[0-9a-f]{40}",str(npmdata.get("shasum",""))):
+            raise ResolutionError(f"{component} npm integrity missing")
+
+    expected_repo=EXPECTED_SOURCE_REPO.get(component)
+    if expected_repo is not None:
+        src=_exact_source(component,payload)
+        if src.get("repository")!=expected_repo:
+            raise ResolutionError(f"{component} source substitution rejected")
+        try:
+            tag_version=strip_tag(str(src.get("tag","")))
+        except ResolutionError:
+            raise ResolutionError(f"{component} source tag is not an accepted stable tag")
+        if tag_version!=version:
+            raise ResolutionError(f"{component} source tag does not match the frozen version")
+
+    if component=="docker_cli":
+        sls=payload.get("stable_line_source",{})
+        if sls.get("repository")!="moby/moby":
+            raise ResolutionError("docker stable-line source substitution rejected")
+        try:
+            docker_line=strip_tag(str(sls.get("tag","")))
+        except ResolutionError:
+            raise ResolutionError("docker stable-line tag is not an accepted stable tag")
+        if docker_line!=version:
+            raise ResolutionError("docker stable-line tag does not match the frozen version")
+    elif component=="paseo":
+        artifact=payload.get("artifact",{})
+        digest=str(artifact.get("digest",""))
+        if not SHA256.fullmatch(digest):
+            raise ResolutionError("Paseo official immutable GHCR identity missing")
+        if str(artifact.get("reference",""))!=f"ghcr.io/getpaseo/paseo@{digest}":
+            raise ResolutionError("Paseo GHCR reference must pin the immutable digest")
+        if str(artifact.get("image",""))!=f"ghcr.io/getpaseo/paseo:{version}":
+            raise ResolutionError("Paseo image tag does not match the frozen version")
+        if not SHA256.fullmatch(str(artifact.get("linux_amd64_manifest",""))):
+            raise ResolutionError("Paseo linux/amd64 manifest identity missing")
+        if not SHA256.fullmatch(str(artifact.get("config_digest",""))):
+            raise ResolutionError("Paseo image config digest missing")
+        check_channel_substitution(str(artifact.get("node_version","")),"Paseo image Node version")
+    elif component=="node":
+        if payload.get("delivery")!="provided-by-exact-paseo-image":
+            raise ResolutionError("Node delivery substitution rejected")
+        if payload.get("minimum_for_pi")!=">=22.19.0":
+            raise ResolutionError("Node prerequisite floor changed")
+    elif component=="github_cli":
+        if str(payload.get("artifact",{}).get("name",""))!=f"gh_{version}_linux_amd64.tar.gz":
+            raise ResolutionError("github_cli artifact substitution rejected")
+    elif component=="docker_compose":
+        if str(payload.get("artifact",{}).get("name",""))!="docker-compose-linux-x86_64":
+            raise ResolutionError("docker_compose artifact substitution rejected")
+    elif component=="playwright":
+        chromium=payload.get("chromium",{})
+        if not chromium.get("revision") or not chromium.get("browser_version"):
+            raise ResolutionError("Playwright/Chromium identity missing")
+
+
 def normalize_discovery_record(component,payload,definition):
     descriptors=candidate_capability_map(definition)
     descriptor=descriptors.get(component)
@@ -220,6 +286,8 @@ def normalize_discovery_record(component,payload,definition):
             raise ResolutionError(f"{component} derived owner is missing from managed registry")
         if not isinstance(immutable.get("immutable_parent"),str) or not immutable["immutable_parent"]:
             raise ResolutionError(f"{component} derived immutable parent is missing")
+
+    validate_component_provenance(component,{"version":version,**copy.deepcopy(immutable)})
 
     return {
         "schema_version":1,
@@ -479,6 +547,84 @@ def playwright_chromium(version):
     if len(chrom)!=1: raise ResolutionError(f"Playwright {version} chromium identity missing")
     return {"revision":str(chrom[0].get("revision","")),"browser_version":str(chrom[0].get("browserVersion",""))}
 
+def discover_live_payload(component,descriptor):
+    kind=descriptor["source_kind"]
+    if kind=="oci":
+        if component!="paseo":
+            raise ResolutionError(f"unsupported OCI candidate component: {component}")
+        repo=EXPECTED_SOURCE_REPO[component]
+        rel=latest(repo); version=strip_tag(rel["tag_name"]); image=paseo_image(version)
+        return {"version":version,
+                "source":{"repository":repo,"tag":rel["tag_name"],"commit":peel(repo,rel["tag_name"])},
+                "artifact":image}
+    if kind=="npm":
+        package=EXPECTED_NPM_PACKAGE.get(component); repo=EXPECTED_SOURCE_REPO.get(component)
+        if not package or not repo:
+            raise ResolutionError(f"unsupported npm candidate component: {component}")
+        payload,ndata=npm_component(package,repo)
+        if component=="playwright":
+            payload["chromium"]=playwright_chromium(payload["version"])
+        if component=="specpi":
+            payload["live_compatibility_smoke_required"]=True
+        if component=="pi_mcp_adapter":
+            payload["declared_pi_ai_peer"]=ndata.get("peerDependencies",{}).get("@earendil-works/pi-ai","")
+            payload["live_compatibility_smoke_required"]=True
+        return payload
+    if kind=="github_release":
+        repo=EXPECTED_SOURCE_REPO.get(component); pattern=BINARY_PATTERNS.get(component)
+        if not repo or not pattern:
+            raise ResolutionError(f"unsupported GitHub release candidate component: {component}")
+        return binary(repo,pattern)
+    if kind=="github_tag":
+        if component!="docker_cli":
+            raise ResolutionError(f"unsupported GitHub tag candidate component: {component}")
+        release=latest("moby/moby"); version=strip_tag(release["tag_name"])
+        return {"version":version,
+                "source":{"repository":"docker/cli","tag":f"v{version}","commit":peel("docker/cli",f"v{version}")},
+                "stable_line_source":{"repository":"moby/moby","tag":release["tag_name"]},
+                "artifact_identity":{"status":"source-commit-exact","digest":None,
+                                     "reason":"docker/cli publishes release tags without GitHub release assets"}}
+    if kind=="derived":
+        raise ResolutionError(f"derived candidate {component} must be discovered from its owner")
+    raise ResolutionError(f"unsupported candidate source kind for {component}: {kind}")
+
+
+def discover_derived_payload(component,descriptor,components):
+    owner=descriptor.get("derived_owner")
+    owner_payload=components.get(owner)
+    if component!="node" or owner!="paseo" or not isinstance(owner_payload,dict):
+        raise ResolutionError(f"unsupported derived candidate component: {component}")
+    artifact=owner_payload.get("artifact",{})
+    version=artifact.get("node_version")
+    reference=artifact.get("reference")
+    return {"version":version,"minimum_for_pi":">=22.19.0",
+            "delivery":"provided-by-exact-paseo-image","immutable_parent":reference}
+
+
+def discover_live_components(definition):
+    descriptors=candidate_capability_map(definition)
+    if set(descriptors)!=REQUIRED_COMPONENTS:
+        raise ResolutionError("approved capability set changed: inventory candidate components differ from the resolver contract; new or removed global capabilities require explicit user approval")
+    records=[]; components={}
+    for component in sorted(descriptors):
+        descriptor=descriptors[component]
+        if descriptor["source_kind"]=="derived":
+            continue
+        payload=discover_live_payload(component,descriptor)
+        record=normalize_discovery_record(component,payload,definition)
+        records.append(record)
+        components[component]=freeze_discovery_record(record,definition)
+    for component in sorted(descriptors):
+        descriptor=descriptors[component]
+        if descriptor["source_kind"]!="derived":
+            continue
+        payload=discover_derived_payload(component,descriptor,components)
+        record=normalize_discovery_record(component,payload,definition)
+        records.append(record)
+        components[component]=freeze_discovery_record(record,definition)
+    return freeze_discovery_records(records,definition)
+
+
 def load_json_file(path):
     try:
         return json.loads(Path(path).read_text())
@@ -704,25 +850,9 @@ def facts_to_candidate(f, definition=None, approved=None):
 
 def resolve_live(definition=None, approved=None):
     approved=approved or []
-    pr=latest("getpaseo/paseo"); pv=strip_tag(pr["tag_name"]); img=paseo_image(pv)
-    pi,_=npm_component("@earendil-works/pi-coding-agent","earendil-works/pi")
-    pw,_=npm_component("playwright","microsoft/playwright")
-    sp,_=npm_component("specpi","tannermidd/SpecPi")
-    ad,adn=npm_component("pi-mcp-adapter","nicobailon/pi-mcp-adapter")
-    pw["chromium"]=playwright_chromium(pw["version"])
-    node=img["node_version"]
-    peer=adn.get("peerDependencies",{}).get("@earendil-works/pi-ai","")
-    ad["declared_pi_ai_peer"]=peer; ad["live_compatibility_smoke_required"]=True; sp["live_compatibility_smoke_required"]=True
-    gh=binary("cli/cli",BINARY_PATTERNS["github_cli"])
-    dc=binary("docker/compose",BINARY_PATTERNS["docker_compose"])
-    er=latest("moby/moby"); dv=strip_tag(er["tag_name"])
-    docker={"version":dv,"source":{"repository":"docker/cli","tag":f"v{dv}","commit":peel("docker/cli",f"v{dv}")},
-            "stable_line_source":{"repository":"moby/moby","tag":er["tag_name"]},
-            "artifact_identity":{"status":"source-commit-exact","digest":None,"reason":"docker/cli publishes release tags without GitHub release assets"}}
-    components={
-      "paseo":{"version":pv,"source":{"repository":"getpaseo/paseo","tag":pr["tag_name"],"commit":peel("getpaseo/paseo",pr["tag_name"])},"artifact":img},
-      "node":{"version":node,"minimum_for_pi":">=22.19.0","delivery":"provided-by-exact-paseo-image","immutable_parent":img["reference"]},
-      "pi":pi,"playwright":pw,"specpi":sp,"pi_mcp_adapter":ad,"github_cli":gh,"docker_cli":docker,"docker_compose":dc}
+    if definition is None:
+        definition=load_json_file(DEFAULT_INVENTORY)
+    components=discover_live_components(definition)
     observed={name: comp["version"] for name, comp in components.items()}
     for entry in approved:
         comp,pin=entry["component"],entry["pinned_version"]
@@ -785,42 +915,7 @@ def validate(c, definition=None):
     if policy.get("generic_base_tooling")!=GENERIC_BASE_TOOLING: raise ResolutionError("generic base tooling set changed")
     if policy.get("generic_base_tooling_identity")!=GENERIC_BASE_TOOLING_IDENTITY: raise ResolutionError("generic base tooling identity changed")
     for n in sorted(comps):
-        check_channel_substitution(comps[n].get("version",""),f"{n} version")
-    for n in ("pi","playwright","specpi","pi_mcp_adapter"):
-        npmdata=comps[n].get("npm",{})
-        if npmdata.get("package")!=EXPECTED_NPM_PACKAGE[n]: raise ResolutionError(f"{n} npm package substitution rejected")
-        if not str(npmdata.get("integrity","")).startswith("sha512-") or not re.fullmatch(r"[0-9a-f]{40}",str(npmdata.get("shasum",""))):
-            raise ResolutionError(f"{n} npm integrity missing")
-    for n in sorted(EXPECTED_SOURCE_REPO):
-        src=comps[n].get("source",{})
-        if src.get("repository")!=EXPECTED_SOURCE_REPO[n]: raise ResolutionError(f"{n} source substitution rejected")
-        try: tag_version=strip_tag(str(src.get("tag","")))
-        except ResolutionError: raise ResolutionError(f"{n} source tag is not an accepted stable tag")
-        if tag_version!=comps[n]["version"]: raise ResolutionError(f"{n} source tag does not match the frozen version")
-        if not SHA40.fullmatch(str(src.get("commit",""))): raise ResolutionError(f"{n} source commit missing")
-    sls=comps["docker_cli"].get("stable_line_source",{})
-    if sls.get("repository")!="moby/moby": raise ResolutionError("docker stable-line source substitution rejected")
-    try: docker_line=strip_tag(str(sls.get("tag","")))
-    except ResolutionError: raise ResolutionError("docker stable-line tag is not an accepted stable tag")
-    if docker_line!=comps["docker_cli"]["version"]: raise ResolutionError("docker stable-line tag does not match the frozen version")
-    pa=comps["paseo"].get("artifact",{})
-    if not SHA256.fullmatch(str(pa.get("digest",""))): raise ResolutionError("Paseo official immutable GHCR identity missing")
-    if str(pa.get("reference",""))!=f"ghcr.io/getpaseo/paseo@{pa.get('digest','')}": raise ResolutionError("Paseo GHCR reference must pin the immutable digest")
-    if str(pa.get("image",""))!=f"ghcr.io/getpaseo/paseo:{comps['paseo']['version']}": raise ResolutionError("Paseo image tag does not match the frozen version")
-    if not SHA256.fullmatch(str(pa.get("linux_amd64_manifest",""))): raise ResolutionError("Paseo linux/amd64 manifest identity missing")
-    if not SHA256.fullmatch(str(pa.get("config_digest",""))): raise ResolutionError("Paseo image config digest missing")
-    check_channel_substitution(str(pa.get("node_version","")),"Paseo image Node version")
-    node=comps["node"]
-    if node.get("delivery")!="provided-by-exact-paseo-image": raise ResolutionError("Node delivery substitution rejected")
-    if node.get("minimum_for_pi")!=">=22.19.0": raise ResolutionError("Node prerequisite floor changed")
-    for n in ("github_cli","docker_compose"):
-        if not SHA256.fullmatch(str(comps[n].get("artifact",{}).get("digest",""))): raise ResolutionError(f"{n} artifact digest missing")
-    gh_name=str(comps["github_cli"].get("artifact",{}).get("name",""))
-    if gh_name!=f"gh_{comps['github_cli']['version']}_linux_amd64.tar.gz": raise ResolutionError("github_cli artifact substitution rejected")
-    if str(comps["docker_compose"].get("artifact",{}).get("name",""))!="docker-compose-linux-x86_64":
-        raise ResolutionError("docker_compose artifact substitution rejected")
-    if not comps["playwright"].get("chromium",{}).get("revision") or not comps["playwright"].get("chromium",{}).get("browser_version"):
-        raise ResolutionError("Playwright/Chromium identity missing")
+        validate_component_provenance(n,comps[n])
     check_compatibility(comps)
     for n in sorted(comps):
         if "stable_line" in comps[n] and comps[n]["stable_line"]!=STABLE_LINES[n]:

@@ -124,6 +124,40 @@ class TypedDiscoveryFreezeTests(unittest.TestCase):
         with self.assertRaisesRegex(resolver.ResolutionError,"not bound to exact owner"):
             resolver.freeze_discovery_records(drifted,self.definition)
 
+    def test_freeze_rejects_existing_provenance_substitution_at_boundary(self):
+        cases=[]
+        value=copy.deepcopy(self.components["pi"]); value["source"]["repository"]="attacker/example"
+        cases.append(("source repository","pi",value,"source substitution rejected"))
+        value=copy.deepcopy(self.components["pi"]); value["source"]["tag"]="v9.9.9"
+        cases.append(("source tag","pi",value,"source tag does not match"))
+        value=copy.deepcopy(self.components["pi"]); value["npm"]["package"]="attacker-package"
+        cases.append(("npm package","pi",value,"npm package substitution rejected"))
+        value=copy.deepcopy(self.components["docker_cli"]); del value["artifact_identity"]
+        cases.append(("github tag identity","docker_cli",value,"tag/commit identity is missing"))
+        for label,component,payload,message in cases:
+            with self.subTest(label=label), self.assertRaisesRegex(resolver.ResolutionError,message):
+                components=copy.deepcopy(self.components)
+                components[component]=payload
+                resolver.typed_discovery_freeze(components,self.definition)
+
+    def test_live_discovery_routes_all_current_components_through_typed_adapters(self):
+        calls=[]
+        def fake_source(component,descriptor):
+            calls.append((component,descriptor["source_kind"]))
+            return copy.deepcopy(self.components[component])
+        def fake_derived(component,descriptor,components):
+            calls.append((component,descriptor["source_kind"]))
+            return copy.deepcopy(self.components[component])
+        with mock.patch.object(resolver,"discover_live_payload",side_effect=fake_source), \
+             mock.patch.object(resolver,"discover_derived_payload",side_effect=fake_derived):
+            frozen=resolver.discover_live_components(self.definition)
+        self.assertEqual(frozen,self.components)
+        self.assertEqual(dict(calls),{
+            "paseo":"oci","node":"derived","pi":"npm","playwright":"npm",
+            "specpi":"npm","pi_mcp_adapter":"npm","github_cli":"github_release",
+            "docker_cli":"github_tag","docker_compose":"github_release",
+        })
+
 
 class CoordinatedResolverTests(unittest.TestCase):
     def invoke(self,*args):
