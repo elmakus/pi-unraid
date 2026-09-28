@@ -1,0 +1,20 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M04-T02"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "1c59eb22a57bb780948f1d3d8d354fd4ca877724"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M04-T02.md"
+blob = "3318f1bd2c4e5c9f003444b80585bd931e22a088"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M04-T02.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending independent review. The implementation context that materially produced the subject is not eligible to issue this verdict."
