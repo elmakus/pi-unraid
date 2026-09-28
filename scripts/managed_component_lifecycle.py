@@ -14,6 +14,8 @@ import environment_capability_inventory as inventory
 
 DEFAULT_DEFINITION = ROOT / "config/environment-capabilities.json"
 SUPPORTED_CLASSES = {"pi_extension", "developer_tool", "derived_component"}
+MANAGED_INSTALLATION_READBACK_AUTHORITY = "managed_installation_readback_only"
+MANAGED_INSTALLATION_CONSISTENCY_AUTHORITY = "managed_installation_registry_consistency"
 SOURCE_IDENTITIES = {
     "npm": "npm_integrity",
     "github_release": "release_asset_digest",
@@ -226,6 +228,77 @@ def snapshot(definition: dict) -> dict:
     return inventory.managed_registry_snapshot(definition)
 
 
+def _component_id_set(value, label: str) -> set[str]:
+    if not isinstance(value, list):
+        raise LifecycleError(f"{label} must be a list")
+    if not all(isinstance(item, str) and item for item in value):
+        raise LifecycleError(f"{label} must contain non-empty component ids")
+    if len(value) != len(set(value)):
+        raise LifecycleError(f"{label} must not contain duplicate component ids")
+    return set(value)
+
+
+def validate_installation_readback(definition: dict, readback: dict) -> dict:
+    inventory.validate_definition(definition)
+    if not isinstance(readback, dict):
+        raise LifecycleError("managed installation readback must be an object")
+    if set(readback) != {
+        "schema_version",
+        "authority",
+        "installed_component_ids",
+        "temporary_component_ids",
+    }:
+        raise LifecycleError("managed installation readback contains unexpected fields")
+    if readback.get("schema_version") != 1:
+        raise LifecycleError("unsupported managed installation readback schema")
+    if readback.get("authority") != MANAGED_INSTALLATION_READBACK_AUTHORITY:
+        raise LifecycleError("managed installation readback authority is invalid")
+
+    installed = _component_id_set(
+        readback.get("installed_component_ids"),
+        "installed_component_ids",
+    )
+    temporary = _component_id_set(
+        readback.get("temporary_component_ids"),
+        "temporary_component_ids",
+    )
+    overlap = sorted(installed & temporary)
+    if overlap:
+        raise LifecycleError(
+            "component ids cannot be both managed-installed and temporary"
+        )
+
+    registered = {
+        item["id"]
+        for item in definition["capabilities"]
+        if item["managed_update"]["membership"] == "managed"
+        and isinstance(item["managed_update"].get("installation_intent"), dict)
+    }
+    missing_registered = sorted(registered - installed)
+    installed_unregistered = sorted(installed - registered)
+
+    output = {
+        "schema_version": 1,
+        "authority": MANAGED_INSTALLATION_CONSISTENCY_AUTHORITY,
+        "registry_authority": inventory.MANAGED_REGISTRY_AUTHORITY,
+        "state": "RED" if missing_registered or installed_unregistered else "GREEN",
+        "registered_count": len(registered),
+        "installed_managed_count": len(installed),
+        "temporary_count": len(temporary),
+        "missing_registered": missing_registered,
+        "installed_unregistered": [
+            inventory._observation_fingerprint(component_id)
+            for component_id in installed_unregistered
+        ],
+        "temporary_installations": [
+            inventory._observation_fingerprint(component_id)
+            for component_id in sorted(temporary)
+        ],
+        "temporary_policy": "report_only_not_adopted",
+    }
+    return output
+
+
 def apply(
     path: Path,
     action: str,
@@ -261,6 +334,8 @@ def main() -> int:
     remove = sub.add_parser("remove")
     remove.add_argument("--id", required=True)
     remove.add_argument("--dry-run", action="store_true")
+    readback = sub.add_parser("validate-readback")
+    readback.add_argument("--readback", required=True)
     args = parser.parse_args()
     path = Path(args.definition)
     try:
@@ -269,10 +344,13 @@ def main() -> int:
         elif args.action == "add":
             spec = json.loads(Path(args.spec).read_text())
             output = apply(path, "add", spec=spec, dry_run=args.dry_run)
-        else:
+        elif args.action == "remove":
             output = apply(path, "remove", component_id=args.id, dry_run=args.dry_run)
+        else:
+            readback = json.loads(Path(args.readback).read_text())
+            output = validate_installation_readback(_load(path), readback)
         print(json.dumps(output, sort_keys=True, separators=(",", ":")))
-        return 0
+        return 1 if output.get("state") == "RED" else 0
     except (LifecycleError, inventory.InventoryError, OSError, json.JSONDecodeError) as exc:
         print(f"managed-component lifecycle error: {exc}", file=sys.stderr)
         return 1
