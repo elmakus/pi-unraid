@@ -1,5 +1,5 @@
 workstream_id = "feature-codex-lb-dynamic-model-catalog"
-revision = 19
+revision = 20
 
 [execution_ref]
 branch = "feat/codex-lb-dynamic-model-catalog"
@@ -87,6 +87,12 @@ status = "in_progress"
 [cards.contract]
 class = "task_card"
 path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/cards/M02-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/results/M02-T02.md"
+commit = "f7bff14d7813cec30051e85c0434156f5d9e85df"
+blob = "082e2c41d532462bdab5b00421bd93c72a118fe2"
 
 [[jit_triggers]]
 id = "after-M02-T01-materialize-M02-T02"
