@@ -39,6 +39,46 @@ SAFE_PROVENANCE_KEYS = {
     "stable_line_source",
 }
 
+MANAGED_REGISTRY_AUTHORITY = "managed_update_membership_only"
+MANAGED_SOURCE_KINDS = {
+    "derived",
+    "github_release",
+    "github_tag",
+    "npm",
+    "oci",
+    "repository_tree",
+}
+MANAGED_STABLE_CHANNELS = {"latest-stable", "derived-from-owner", "repository-state"}
+MANAGED_INSTALL_CLASSES = {
+    "upstream_parent_image",
+    "npm_global",
+    "playwright_managed_browser",
+    "pinned_binary",
+    "pinned_cli_plugin",
+    "pi_global_extension",
+    "child_image_package_graph",
+    "repository_managed_home_install",
+}
+MANAGED_UPDATE_CLASSES = {"core_pair", "independent", "derived", "repository_managed"}
+MANAGED_IDENTITY_KINDS = {
+    "oci_digest",
+    "npm_integrity",
+    "release_asset_digest",
+    "git_commit",
+    "owner_immutable_identity",
+    "repo_tree_sha256",
+}
+MANAGED_UPDATE_KEYS = {
+    "membership",
+    "source",
+    "stable_channel",
+    "immutable_identity",
+    "install_class",
+    "update_class",
+    "derived_owner",
+    "probe_ref",
+}
+
 
 class InventoryError(RuntimeError):
     pass
@@ -77,6 +117,18 @@ def validate_definition(definition: dict) -> None:
         raise InventoryError("unsupported inventory schema")
     if definition.get("authority") != "environment_availability_only":
         raise InventoryError("inventory authority must remain environment availability only")
+
+    registry = definition.get("managed_component_registry")
+    if not isinstance(registry, dict):
+        raise InventoryError("managed_component_registry metadata is missing")
+    if registry.get("schema_version") != 1:
+        raise InventoryError("unsupported managed-component registry schema")
+    if registry.get("authority") != MANAGED_REGISTRY_AUTHORITY:
+        raise InventoryError("managed-component registry authority is invalid")
+    if registry.get("membership_field") != "managed_update":
+        raise InventoryError("managed-component registry membership field is invalid")
+    if set(registry) != {"schema_version", "authority", "membership_field"}:
+        raise InventoryError("managed-component registry metadata contains unexpected fields")
 
     offenders = sorted(set(_walk_keys(definition)) & FORBIDDEN_DEFINITION_KEYS)
     if offenders:
@@ -123,6 +175,71 @@ def validate_definition(definition: dict) -> None:
             raise InventoryError(f"runtime_location is invalid: {capability_id}")
         if not isinstance(capability.get("probe"), dict):
             raise InventoryError(f"probe metadata is missing: {capability_id}")
+
+        managed = capability.get("managed_update")
+        if not isinstance(managed, dict) or set(managed) != MANAGED_UPDATE_KEYS:
+            raise InventoryError(f"managed_update metadata is invalid: {capability_id}")
+        if managed.get("membership") != "managed":
+            raise InventoryError(f"capability is not managed for updates: {capability_id}")
+
+        source_meta = managed.get("source")
+        if (
+            not isinstance(source_meta, dict)
+            or set(source_meta) != {"kind"}
+            or source_meta.get("kind") not in MANAGED_SOURCE_KINDS
+        ):
+            raise InventoryError(f"managed source kind is invalid: {capability_id}")
+
+        stable_channel = managed.get("stable_channel")
+        if stable_channel not in MANAGED_STABLE_CHANNELS:
+            raise InventoryError(f"managed stable channel is invalid: {capability_id}")
+
+        identity_meta = managed.get("immutable_identity")
+        if (
+            not isinstance(identity_meta, dict)
+            or set(identity_meta) != {"kind"}
+            or identity_meta.get("kind") not in MANAGED_IDENTITY_KINDS
+        ):
+            raise InventoryError(f"managed immutable identity is invalid: {capability_id}")
+
+        install_class = managed.get("install_class")
+        if install_class not in MANAGED_INSTALL_CLASSES:
+            raise InventoryError(f"managed install class is invalid: {capability_id}")
+        if install_class != capability["delivery_mode"]:
+            raise InventoryError(f"managed install class disagrees with delivery_mode: {capability_id}")
+
+        update_class = managed.get("update_class")
+        if update_class not in MANAGED_UPDATE_CLASSES:
+            raise InventoryError(f"managed update class is invalid: {capability_id}")
+        if managed.get("probe_ref") != "probe":
+            raise InventoryError(f"managed probe reference is invalid: {capability_id}")
+
+        owner = managed.get("derived_owner")
+        if update_class == "derived":
+            if not isinstance(owner, str) or not owner:
+                raise InventoryError(f"derived managed capability lacks owner: {capability_id}")
+            if source_meta["kind"] != "derived":
+                raise InventoryError(f"derived managed capability must use derived source: {capability_id}")
+            if stable_channel != "derived-from-owner":
+                raise InventoryError(f"derived managed capability has invalid channel: {capability_id}")
+            if identity_meta["kind"] != "owner_immutable_identity":
+                raise InventoryError(f"derived managed capability has invalid identity: {capability_id}")
+        else:
+            if owner is not None:
+                raise InventoryError(f"non-derived managed capability has derived_owner: {capability_id}")
+            if source_meta["kind"] == "derived":
+                raise InventoryError(f"non-derived managed capability uses derived source: {capability_id}")
+            expected_channel = "repository-state" if update_class == "repository_managed" else "latest-stable"
+            if stable_channel != expected_channel:
+                raise InventoryError(f"managed stable channel does not match update class: {capability_id}")
+
+    by_id = {capability["id"]: capability for capability in capabilities}
+    for capability in capabilities:
+        capability_id = capability["id"]
+        owner = capability["managed_update"]["derived_owner"]
+        if owner is not None:
+            if owner == capability_id or owner not in by_id:
+                raise InventoryError(f"derived managed capability owner is invalid: {capability_id}")
 
 
 def _resolve_under_root(root: Path, relative_path: str) -> Path:
@@ -296,6 +413,22 @@ def classify(desired: dict, observation: dict | None) -> tuple[str, str]:
     return "GREEN", "none"
 
 
+def managed_registry_snapshot(definition: dict) -> dict:
+    validate_definition(definition)
+    registry = definition["managed_component_registry"]
+    return {
+        "schema_version": registry["schema_version"],
+        "authority": registry["authority"],
+        "components": [
+            {
+                "id": capability["id"],
+                **deepcopy(capability["managed_update"]),
+            }
+            for capability in sorted(definition["capabilities"], key=lambda item: item["id"])
+        ],
+    }
+
+
 def derive_inventory(
     definition: dict,
     candidate: dict,
@@ -334,6 +467,7 @@ def derive_inventory(
                 "id": capability_id,
                 "approval": capability["approval"],
                 "delivery_mode": capability["delivery_mode"],
+                "managed_update": deepcopy(capability["managed_update"]),
                 "desired": desired,
                 "runtime_location": deepcopy(capability["runtime_location"]),
                 "probe": deepcopy(capability["probe"]),
@@ -365,6 +499,7 @@ def derive_inventory(
     return {
         "schema_version": 1,
         "authority": "environment_availability_only",
+        "managed_component_registry": deepcopy(definition["managed_component_registry"]),
         "candidate_id": candidate_id,
         "state": state,
         "capabilities": rendered,
@@ -382,6 +517,7 @@ def main() -> int:
     parser.add_argument("--definition", default=str(DEFAULT_DEFINITION.relative_to(ROOT)))
     parser.add_argument("--candidate")
     parser.add_argument("--observations")
+    parser.add_argument("--managed-registry", action="store_true")
     parser.add_argument("--root", default=str(ROOT))
     args = parser.parse_args()
 
@@ -390,6 +526,10 @@ def main() -> int:
         definition_path = _path_from_arg(root, args.definition)
         definition = load_json(definition_path)
         validate_definition(definition)
+
+        if args.managed_registry:
+            print(json.dumps(managed_registry_snapshot(definition), sort_keys=True, separators=(",", ":")))
+            return 0
 
         candidate_value = args.candidate or definition["candidate_source"]
         candidate = load_json(_path_from_arg(root, candidate_value))

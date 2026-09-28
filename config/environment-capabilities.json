@@ -1,6 +1,11 @@
 {
   "schema_version": 1,
   "authority": "environment_availability_only",
+  "managed_component_registry": {
+    "schema_version": 1,
+    "authority": "managed_update_membership_only",
+    "membership_field": "managed_update"
+  },
   "candidate_source": "config/paseo-candidate.json",
   "capabilities": [
     {
@@ -18,6 +23,20 @@
       "probe": {
         "kind": "http_health",
         "path": "/api/health"
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "oci"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "oci_digest"
+        },
+        "install_class": "upstream_parent_image",
+        "update_class": "core_pair",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -34,7 +53,24 @@
       },
       "probe": {
         "kind": "command_version",
-        "argv": ["node", "--version"]
+        "argv": [
+          "node",
+          "--version"
+        ]
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "derived"
+        },
+        "stable_channel": "derived-from-owner",
+        "immutable_identity": {
+          "kind": "owner_immutable_identity"
+        },
+        "install_class": "upstream_parent_image",
+        "update_class": "derived",
+        "derived_owner": "paseo",
+        "probe_ref": "probe"
       }
     },
     {
@@ -51,7 +87,24 @@
       },
       "probe": {
         "kind": "command_version",
-        "argv": ["pi", "--version"]
+        "argv": [
+          "pi",
+          "--version"
+        ]
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "npm"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "npm_integrity"
+        },
+        "install_class": "npm_global",
+        "update_class": "core_pair",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -68,7 +121,24 @@
       },
       "probe": {
         "kind": "command_version",
-        "argv": ["playwright", "--version"]
+        "argv": [
+          "playwright",
+          "--version"
+        ]
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "npm"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "npm_integrity"
+        },
+        "install_class": "npm_global",
+        "update_class": "independent",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -77,7 +147,12 @@
       "delivery_mode": "playwright_managed_browser",
       "desired": {
         "kind": "candidate_field",
-        "path": ["components", "playwright", "chromium", "browser_version"],
+        "path": [
+          "components",
+          "playwright",
+          "chromium",
+          "browser_version"
+        ],
         "provenance_component": "playwright"
       },
       "runtime_location": {
@@ -86,6 +161,20 @@
       },
       "probe": {
         "kind": "playwright_browser_version"
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "derived"
+        },
+        "stable_channel": "derived-from-owner",
+        "immutable_identity": {
+          "kind": "owner_immutable_identity"
+        },
+        "install_class": "playwright_managed_browser",
+        "update_class": "derived",
+        "derived_owner": "playwright",
+        "probe_ref": "probe"
       }
     },
     {
@@ -102,7 +191,24 @@
       },
       "probe": {
         "kind": "command_version",
-        "argv": ["gh", "--version"]
+        "argv": [
+          "gh",
+          "--version"
+        ]
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "github_release"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "release_asset_digest"
+        },
+        "install_class": "pinned_binary",
+        "update_class": "independent",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -119,7 +225,24 @@
       },
       "probe": {
         "kind": "command_version",
-        "argv": ["docker", "--version"]
+        "argv": [
+          "docker",
+          "--version"
+        ]
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "github_tag"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "git_commit"
+        },
+        "install_class": "pinned_binary",
+        "update_class": "independent",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -136,7 +259,26 @@
       },
       "probe": {
         "kind": "command_version",
-        "argv": ["docker", "compose", "version", "--short"]
+        "argv": [
+          "docker",
+          "compose",
+          "version",
+          "--short"
+        ]
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "github_release"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "release_asset_digest"
+        },
+        "install_class": "pinned_cli_plugin",
+        "update_class": "independent",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -153,6 +295,20 @@
       },
       "probe": {
         "kind": "pi_extension_readback"
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "npm"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "npm_integrity"
+        },
+        "install_class": "pi_global_extension",
+        "update_class": "independent",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -169,6 +325,20 @@
       },
       "probe": {
         "kind": "pi_extension_readback"
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "npm"
+        },
+        "stable_channel": "latest-stable",
+        "immutable_identity": {
+          "kind": "npm_integrity"
+        },
+        "install_class": "pi_global_extension",
+        "update_class": "independent",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     },
     {
@@ -177,8 +347,14 @@
       "delivery_mode": "child_image_package_graph",
       "desired": {
         "kind": "candidate_field",
-        "path": ["policy", "generic_base_tooling_identity"],
-        "members_path": ["policy", "generic_base_tooling"]
+        "path": [
+          "policy",
+          "generic_base_tooling_identity"
+        ],
+        "members_path": [
+          "policy",
+          "generic_base_tooling"
+        ]
       },
       "runtime_location": {
         "kind": "image_scope",
@@ -186,6 +362,20 @@
       },
       "probe": {
         "kind": "command_set"
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "derived"
+        },
+        "stable_channel": "derived-from-owner",
+        "immutable_identity": {
+          "kind": "owner_immutable_identity"
+        },
+        "install_class": "child_image_package_graph",
+        "update_class": "derived",
+        "derived_owner": "paseo",
+        "probe_ref": "probe"
       }
     },
     {
@@ -202,6 +392,20 @@
       },
       "probe": {
         "kind": "managed_tree_identity"
+      },
+      "managed_update": {
+        "membership": "managed",
+        "source": {
+          "kind": "repository_tree"
+        },
+        "stable_channel": "repository-state",
+        "immutable_identity": {
+          "kind": "repo_tree_sha256"
+        },
+        "install_class": "repository_managed_home_install",
+        "update_class": "repository_managed",
+        "derived_owner": null,
+        "probe_ref": "probe"
       }
     }
   ]

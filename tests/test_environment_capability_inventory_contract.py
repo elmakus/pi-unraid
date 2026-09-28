@@ -199,5 +199,72 @@ class EnvironmentCapabilityInventoryContractTests(unittest.TestCase):
                     inventory.validate_definition(bad)
 
 
+    def test_managed_registry_is_explicit_typed_and_deterministic(self) -> None:
+        first = inventory.managed_registry_snapshot(DEFINITION)
+        second = inventory.managed_registry_snapshot(DEFINITION)
+        self.assertEqual(first, second)
+        self.assertEqual(first["authority"], "managed_update_membership_only")
+
+        expected_ids = sorted(item["id"] for item in DEFINITION["capabilities"])
+        self.assertEqual([item["id"] for item in first["components"]], expected_ids)
+
+        source_kinds = {item["source"]["kind"] for item in first["components"]}
+        self.assertEqual(
+            source_kinds,
+            {"oci", "derived", "npm", "github_release", "github_tag", "repository_tree"},
+        )
+        self.assertTrue(source_kinds.isdisjoint({"apt", "pip", "cargo"}))
+
+        by_id = {item["id"]: item for item in first["components"]}
+        for component in first["components"]:
+            self.assertEqual(component["membership"], "managed")
+            self.assertEqual(component["probe_ref"], "probe")
+            self.assertIn(component["install_class"], inventory.MANAGED_INSTALL_CLASSES)
+            self.assertIn(component["update_class"], inventory.MANAGED_UPDATE_CLASSES)
+            if component["update_class"] == "derived":
+                self.assertIn(component["derived_owner"], by_id)
+                self.assertEqual(component["source"]["kind"], "derived")
+                self.assertEqual(component["stable_channel"], "derived-from-owner")
+            else:
+                self.assertIsNone(component["derived_owner"])
+
+        self.assertEqual(by_id["paseo"]["update_class"], "core_pair")
+        self.assertEqual(by_id["pi"]["update_class"], "core_pair")
+        self.assertEqual(by_id["chromium"]["derived_owner"], "playwright")
+        self.assertEqual(by_id["pi_instruction_plane"]["update_class"], "repository_managed")
+
+    def test_managed_registry_rejects_invalid_typed_metadata(self) -> None:
+        invalid_source = copy.deepcopy(DEFINITION)
+        invalid_source["capabilities"][2]["managed_update"]["source"]["kind"] = "pip"
+        with self.assertRaises(inventory.InventoryError):
+            inventory.validate_definition(invalid_source)
+
+        mismatched_install = copy.deepcopy(DEFINITION)
+        mismatched_install["capabilities"][2]["managed_update"]["install_class"] = "pinned_binary"
+        with self.assertRaises(inventory.InventoryError):
+            inventory.validate_definition(mismatched_install)
+
+        invalid_owner = copy.deepcopy(DEFINITION)
+        chromium = next(item for item in invalid_owner["capabilities"] if item["id"] == "chromium")
+        chromium["managed_update"]["derived_owner"] = "missing-owner"
+        with self.assertRaises(inventory.InventoryError):
+            inventory.validate_definition(invalid_owner)
+
+    def test_availability_readback_keeps_update_membership_separate_and_secret_free(self) -> None:
+        derived = inventory.derive_inventory(DEFINITION, CANDIDATE, ROOT)
+        self.assertEqual(derived["authority"], "environment_availability_only")
+        self.assertEqual(
+            derived["managed_component_registry"]["authority"],
+            "managed_update_membership_only",
+        )
+        for capability in derived["capabilities"]:
+            self.assertEqual(capability["managed_update"]["membership"], "managed")
+            self.assertEqual(capability["managed_update"]["probe_ref"], "probe")
+
+        rendered = json.dumps(DEFINITION, sort_keys=True).lower()
+        for token in ('"password"', '"authorization"', '"access_token"', '"private_key"', '"secret"', '"token"'):
+            self.assertNotIn(token, rendered)
+
+
 if __name__ == "__main__":
     unittest.main()
