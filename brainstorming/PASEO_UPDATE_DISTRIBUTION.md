@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R9`
+Revision: `R10`
 Status: `active`
 
 ## Problem / goal
@@ -162,3 +162,17 @@ The update inventory/managed-component registry is the durable source of truth f
 - Experimental or ad-hoc live changes inside a running container are not durable registration events. To keep a component, it must be adopted through the managed add path so the repo declaration and registry become authoritative together.
 
 The intended operator/agent UX is a single managed add/remove operation rather than editing two unrelated files manually. The exact CLI/helper shape belongs to Definition/Planning, but it must update both installation intent and registry membership atomically and then rely on the normal candidate build/update pipeline.
+
+
+### Agent-operated managed component lifecycle — R10
+
+The human operator does not need to invoke component-management helpers directly.
+
+- The normal user interaction is natural-language intent to the coding agent, e.g. "install this Pi extension", "add this developer tool", or "remove this component".
+- The agent must route every durable managed install/remove through the project-owned managed-component helper/workflow.
+- The helper is an implementation contract for agents, not a required user-facing CLI workflow.
+- A durable add operation must atomically update installation intent plus registry/inventory membership and then enter the normal candidate build/test/update pipeline.
+- A durable remove operation must atomically remove installation intent plus registry/inventory membership and then enter the same pipeline.
+- Agents must not implement a durable managed change by directly editing only the image/Dockerfile/package install command while skipping registry lifecycle.
+- Direct live-container installation is permitted only as explicitly temporary experimentation/diagnosis; it is not durable state and must not silently become managed inventory.
+- Definition/Planning should provide machine-checkable guidance/tests so an agent can discover and use the correct helper automatically without the user needing to remember registry mechanics.
