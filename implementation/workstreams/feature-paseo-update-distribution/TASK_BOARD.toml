@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 23
+revision = 24
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -111,3 +111,7 @@ class = "result"
 path = "implementation/workstreams/feature-paseo-update-distribution/results/M02-T02.md"
 commit = "7e86b22f1b4481199bbecb912e6c91beb6f0e4e8"
 blob = "38fa0c94e8afa10f8ef02a2b006b0f64868e3933"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M02-T02-R01.toml"
