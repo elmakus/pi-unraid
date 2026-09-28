@@ -31,6 +31,28 @@ def run_json(*args: str, cwd: Path | None = None) -> dict[str, object]:
     return json.loads(run(*args, cwd=cwd))
 
 
+def run_instruction(repo: Path, image: str, action: str, home: Path) -> dict[str, object]:
+    return run_json(
+        "bash", "scripts/configure-pi-instruction-plane.sh",
+        action, image, str(home), "99", "100", cwd=repo,
+    )
+
+
+def run_reconciler(repo: Path, image: str, action: str, home: Path) -> dict[str, object]:
+    script = repo / "scripts/reconcile-codex-lb-provider-config.py"
+    output = run(
+        "docker", "run", "--rm", "--user", "99:100",
+        "-v", f"{home}:/home/paseo",
+        "-v", f"{script}:/reconcile-codex-lb-provider-config.py:ro",
+        image,
+        "python3", "/reconcile-codex-lb-provider-config.py",
+        action,
+        "/home/paseo/.pi/agent/models.json",
+        "/home/paseo/.pi-unraid/codex-lb-provider-config",
+    )
+    return json.loads(output)
+
+
 def sha256_file(path: Path) -> str | None:
     if not path.is_file():
         return None
@@ -219,6 +241,7 @@ class RpcProcess:
         env["CODEX_LB_API_KEY"] = api_key
         cmd = [
             "docker", "run", "--rm", "--name", self.name,
+            "--user", "99:100",
             "--network", "host",
             "--add-host", "host.docker.internal:host-gateway",
             "-i",
@@ -348,6 +371,10 @@ def main() -> int:
         stage = Path(tmp_name) / "home"
         (stage / ".pi").mkdir(parents=True)
         (stage / ".pi-unraid").mkdir(parents=True)
+        os.chown(stage, 99, 100)
+        os.chmod(stage, 0o700)
+        os.chown(stage / ".pi", 99, 100)
+        os.chown(stage / ".pi-unraid", 99, 100)
         subprocess.check_call(["cp", "-a", str(prod / ".pi/agent"), str(stage / ".pi/agent")])
         prod_ip = prod / ".pi-unraid/instruction-plane"
         if prod_ip.is_dir():
@@ -372,27 +399,15 @@ def main() -> int:
         applied = False
         migrated = False
         try:
-            summary["instruction_apply"] = run_json(
-                "python3", "scripts/pi_instruction_plane.py",
-                "apply", "config/pi-agent", str(stage), cwd=repo,
-            )
+            summary["instruction_apply"] = run_instruction(repo, args.image, "apply", stage)
             applied = True
-            summary["instruction_status"] = run_json(
-                "python3", "scripts/pi_instruction_plane.py",
-                "status", "config/pi-agent", str(stage), cwd=repo,
-            )
+            summary["instruction_status"] = run_instruction(repo, args.image, "status", stage)
             if summary["instruction_status"].get("in_sync") is not True:
                 raise AssertionError("staged instruction plane is not in sync after apply")
 
-            summary["provider_migrate"] = run_json(
-                "python3", "scripts/reconcile-codex-lb-provider-config.py",
-                "migrate", str(models_file), str(provider_state), cwd=repo,
-            )
+            summary["provider_migrate"] = run_reconciler(repo, args.image, "migrate", stage)
             migrated = True
-            summary["provider_status"] = run_json(
-                "python3", "scripts/reconcile-codex-lb-provider-config.py",
-                "status", str(models_file), str(provider_state), cwd=repo,
-            )
+            summary["provider_status"] = run_reconciler(repo, args.image, "status", stage)
             after_doc = load_json(models_file)
             if provider_semantics_without_models(before_doc) != after_doc:
                 raise AssertionError("provider migration changed semantics beyond removing static models")
@@ -427,15 +442,9 @@ def main() -> int:
             if rpc is not None:
                 rpc.close()
             if migrated:
-                summary["provider_rollback"] = run_json(
-                    "python3", "scripts/reconcile-codex-lb-provider-config.py",
-                    "rollback", str(models_file), str(provider_state), cwd=repo,
-                )
+                summary["provider_rollback"] = run_reconciler(repo, args.image, "rollback", stage)
             if applied:
-                summary["instruction_rollback"] = run_json(
-                    "python3", "scripts/pi_instruction_plane.py",
-                    "rollback", "config/pi-agent", str(stage), cwd=repo,
-                )
+                summary["instruction_rollback"] = run_instruction(repo, args.image, "rollback", stage)
 
         after_instruction = instruction_fingerprint(source, stage)
         summary["staged_after_rollback"] = {
