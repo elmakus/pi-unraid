@@ -1,0 +1,20 @@
+workstream_id = "issue-codex-lb-gpt6-max-output"
+card_id = "M01-T01"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "d7b71156aeb0f5cfac00202605e5803fca491f7d"
+path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/results/M01-T01.md"
+blob = "90c5e845039589347c6b020bbc6f6fc20cdbb7d8"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/cards/M01-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending R01 is reserved for a fresh independent reviewer because the current execution context materially implemented, deployed and reconciled the exact M01-T01 result subject."

@@ -1,5 +1,5 @@
 workstream_id = "issue-codex-lb-gpt6-max-output"
-revision = 3
+revision = 4
 
 [execution_ref]
 branch = "fix/codex-lb-gpt6-max-output"
@@ -17,3 +17,7 @@ class = "result"
 path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/results/M01-T01.md"
 commit = "d7b71156aeb0f5cfac00202605e5803fca491f7d"
 blob = "90c5e845039589347c6b020bbc6f6fc20cdbb7d8"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/issue-codex-lb-gpt6-max-output/reviews/M01-T01-R01.toml"
