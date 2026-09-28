@@ -83,3 +83,62 @@ jobs:
           path: ${{ runner.temp }}/paseo-tested-image/
           if-no-files-found: error
           retention-days: 14
+
+  publish:
+    needs: build
+    if: >-
+      (github.event_name == 'pull_request' &&
+       github.head_ref == 'automation/paseo-update-candidate' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
+      (github.event_name == 'workflow_dispatch' &&
+       github.ref == 'refs/heads/automation/paseo-update-candidate')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    env:
+      CANDIDATE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.CANDIDATE_HEAD }}
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Download exact tested-image handoff
+        uses: actions/download-artifact@v4
+        with:
+          name: paseo-tested-candidate-${{ env.CANDIDATE_HEAD }}
+          path: ${{ runner.temp }}/paseo-tested-image
+      - name: Verify publication source head
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
+      - name: Authenticate only to GHCR
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$GHCR_TOKEN"
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_ACTOR" --password-stdin
+      - name: Publish exact tested image and read back immutable digest
+        run: |
+          set -euo pipefail
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}"
+          mkdir -p "$RUNNER_TEMP/paseo-publication"
+          python3 scripts/paseo_candidate_publish.py publish \
+            --artifact-dir "$RUNNER_TEMP/paseo-tested-image" \
+            --candidate candidates/paseo-update/candidate.json \
+            --handoff-evidence candidates/paseo-update/evidence.json \
+            --source-head "$CANDIDATE_HEAD" \
+            --repository "$repository" \
+            --output "$RUNNER_TEMP/paseo-publication/publication-evidence.json"
+      - name: Upload immutable publication evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: paseo-published-candidate-${{ env.CANDIDATE_HEAD }}
+          path: ${{ runner.temp }}/paseo-publication/publication-evidence.json
+          if-no-files-found: error
+          retention-days: 30
