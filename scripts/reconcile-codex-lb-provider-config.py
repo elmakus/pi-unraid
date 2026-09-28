@@ -63,6 +63,14 @@ def valid_base_url(value: Any) -> bool:
         return False
     if parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment:
         return False
+    if not parsed.hostname or "\\" in parsed.netloc:
+        return False
+    try:
+        parsed.port
+    except ValueError:
+        return False
+    if any(ch.isspace() or ord(ch) <= 0x1F or ord(ch) == 0x7F for ch in parsed.netloc):
+        return False
     return parsed.path.rstrip("/").endswith("/v1")
 
 
