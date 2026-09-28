@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import ipaddress
 import json
 import os
 import shutil
@@ -69,7 +70,19 @@ def valid_base_url(value: Any) -> bool:
         parsed.port
     except ValueError:
         return False
-    if any(ch.isspace() or ord(ch) <= 0x1F or ord(ch) == 0x7F for ch in parsed.netloc):
+    if (
+        not parsed.netloc.isascii()
+        or "%" in parsed.netloc
+        or any(ch.isspace() or ord(ch) <= 0x1F or ord(ch) == 0x7F for ch in parsed.netloc)
+    ):
+        return False
+    if parsed.netloc.startswith("["):
+        try:
+            if ipaddress.ip_address(parsed.hostname).version != 6:
+                return False
+        except ValueError:
+            return False
+    elif not all(ch.isalnum() or ch in "._-" for ch in parsed.hostname):
         return False
     return parsed.path.rstrip("/").endswith("/v1")
 
