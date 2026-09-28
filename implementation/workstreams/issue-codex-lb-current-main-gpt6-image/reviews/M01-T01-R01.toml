@@ -1,0 +1,20 @@
+workstream_id = "issue-codex-lb-current-main-gpt6-image"
+card_id = "M01-T01"
+attempt = "R01"
+verdict = "green"
+evidence_path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/evidence/M01-T01-R01-independent-review-2026-09-28.md"
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "64572cc44629c696790df0d6738705efa41db16a"
+path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/results/M01-T01.md"
+blob = "d538b0cf1c176e9b2dfc82db3e12b4cee4abc44b"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/cards/M01-T01.md"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "This reviewer context did not materially produce or repair the exact frozen M01-T01 result subject; it independently verified source ancestry and bounded diff, reran the exact-source targeted tests, and performed read-only production/catalog/Pi/Paseo readback."
