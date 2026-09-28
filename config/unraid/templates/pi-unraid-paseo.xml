@@ -1,0 +1,22 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>pi-unraid-paseo</Name>
+  <Repository>ghcr.io/elmakus/pi-unraid:accepted</Repository>
+  <Registry>https://ghcr.io/elmakus/pi-unraid</Registry>
+  <Network>pi-unraid_default</Network>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Overview>Production Paseo/Pi runtime. The mutable accepted tag is update signaling only; immutable OCI digest is deployment authority.</Overview>
+  <Category>Other:</Category>
+  <WebUI>http://[IP]:[PORT:6767]</WebUI>
+  <ExtraParams>--restart=unless-stopped --user=99:100 --shm-size=1g</ExtraParams>
+  <Config Name="Paseo home" Target="/home/paseo" Default="/mnt/user/appdata/pi-unraid/paseo-home" Mode="rw" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/pi-unraid/paseo-home</Config>
+  <Config Name="Projects" Target="/projects" Default="/mnt/user/projects" Mode="rw" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/projects</Config>
+  <Config Name="Worktrees" Target="/worktrees" Default="/mnt/user/pi-worktrees" Mode="rw" Type="Path" Display="always" Required="true" Mask="false">/mnt/user/pi-worktrees</Config>
+  <Config Name="Codex-LB secret" Target="/run/secrets/pi-unraid-codex-lb" Default="/mnt/user/appdata/pi-unraid/secrets/codex-lb.env" Mode="ro" Type="Path" Display="advanced" Required="true" Mask="true">/mnt/user/appdata/pi-unraid/secrets/codex-lb.env</Config>
+  <Config Name="Unraid API key" Target="/run/secrets/unraid-api.key" Default="/mnt/user/appdata/pi-unraid/secrets/unraid-api.key" Mode="ro" Type="Path" Display="advanced" Required="true" Mask="true">/mnt/user/appdata/pi-unraid/secrets/unraid-api.key</Config>
+  <Config Name="PASEO_LISTEN" Target="PASEO_LISTEN" Default="0.0.0.0:6767" Mode="" Type="Variable" Display="advanced" Required="true" Mask="false">0.0.0.0:6767</Config>
+  <Config Name="PASEO_WEB_UI_ENABLED" Target="PASEO_WEB_UI_ENABLED" Default="true" Mode="" Type="Variable" Display="advanced" Required="true" Mask="false">true</Config>
+  <Config Name="PI_CODEX_LB_SECRET_FILE" Target="PI_CODEX_LB_SECRET_FILE" Default="/run/secrets/pi-unraid-codex-lb" Mode="" Type="Variable" Display="advanced" Required="true" Mask="false">/run/secrets/pi-unraid-codex-lb</Config>
+  <Config Name="TZ" Target="TZ" Default="Europe/Zurich" Mode="" Type="Variable" Display="advanced" Required="true" Mask="false">Europe/Zurich</Config>
+</Container>
