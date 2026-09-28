@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "status": "PASS",
+  "production_candidate_digest": "sha256:22673ae79a31da54a1e539adbb2ba5dd1f4c2d33944421fb47eba15efc9b9ec3",
+  "tower_validator": {"registry_digest":"PASS","uid_gid":"PASS","mount_isolation":"PASS","network_isolation":"PASS","secret_isolation":"PASS","runtime":"PASS"},
+  "state_roundtrip": {"baseline_clone_isolated":"PASS","candidate_state_mutation":"PASS","direct_skip_path":"PASS","previous_runtime_reopen":"PASS"},
+  "guard": {"state":"armed","binding_digest":"sha256:037eb62b41e7a4fb89ed6d0f23be6996c40a3d991aae6c6cb284e2eb1019f1d6","candidate_digest":"sha256:22673ae79a31da54a1e539adbb2ba5dd1f4c2d33944421fb47eba15efc9b9ec3","previous_digest":"sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de"},
+  "disposable_promotion": {"production":false,"previous_digest":"sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507","candidate_digest":"sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8","readback_digest":"sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8"},
+  "production_runtime_unchanged": true,
+  "production_guard_absent": true
+}
