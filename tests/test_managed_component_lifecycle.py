@@ -13,6 +13,7 @@ lifecycle = importlib.util.module_from_spec(spec)
 assert spec.loader is not None
 spec.loader.exec_module(lifecycle)
 BASE = json.loads((ROOT / "config" / "environment-capabilities.json").read_text())
+AGENTS = (ROOT / "config" / "pi-agent" / "AGENTS.md").read_text()
 
 
 class ManagedComponentLifecycleTests(unittest.TestCase):
@@ -160,6 +161,84 @@ class ManagedComponentLifecycleTests(unittest.TestCase):
             self.assertFalse(
                 path.with_name(path.name + ".managed-component.tmp").exists()
             )
+
+    def _readback(self) -> dict:
+        return {
+            "schema_version": 1,
+            "authority": lifecycle.MANAGED_INSTALLATION_READBACK_AUTHORITY,
+            "installed_component_ids": sorted(
+                item["id"] for item in BASE["capabilities"]
+            ),
+            "temporary_component_ids": [],
+        }
+
+    def test_managed_installation_readback_is_green_when_registry_matches(self) -> None:
+        first = lifecycle.validate_installation_readback(BASE, self._readback())
+        second = lifecycle.validate_installation_readback(BASE, self._readback())
+        self.assertEqual(first, second)
+        self.assertEqual(first["state"], "GREEN")
+        self.assertEqual(first["missing_registered"], [])
+        self.assertEqual(first["installed_unregistered"], [])
+        self.assertEqual(
+            first["registry_authority"],
+            lifecycle.inventory.MANAGED_REGISTRY_AUTHORITY,
+        )
+
+    def test_readback_rejects_registered_but_not_installed(self) -> None:
+        readback = self._readback()
+        readback["installed_component_ids"].remove("specpi")
+        result = lifecycle.validate_installation_readback(BASE, readback)
+        self.assertEqual(result["state"], "RED")
+        self.assertEqual(result["missing_registered"], ["specpi"])
+        self.assertEqual(result["installed_unregistered"], [])
+
+    def test_readback_rejects_installed_but_unregistered(self) -> None:
+        readback = self._readback()
+        readback["installed_component_ids"].append("unregistered-managed-tool")
+        result = lifecycle.validate_installation_readback(BASE, readback)
+        self.assertEqual(result["state"], "RED")
+        self.assertEqual(result["missing_registered"], [])
+        self.assertEqual(
+            result["installed_unregistered"],
+            [
+                lifecycle.inventory._observation_fingerprint(
+                    "unregistered-managed-tool"
+                )
+            ],
+        )
+        self.assertNotIn("unregistered-managed-tool", json.dumps(result))
+
+    def test_temporary_live_install_is_reported_but_not_adopted(self) -> None:
+        readback = self._readback()
+        readback["temporary_component_ids"] = ["temporary-debug-tool"]
+        result = lifecycle.validate_installation_readback(BASE, readback)
+        self.assertEqual(result["state"], "GREEN")
+        self.assertEqual(result["temporary_policy"], "report_only_not_adopted")
+        self.assertEqual(result["temporary_count"], 1)
+        self.assertNotIn("temporary-debug-tool", json.dumps(result))
+
+    def test_readback_schema_rejects_duplicates_overlap_and_extra_fields(self) -> None:
+        duplicate = self._readback()
+        duplicate["installed_component_ids"].append(
+            duplicate["installed_component_ids"][0]
+        )
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.validate_installation_readback(BASE, duplicate)
+
+        overlap = self._readback()
+        overlap["temporary_component_ids"] = [overlap["installed_component_ids"][0]]
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.validate_installation_readback(BASE, overlap)
+
+        extra = self._readback()
+        extra["unexpected"] = True
+        with self.assertRaises(lifecycle.LifecycleError):
+            lifecycle.validate_installation_readback(BASE, extra)
+
+    def test_agent_guidance_routes_durable_changes_through_helper(self) -> None:
+        self.assertIn("scripts/managed_component_lifecycle.py", AGENTS)
+        self.assertIn("do not manually edit managed registry membership", AGENTS)
+        self.assertIn("temporary unless adopted through that helper", AGENTS)
 
     def test_existing_registry_intent_classes_are_valid(self) -> None:
         lifecycle.inventory.validate_definition(BASE)
