@@ -7,6 +7,7 @@
 - Exact merged source head: `ae0d580aa13aae8ee67064c0a12802d62de4c959`
 - Target pre-merge head: `1eaffc98660da3d89a6f2d473570db931c9dc38f`
 - Merge commit/result: `12fae1f7f444afb96e3da9bc56618be383432c86`
+- Closure publication: closure-only PR `#13` from `chore/paseo-codex-lb-env-close`
 - Result: **GREEN — permanent Paseo-to-Pi Codex-LB credential propagation repair and Luna/low-only real-LLM test policy are integrated into `main`**
 - Runtime/deployment mutation during post-merge closure bookkeeping: **none**
 
