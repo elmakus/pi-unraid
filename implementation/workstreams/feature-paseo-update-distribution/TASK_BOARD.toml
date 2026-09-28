@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 76
+revision = 77
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -315,7 +315,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M05
 
 [[cards]]
 id = "M05-T02"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
@@ -338,5 +338,14 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M05
 [[jit_triggers]]
 id = "after-M05-T02-materialize-M05-T03"
 after_card = "M05-T02"
-state = "waiting"
+state = "consumed"
 condition = "The exact M05-T02 Unraid template/update-ready result is required before the known-good ledger and guard-input contract can bind the final production configuration identity and update surface."
+
+
+[[cards]]
+id = "M05-T03"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M05-T03.md"
