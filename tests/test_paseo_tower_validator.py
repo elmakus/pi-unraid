@@ -43,6 +43,21 @@ class TowerValidatorTests(unittest.TestCase):
             self.assertNotIn("/var/run/docker.sock",joined); self.assertNotIn("codex-lb",joined); self.assertNotIn("unraid-api.key",joined)
             self.assertIn("--read-only",run_call)
 
+    def test_registry_digest_readback_accepts_buildx_column_spacing(self):
+        digest="sha256:"+"a"*64; image_id="sha256:"+"b"*64
+        with tempfile.TemporaryDirectory() as td:
+            def fake(argv, timeout=300, check=True):
+                if argv[:4]==["docker","buildx","imagetools","inspect"]: return mock.Mock(returncode=0,stdout=f"Name: x\\nDigest:    {digest}\\n",stderr="")
+                if argv[:3]==["docker","image","inspect"]: return mock.Mock(returncode=0,stdout=image_id+"\\n",stderr="")
+                if argv[:2]==["docker","network"]: return mock.Mock(returncode=0,stdout="",stderr="")
+                if argv[:2]==["docker","inspect"]:
+                    obj={"Config":{"User":"99:100","Env":["HOME=/home/paseo"]},"HostConfig":{"NetworkMode":"pi-unraid-validator"},"Mounts":[],"State":{"Status":"running","Health":{"Status":"healthy"}}}
+                    return mock.Mock(returncode=0,stdout=json.dumps([obj]),stderr="")
+                return mock.Mock(returncode=0,stdout="",stderr="")
+            with mock.patch.object(V.shutil,"which",return_value="/usr/bin/docker"), mock.patch.object(V.os,"chown"), mock.patch.object(V,"run",side_effect=fake):
+                result=V.validate(repository="ghcr.io/elmakus/pi-unraid",digest=digest,output=Path(td)/"out.json",state_root=Path(td))
+            self.assertNotEqual(result.get("reason"),"registry immutable digest readback mismatch")
+
     def test_runtime_waits_from_starting_to_healthy(self):
         states = iter([
             {"State":{"Status":"running","Health":{"Status":"starting"}}},
