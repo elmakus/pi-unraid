@@ -21,12 +21,42 @@ SOURCE_IDENTITIES = {
     "oci": "oci_digest",
     "repository_tree": "repo_tree_sha256",
 }
-DEVELOPER_INSTALL_CLASSES = {"npm_global", "pinned_binary", "pinned_cli_plugin"}
-DERIVED_INSTALL_CLASSES = {"upstream_parent_image", "playwright_managed_browser", "child_image_package_graph"}
-FORBIDDEN_SPEC_KEYS = {"password", "authorization", "access_token", "private_key", "secret", "token"}
+DEVELOPER_INSTALL_SOURCES = {
+    "npm_global": {"npm"},
+    "pinned_binary": {"github_release", "github_tag"},
+    "pinned_cli_plugin": {"github_release", "github_tag"},
+}
+DERIVED_INSTALL_CLASSES = {
+    "upstream_parent_image",
+    "playwright_managed_browser",
+    "child_image_package_graph",
+}
+COMMON_SPEC_KEYS = {
+    "id",
+    "class",
+    "desired",
+    "runtime_location",
+    "probe",
+    "installation_locator",
+}
+CLASS_SPEC_KEYS = {
+    "pi_extension": set(),
+    "developer_tool": {"installation_class", "source_kind"},
+    "derived_component": {"installation_class", "derived_owner"},
+}
+FORBIDDEN_SPEC_KEYS = {
+    "password",
+    "authorization",
+    "access_token",
+    "private_key",
+    "secret",
+    "token",
+}
+
 
 class LifecycleError(RuntimeError):
     pass
+
 
 def _walk_keys(value):
     if isinstance(value, dict):
@@ -37,6 +67,7 @@ def _walk_keys(value):
         for child in value:
             yield from _walk_keys(child)
 
+
 def _load(path: Path) -> dict:
     try:
         value = json.loads(path.read_text())
@@ -44,6 +75,7 @@ def _load(path: Path) -> dict:
         raise LifecycleError(f"invalid managed inventory: {path}") from exc
     inventory.validate_definition(value)
     return value
+
 
 def _validate_common_spec(spec: dict) -> tuple[str, str]:
     if not isinstance(spec, dict):
@@ -57,6 +89,17 @@ def _validate_common_spec(spec: dict) -> tuple[str, str]:
         raise LifecycleError("component id must be non-empty")
     if managed_class not in SUPPORTED_CLASSES:
         raise LifecycleError("unsupported managed component class")
+
+    allowed_keys = COMMON_SPEC_KEYS | CLASS_SPEC_KEYS[managed_class]
+    unexpected_keys = sorted(set(spec) - allowed_keys)
+    if unexpected_keys:
+        raise LifecycleError(
+            "unsupported metadata fields for "
+            + managed_class
+            + ": "
+            + ",".join(unexpected_keys)
+        )
+
     for key in ("desired", "runtime_location", "probe", "installation_locator"):
         if key not in spec:
             raise LifecycleError(f"missing add spec field: {key}")
@@ -64,7 +107,12 @@ def _validate_common_spec(spec: dict) -> tuple[str, str]:
         raise LifecycleError("installation_locator must be non-empty")
     return component_id, managed_class
 
-def _managed_metadata(spec: dict, managed_class: str, existing_ids: set[str]) -> tuple[str, dict]:
+
+def _managed_metadata(
+    spec: dict,
+    managed_class: str,
+    existing_ids: set[str],
+) -> tuple[str, dict]:
     owner = None
     if managed_class == "pi_extension":
         install_class = "pi_global_extension"
@@ -75,10 +123,12 @@ def _managed_metadata(spec: dict, managed_class: str, existing_ids: set[str]) ->
     elif managed_class == "developer_tool":
         install_class = spec.get("installation_class")
         source_kind = spec.get("source_kind")
-        if install_class not in DEVELOPER_INSTALL_CLASSES:
+        if install_class not in DEVELOPER_INSTALL_SOURCES:
             raise LifecycleError("unsupported developer tool installation class")
-        if source_kind not in SOURCE_IDENTITIES:
-            raise LifecycleError("unsupported developer tool source kind")
+        if source_kind not in DEVELOPER_INSTALL_SOURCES[install_class]:
+            raise LifecycleError(
+                "unsupported developer tool source/install metadata combination"
+            )
         identity_kind = SOURCE_IDENTITIES[source_kind]
         update_class = "independent"
         channel = "latest-stable"
@@ -102,8 +152,12 @@ def _managed_metadata(spec: dict, managed_class: str, existing_ids: set[str]) ->
         "update_class": update_class,
         "derived_owner": owner,
         "probe_ref": "probe",
-        "installation_intent": {"class": managed_class, "locator": spec["installation_locator"]},
+        "installation_intent": {
+            "class": managed_class,
+            "locator": spec["installation_locator"],
+        },
     }
+
 
 def add_component(definition: dict, spec: dict) -> dict:
     result = deepcopy(definition)
@@ -125,6 +179,7 @@ def add_component(definition: dict, spec: dict) -> dict:
     inventory.validate_definition(result)
     return result
 
+
 def remove_component(definition: dict, component_id: str) -> dict:
     result = deepcopy(definition)
     matches = [item for item in result["capabilities"] if item["id"] == component_id]
@@ -132,17 +187,25 @@ def remove_component(definition: dict, component_id: str) -> dict:
         raise LifecycleError(f"managed component not found: {component_id}")
     intent_class = matches[0]["managed_update"]["installation_intent"]["class"]
     if intent_class not in SUPPORTED_CLASSES:
-        raise LifecycleError(f"component class is not removable by managed helper: {intent_class}")
+        raise LifecycleError(
+            f"component class is not removable by managed helper: {intent_class}"
+        )
     dependents = [
         item["id"]
         for item in result["capabilities"]
         if item["managed_update"].get("derived_owner") == component_id
     ]
     if dependents:
-        raise LifecycleError("managed component still owns derived components: " + ",".join(sorted(dependents)))
-    result["capabilities"] = [item for item in result["capabilities"] if item["id"] != component_id]
+        raise LifecycleError(
+            "managed component still owns derived components: "
+            + ",".join(sorted(dependents))
+        )
+    result["capabilities"] = [
+        item for item in result["capabilities"] if item["id"] != component_id
+    ]
     inventory.validate_definition(result)
     return result
+
 
 def _atomic_write(path: Path, payload: dict) -> None:
     inventory.validate_definition(payload)
@@ -158,10 +221,19 @@ def _atomic_write(path: Path, payload: dict) -> None:
         if tmp.exists():
             tmp.unlink()
 
+
 def snapshot(definition: dict) -> dict:
     return inventory.managed_registry_snapshot(definition)
 
-def apply(path: Path, action: str, *, spec: dict | None = None, component_id: str | None = None, dry_run: bool = False) -> dict:
+
+def apply(
+    path: Path,
+    action: str,
+    *,
+    spec: dict | None = None,
+    component_id: str | None = None,
+    dry_run: bool = False,
+) -> dict:
     definition = _load(path)
     if action == "add":
         if spec is None:
@@ -176,6 +248,7 @@ def apply(path: Path, action: str, *, spec: dict | None = None, component_id: st
     if not dry_run:
         _atomic_write(path, updated)
     return snapshot(updated)
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()
@@ -203,6 +276,7 @@ def main() -> int:
     except (LifecycleError, inventory.InventoryError, OSError, json.JSONDecodeError) as exc:
         print(f"managed-component lifecycle error: {exc}", file=sys.stderr)
         return 1
+
 
 if __name__ == "__main__":
     raise SystemExit(main())
