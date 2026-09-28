@@ -10,6 +10,7 @@ import stat
 import tempfile
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 SCHEMA_VERSION = 1
 PROVIDER_ID = "codex-lb"
@@ -51,6 +52,29 @@ def parse_document(raw: bytes) -> dict[str, Any]:
     return value
 
 
+def valid_base_url(value: Any) -> bool:
+    if not isinstance(value, str) or not value or value.strip() != value:
+        return False
+    try:
+        parsed = urlsplit(value)
+    except ValueError:
+        return False
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+    if parsed.username is not None or parsed.password is not None or parsed.query or parsed.fragment:
+        return False
+    return parsed.path.rstrip("/").endswith("/v1")
+
+
+def valid_model_id(value: Any) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and value.strip() == value
+        and not any(ch.isspace() or ord(ch) <= 0x1F or ord(ch) == 0x7F for ch in value)
+    )
+
+
 def validate_provider(doc: dict[str, Any], *, require_static: bool) -> dict[str, Any]:
     providers = doc.get("providers")
     if not isinstance(providers, dict):
@@ -61,8 +85,8 @@ def validate_provider(doc: dict[str, Any], *, require_static: bool) -> dict[str,
     if provider.get("api") != PROVIDER_API:
         fail("codex-lb provider must use openai-responses; preserved unchanged")
     base_url = provider.get("baseUrl")
-    if not isinstance(base_url, str) or not base_url.rstrip("/").endswith("/v1"):
-        fail("codex-lb baseUrl must end in /v1; preserved unchanged")
+    if not valid_base_url(base_url):
+        fail("codex-lb baseUrl must be HTTP(S), secret-free, and end in /v1; preserved unchanged")
     if provider.get("apiKey") not in API_KEY_REFS:
         fail("codex-lb apiKey must remain a CODEX_LB_API_KEY reference; preserved unchanged")
 
@@ -71,13 +95,7 @@ def validate_provider(doc: dict[str, Any], *, require_static: bool) -> dict[str,
         if not isinstance(models, list) or not models:
             fail("codex-lb static models must be a non-empty array before migration")
         for item in models:
-            if (
-                not isinstance(item, dict)
-                or not isinstance(item.get("id"), str)
-                or not item["id"]
-                or item["id"].strip() != item["id"]
-                or any(ch.isspace() for ch in item["id"])
-            ):
+            if not isinstance(item, dict) or not valid_model_id(item.get("id")):
                 fail("codex-lb static model list contains an invalid id; preserved unchanged")
     elif require_static:
         fail("codex-lb is already dynamic but no reversible migration is established")
