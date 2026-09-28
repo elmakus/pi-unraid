@@ -1,0 +1,23 @@
+kind = "issue"
+workstream_id = "issue-paseo-pi-codex-lb-secret-inheritance"
+branch = "fix/paseo-pi-codex-lb-env"
+created_from = "1eaffc98660da3d89a6f2d473570db931c9dc38f"
+integration_target = "main"
+authority = [
+  { class = "authority", path = "decisions/PIB_ADR_005_CODEX_LB_ACCESS_LAYER.md" },
+  { class = "authority", path = "requirements/PASEO_GUI_RUNTIME.md" },
+  { class = "authority", path = "requirements/CODEX_LB_DYNAMIC_MODEL_CATALOG.md" },
+  { class = "authority", path = "decisions/PIB_ADR_008_LLM_TEST_MODEL_POLICY.md" },
+]
+
+[intake]
+class = "intake"
+path = "implementation/workstreams/issue-paseo-pi-codex-lb-secret-inheritance/INTAKE.toml"
+
+[research]
+class = "research"
+path = "implementation/workstreams/issue-paseo-pi-codex-lb-secret-inheritance/RESEARCH.toml"
+
+[tracker]
+class = "tracker"
+path = "implementation/workstreams/issue-paseo-pi-codex-lb-secret-inheritance/TRACKER.toml"

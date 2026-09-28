@@ -1,0 +1,30 @@
+workstream_id = "issue-paseo-pi-codex-lb-secret-inheritance"
+state = "active"
+origin_role = "intake"
+origin_subject = "repair:paseo-pi-codex-lb-secret-inheritance:v1"
+return_target = "intake"
+return_reconciliation = "pending"
+return_result = ""
+finding = ""
+limitations = ""
+conflicts = ""
+
+[[sources]]
+class = "official_upstream"
+status = "pending"
+weight = "primary"
+
+[[sources]]
+class = "project_runtime"
+status = "pending"
+weight = "direct"
+
+[[sources]]
+class = "tracker_discussion"
+status = "not_relevant"
+weight = "supporting"
+
+[[sources]]
+class = "practitioner_community"
+status = "not_relevant"
+weight = "supporting"
