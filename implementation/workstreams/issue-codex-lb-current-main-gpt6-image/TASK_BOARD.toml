@@ -1,5 +1,5 @@
 workstream_id = "issue-codex-lb-current-main-gpt6-image"
-revision = 3
+revision = 4
 
 [execution_ref]
 branch = "fix/codex-lb-current-main-gpt6-image"
@@ -17,3 +17,7 @@ class = "result"
 path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/results/M01-T01.md"
 commit = "64572cc44629c696790df0d6738705efa41db16a"
 blob = "d538b0cf1c176e9b2dfc82db3e12b4cee4abc44b"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/reviews/M01-T01-R01.toml"
