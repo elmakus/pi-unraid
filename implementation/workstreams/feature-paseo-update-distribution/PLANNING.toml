@@ -12,7 +12,7 @@ premium_a = "satisfied"
 premium_a_subject = "elmakus/pi-unraid@d0bcce225ccebd4f30f3a79f5f52e8a5139b75ef:planning/reviews/PASEO_UPDATE_DISTRIBUTION_P1_R01.md@877619d448d96cd9b980f778ca68911986e9f0a0"
 premium_b = "satisfied"
 premium_b_subject = "elmakus/pi-unraid@719255ffc9c7509debfda6d3c37401eb37984efe:planning/PASEO_UPDATE_DISTRIBUTION_P2.md@adfe9ffb027a921e3191b086b726c8f3f73a048a"
-premium_c = "due"
+premium_c = "satisfied"
 premium_c_subject = "elmakus/pi-unraid@719255ffc9c7509debfda6d3c37401eb37984efe:planning/PASEO_UPDATE_DISTRIBUTION_P2.md@adfe9ffb027a921e3191b086b726c8f3f73a048a"
 
 [subject]
