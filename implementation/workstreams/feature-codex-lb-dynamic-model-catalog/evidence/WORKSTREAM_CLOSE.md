@@ -7,6 +7,7 @@
 - Exact merged source head: `e6efe241a95f97a2483748638d74532a55e30a57`
 - Target pre-merge head: `fc7a470a7330839cbaf8eaf0c2914323981d6901`
 - Merge commit/result: `0ac278a29ed2decf93f4bf71d4585d712b2ddf14`
+- Closure publication: closure-only PR `#9` from `chore/codex-lb-dynamic-model-catalog-close`
 - Result: **GREEN — final target integration succeeded; remaining reconciliation is target-side bookkeeping only**
 - Runtime/deployment mutation during closure: **none**
 
