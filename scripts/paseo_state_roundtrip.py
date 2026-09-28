@@ -52,9 +52,8 @@ def runtime_probe(image,home,name,candidate_state=None):
     probe=run(["docker","exec",name,"sh","-lc","paseo daemon status --home /home/paseo/.paseo --json >/tmp/status.json 2>/dev/null || paseo ls --home /home/paseo/.paseo --json >/tmp/status.json 2>/dev/null; test -s /tmp/status.json"])
     if candidate_state is not None:
         payload=json.dumps(candidate_state,separators=(",",":"))+"\\n"
-        run(["docker","exec","-i",name,"sh","-c","cat > /home/paseo/.paseo/state-roundtrip-candidate.json"],check=True).returncode
         # Write through the running candidate container, never from the validator host.
-        run(["docker","exec",name,"sh","-c",f"printf %s {json.dumps(payload)} > /home/paseo/.paseo/state-roundtrip-candidate.json"])
+        run(["docker","exec",name,"sh","-c",'printf "%s" "$1" > /home/paseo/.paseo/state-roundtrip-candidate.json',"sh",payload])
     run(["docker","rm","-f",name],check=False)
     return probe.returncode==0
 def prove(*,baseline,candidate,previous,state_root,output,inject_irreversible=False):
