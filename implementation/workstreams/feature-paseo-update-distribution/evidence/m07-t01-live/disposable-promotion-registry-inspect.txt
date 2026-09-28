@@ -1,0 +1,6 @@
+Name:      localhost:5500/pwv2/promotion:rehearsal
+MediaType: application/vnd.oci.image.index.v1+json
+Digest:    sha256:5291449c3df73caf6ed85e649dec1b9e818b39a5d8c871e97afc13e9cd5e8fa8
+
+Manifests:
+  Name:        localhost:5500/pwv2/promotion:rehearsal@sha256:3e9b4b680bfc9fb5269227cffbd6d42be39fbf7c0b908123913864aa4447e764
