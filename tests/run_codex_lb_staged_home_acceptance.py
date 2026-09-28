@@ -405,6 +405,29 @@ def main() -> int:
             if summary["instruction_status"].get("in_sync") is not True:
                 raise AssertionError("staged instruction plane is not in sync after apply")
 
+            bootstrap_details = provider_details(before_doc)
+            base_url = bootstrap_details["baseUrl"]
+            if not isinstance(base_url, str):
+                raise AssertionError("staged Codex-LB baseUrl is invalid")
+            direct_ids = fetch_catalog_ids(base_url, api_key)
+            summary["real_codex_lb_ids_before_migration"] = direct_ids
+
+            store = stage / ".pi/agent/models-store.json"
+            summary["pre_seed_cached_ids"] = stored_ids(store) if store.is_file() else []
+
+            # First prove the extension against the staged production clone while
+            # the reversible static bootstrap still exists. This seeds Pi's
+            # provider-scoped LKG before the static list is removed.
+            rpc = RpcProcess(args.image, stage, api_key)
+            summary["seed_rpc_codex_lb_ids"] = wait_rpc_ids(rpc, direct_ids)
+            rpc.close()
+            rpc = None
+            if not store.is_file():
+                raise AssertionError("provider-scoped models-store.json was not persisted during staged seed")
+            summary["seeded_codex_lb_ids"] = stored_ids(store)
+            if summary["seeded_codex_lb_ids"] != direct_ids:
+                raise AssertionError("seeded Codex-LB catalog differs from the real catalog")
+
             summary["provider_migrate"] = run_reconciler(repo, args.image, "migrate", stage)
             migrated = True
             summary["provider_status"] = run_reconciler(repo, args.image, "status", stage)
@@ -416,24 +439,20 @@ def main() -> int:
                 raise AssertionError("static Codex-LB models remain after migration")
             summary["staged_dynamic_provider"] = details
 
-            base_url = details["baseUrl"]
-            if not isinstance(base_url, str):
-                raise AssertionError("staged Codex-LB baseUrl is invalid")
-            direct_ids = fetch_catalog_ids(base_url, api_key)
-            summary["real_codex_lb_ids"] = direct_ids
+            direct_ids_after = fetch_catalog_ids(base_url, api_key)
+            summary["real_codex_lb_ids_after_migration"] = direct_ids_after
 
-            store = stage / ".pi/agent/models-store.json"
-            store.unlink(missing_ok=True)
+            # A new Pi process now starts from the dynamic provider config with
+            # no hardcoded model list; the provider-scoped LKG is the bootstrap
+            # and the live refresh must converge to the current real catalog.
             rpc = RpcProcess(args.image, stage, api_key)
-            summary["rpc_codex_lb_ids"] = wait_rpc_ids(rpc, direct_ids)
+            summary["rpc_codex_lb_ids_after_migration"] = wait_rpc_ids(rpc, direct_ids_after)
             rpc.close()
             rpc = None
 
-            if not store.is_file():
-                raise AssertionError("provider-scoped models-store.json was not persisted")
             summary["persisted_codex_lb_ids"] = stored_ids(store)
-            if summary["persisted_codex_lb_ids"] != direct_ids:
-                raise AssertionError("persisted Codex-LB catalog differs from the real catalog")
+            if summary["persisted_codex_lb_ids"] != direct_ids_after:
+                raise AssertionError("persisted Codex-LB catalog differs from the current real catalog")
 
             summary["secret_scan"] = leaked_paths(stage, api_key)
             if summary["secret_scan"]:
