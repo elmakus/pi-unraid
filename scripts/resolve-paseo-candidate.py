@@ -7,13 +7,24 @@ later build path. Resolution only stages a candidate: it never reconciles
 current desired state, never runs doctor checks, never builds images, and
 never promotes/cuts over production. Default output is read-only stdout;
 --output stages to a separate path and can never overwrite the accepted
-candidate. A compatibility lag is applied only with an approved exception
-bound to a verifiable durable authority record; anything else fails closed.
+candidate. Independent-component compatibility lag remains authority-bound;
+the core Paseo/Pi pair may backtrack only within the exact bounded compatibility
+search and never below the accepted baseline.
 """
 from __future__ import annotations
 
 import argparse, copy, hashlib, json, os, re, tempfile, urllib.error, urllib.parse, urllib.request
 from pathlib import Path
+
+from paseo_core_compat import (
+    CoreResolutionBlocked,
+    CoreResolutionError,
+    default_gate_definition_hash,
+    empty_nogood_cache,
+    load_nogood_cache,
+    search_core_pairs,
+    semver_tuple,
+)
 
 SHA40=re.compile(r"^[0-9a-f]{40}$")
 SHA256=re.compile(r"^sha256:[0-9a-f]{64}$")
@@ -378,9 +389,11 @@ def http(url, headers=None, allow_401=False):
     except urllib.error.HTTPError as e:
         if e.code==401 and allow_401:
             return e.code,e.read(),{k.lower():v for k,v in e.headers.items()}
+        if e.code==429 or 500<=e.code<=599:
+            raise CoreResolutionBlocked(f"transient HTTP {e.code} resolving {url}") from e
         raise ResolutionError(f"HTTP {e.code} resolving {url}") from e
     except urllib.error.URLError as e:
-        raise ResolutionError(f"network error resolving {url}: {e.reason}") from e
+        raise CoreResolutionBlocked(f"network BLOCKED resolving {url}: {e.reason}") from e
 
 def jget(url, headers=None):
     status,body,h=http(url,headers)
@@ -547,7 +560,7 @@ def playwright_chromium(version):
     if len(chrom)!=1: raise ResolutionError(f"Playwright {version} chromium identity missing")
     return {"revision":str(chrom[0].get("revision","")),"browser_version":str(chrom[0].get("browserVersion",""))}
 
-def discover_live_payload(component,descriptor):
+def discover_live_payload(component,descriptor,metadata=None):
     kind=descriptor["source_kind"]
     if kind=="oci":
         if component!="paseo":
@@ -562,6 +575,11 @@ def discover_live_payload(component,descriptor):
         if not package or not repo:
             raise ResolutionError(f"unsupported npm candidate component: {component}")
         payload,ndata=npm_component(package,repo)
+        if metadata is not None:
+            engines=ndata.get("engines",{}) if isinstance(ndata,dict) else {}
+            metadata[component]={
+                "node_range":engines.get("node") if isinstance(engines,dict) else None,
+            }
         if component=="playwright":
             payload["chromium"]=playwright_chromium(payload["version"])
         if component=="specpi":
@@ -601,7 +619,7 @@ def discover_derived_payload(component,descriptor,components):
             "delivery":"provided-by-exact-paseo-image","immutable_parent":reference}
 
 
-def discover_live_components(definition):
+def discover_live_components(definition,metadata=None):
     descriptors=candidate_capability_map(definition)
     if set(descriptors)!=REQUIRED_COMPONENTS:
         raise ResolutionError("approved capability set changed: inventory candidate components differ from the resolver contract; new or removed global capabilities require explicit user approval")
@@ -610,7 +628,8 @@ def discover_live_components(definition):
         descriptor=descriptors[component]
         if descriptor["source_kind"]=="derived":
             continue
-        payload=discover_live_payload(component,descriptor)
+        payload=(discover_live_payload(component,descriptor) if metadata is None
+                 else discover_live_payload(component,descriptor,metadata))
         record=normalize_discovery_record(component,payload,definition)
         records.append(record)
         components[component]=freeze_discovery_record(record,definition)
@@ -761,7 +780,10 @@ def facts_digest(components, proposals, observed_latest):
                    sort_keys=True,separators=(",",":")).encode()
     return "sha256:"+hashlib.sha256(raw).hexdigest()
 
-def evaluate_exceptions(components, proposals, observed_latest, approved):
+def evaluate_exceptions(components, proposals, observed_latest, approved, automatic_lag=None):
+    automatic_lag=set(automatic_lag or ())
+    if not automatic_lag.issubset({"paseo","pi"}):
+        raise ResolutionError("automatic compatibility lag is limited to the core Paseo/Pi pair")
     if not isinstance(proposals,list): raise ResolutionError("compatibility proposals must be a list")
     if not isinstance(observed_latest,dict): raise ResolutionError("observed latest facts must be an object")
     for comp, ver in observed_latest.items():
@@ -789,6 +811,8 @@ def evaluate_exceptions(components, proposals, observed_latest, approved):
         current=components[comp].get("version")
         latest_seen=observed_latest.get(comp)
         if latest_seen is not None and latest_seen!=current:
+            if comp in automatic_lag:
+                continue
             key=(comp,current)
             entry=by_pin.get(key)
             if entry is None:
@@ -826,10 +850,10 @@ def evaluate_exceptions(components, proposals, observed_latest, approved):
                         "recheck":{"status":status,"observed_latest":latest_seen,"facts_digest":digest}})
     return records
 
-def assemble_candidate(components, proposals, observed_latest, approved, definition):
+def assemble_candidate(components, proposals, observed_latest, approved, definition, automatic_lag=None):
     check_capability_set(components, definition)
     comps=typed_discovery_freeze(components,definition)
-    records=evaluate_exceptions(comps, proposals, observed_latest, approved)
+    records=evaluate_exceptions(comps, proposals, observed_latest, approved, automatic_lag)
     for name in sorted(comps):
         comps[name]["stable_line"]=copy.deepcopy(STABLE_LINES[name])
     c={"schema_version":1,"policy":{"channel":"latest-stable","build_must_not_reresolve":True,
@@ -848,12 +872,152 @@ def facts_to_candidate(f, definition=None, approved=None):
     return assemble_candidate(f["components"], f.get("compatibility_proposals",[]),
                               f.get("observed_latest",{}), approved or [], definition)
 
-def resolve_live(definition=None, approved=None):
+def _stable_release_versions_to_baseline(repo, baseline):
+    check_channel_substitution(baseline,f"{repo} accepted baseline")
+    baseline_key=semver_tuple(baseline)
+    versions=set()
+    page=1
+    while True:
+        data,_=jget(f"https://api.github.com/repos/{repo}/releases?per_page=100&page={page}")
+        if not isinstance(data,list):
+            raise ResolutionError(f"{repo} releases response is not a list")
+        if not data:
+            break
+        for release in data:
+            if not isinstance(release,dict) or release.get("draft") or release.get("prerelease"):
+                continue
+            tag=release.get("tag_name")
+            try:
+                version=strip_tag(str(tag or ""))
+            except ResolutionError:
+                continue
+            if semver_tuple(version) >= baseline_key:
+                versions.add(version)
+        if len(data)<100:
+            break
+        page+=1
+    if baseline not in versions:
+        raise ResolutionError(f"{repo} accepted baseline {baseline} is absent from the stable release domain")
+    return sorted(versions,key=semver_tuple,reverse=True)
+
+
+def _accepted_core_baseline(definition):
+    accepted=load_json_file(accepted_candidate_path(definition))
+    components=accepted.get("components")
+    if not isinstance(components,dict):
+        raise ResolutionError("accepted candidate lacks component baseline")
+    try:
+        paseo=components["paseo"]["version"]
+        pi=components["pi"]["version"]
+    except (KeyError,TypeError):
+        raise ResolutionError("accepted candidate lacks Paseo/Pi baseline")
+    check_channel_substitution(paseo,"accepted Paseo baseline")
+    check_channel_substitution(pi,"accepted Pi baseline")
+    return paseo,pi
+
+
+def _core_options_to_baseline(components,definition):
+    paseo_baseline,pi_baseline=_accepted_core_baseline(definition)
+    if semver_tuple(components["paseo"]["version"]) < semver_tuple(paseo_baseline):
+        raise ResolutionError("latest Paseo discovery is older than the accepted baseline")
+    if semver_tuple(components["pi"]["version"]) < semver_tuple(pi_baseline):
+        raise ResolutionError("latest Pi discovery is older than the accepted baseline")
+
+    paseo_versions=_stable_release_versions_to_baseline("getpaseo/paseo",paseo_baseline)
+    pi_versions=_stable_release_versions_to_baseline("earendil-works/pi",pi_baseline)
+    paseo_options=[]
+    for version in paseo_versions:
+        if version==components["paseo"]["version"]:
+            paseo=copy.deepcopy(components["paseo"])
+            node=copy.deepcopy(components["node"])
+        else:
+            paseo,node=pinned_paseo_full(version)
+        paseo_options.append({"paseo":paseo,"node":node})
+
+    pi_options=[]
+    for version in pi_versions:
+        if version==components["pi"]["version"]:
+            pi=copy.deepcopy(components["pi"])
+            metadata=npm_version(EXPECTED_NPM_PACKAGE["pi"],version)
+        else:
+            pi,metadata=pinned_npm_component(
+                EXPECTED_NPM_PACKAGE["pi"],EXPECTED_SOURCE_REPO["pi"],version
+            )
+        node_range=metadata.get("engines",{}).get("node") if isinstance(metadata,dict) else None
+        pi_options.append({"pi":pi,"node_range":node_range})
+    return paseo_options,pi_options
+
+
+def resolve_core_live_components(
+    components,
+    definition,
+    *,
+    nogoods=None,
+    gate_definition_hash=None,
+    platform_fingerprint="linux-amd64",
+    budget=None,
+    pi_node_range=None,
+):
+    cache=nogoods or empty_nogood_cache()
+    gate_definition_hash=gate_definition_hash or default_gate_definition_hash(NODE_FLOOR)
+    latest_paseo=[{"paseo":copy.deepcopy(components["paseo"]),"node":copy.deepcopy(components["node"])}]
+    latest_pi=[{"pi":copy.deepcopy(components["pi"]),"node_range":pi_node_range}]
+    try:
+        selected=search_core_pairs(
+            latest_paseo,latest_pi,definition=definition,node_floor=NODE_FLOOR,
+            nogoods=cache,gate_definition_hash=gate_definition_hash,
+            platform_fingerprint=platform_fingerprint,budget=budget,
+        )
+    except CoreResolutionBlocked:
+        raise
+    except CoreResolutionError:
+        paseo_options,pi_options=_core_options_to_baseline(components,definition)
+        try:
+            selected=search_core_pairs(
+                paseo_options,pi_options,definition=definition,node_floor=NODE_FLOOR,
+                nogoods=cache,gate_definition_hash=gate_definition_hash,
+                platform_fingerprint=platform_fingerprint,budget=budget,
+            )
+        except CoreResolutionBlocked:
+            raise
+        except CoreResolutionError as e:
+            raise ResolutionError(str(e)) from e
+
+    resolved=copy.deepcopy(components)
+    resolved["paseo"]=copy.deepcopy(selected["paseo"])
+    resolved["node"]=copy.deepcopy(selected["node"])
+    resolved["pi"]=copy.deepcopy(selected["pi"])
+    automatic_lag={
+        component for component in ("paseo","pi")
+        if resolved[component]["version"]!=components[component]["version"]
+    }
+    return resolved,automatic_lag
+
+
+def resolve_live(
+    definition=None,
+    approved=None,
+    *,
+    core_nogoods=None,
+    core_gate_definition_hash=None,
+    core_platform_fingerprint="linux-amd64",
+    core_search_budget=None,
+):
     approved=approved or []
     if definition is None:
         definition=load_json_file(DEFAULT_INVENTORY)
-    components=discover_live_components(definition)
+    live_metadata={}
+    components=discover_live_components(definition,metadata=live_metadata)
     observed={name: comp["version"] for name, comp in components.items()}
+    automatic_lag=set()
+    if not any(entry["component"] in {"paseo","pi"} for entry in approved):
+        components,automatic_lag=resolve_core_live_components(
+            components,definition,nogoods=core_nogoods,
+            gate_definition_hash=core_gate_definition_hash,
+            platform_fingerprint=core_platform_fingerprint,
+            budget=core_search_budget,
+            pi_node_range=live_metadata.get("pi",{}).get("node_range"),
+        )
     for entry in approved:
         comp,pin=entry["component"],entry["pinned_version"]
         if pin==observed[comp]: continue
@@ -873,7 +1037,7 @@ def resolve_live(definition=None, approved=None):
             components[comp]=pinned_docker(pin)
         else:
             raise ResolutionError(f"approved compatibility exception for {comp} cannot be resolved live")
-    return assemble_candidate(components, [], observed, approved, definition)
+    return assemble_candidate(components, [], observed, approved, definition, automatic_lag)
 
 def check_allowed(mapping, allowed, where):
     if not isinstance(mapping,dict): raise ResolutionError(f"{where} must be an object")
@@ -993,6 +1157,14 @@ def main():
     ap.add_argument("--fixture",type=Path); ap.add_argument("--validate",type=Path); ap.add_argument("--readback",type=Path)
     ap.add_argument("--inventory",type=Path,default=DEFAULT_INVENTORY)
     ap.add_argument("--approved-exceptions",type=Path)
+    ap.add_argument("--core-nogood-cache",type=Path,
+        help="optional exact known-bad Paseo/Pi cache; BLOCKED outcomes are never stored here")
+    ap.add_argument("--core-gate-definition-hash",
+        help="sha256 fingerprint of the exact core compatibility gate definition")
+    ap.add_argument("--core-platform-fingerprint",default="linux-amd64",
+        help="exact relevant runtime/toolchain/platform fingerprint for core nogood matching")
+    ap.add_argument("--core-search-budget",type=int,
+        help="optional operational pair-attempt bound; exhaustion is RESOLUTION_INCOMPLETE")
     a=ap.parse_args()
     try:
         definition=load_json_file(a.inventory)
@@ -1000,13 +1172,28 @@ def main():
         target=a.validate or a.readback
         if target:
             c=load_json_file(target); validate(c, definition); print(c["candidate_id"]); return 0
-        c=facts_to_candidate(load_json_file(a.fixture), definition, approved) if a.fixture else resolve_live(definition, approved)
+        if a.fixture:
+            c=facts_to_candidate(load_json_file(a.fixture), definition, approved)
+        else:
+            core_nogoods=load_nogood_cache(a.core_nogood_cache)
+            c=resolve_live(
+                definition,approved,core_nogoods=core_nogoods,
+                core_gate_definition_hash=a.core_gate_definition_hash,
+                core_platform_fingerprint=a.core_platform_fingerprint,
+                core_search_budget=a.core_search_budget,
+            )
         if a.check or a.output is None: print(json.dumps(c,sort_keys=True,indent=2))
         else:
-            out=guard_output_path(a.output, definition, [("fixture",a.fixture),("inventory",a.inventory),("approved-exceptions",a.approved_exceptions)])
+            out=guard_output_path(a.output, definition, [
+                ("fixture",a.fixture),("inventory",a.inventory),
+                ("approved-exceptions",a.approved_exceptions),
+                ("core-nogood-cache",a.core_nogood_cache),
+            ])
             atomic_write(out,c); print(c["candidate_id"])
         return 0
-    except (ResolutionError,KeyError,TypeError,ValueError,OSError,AttributeError) as e:
+    except CoreResolutionBlocked as e:
+        print(f"candidate resolution BLOCKED: {e}",file=os.sys.stderr); return 3
+    except (CoreResolutionError,ResolutionError,KeyError,TypeError,ValueError,OSError,AttributeError) as e:
         print(f"candidate resolution failed: {e}",file=os.sys.stderr); return 2
 
 if __name__=="__main__": raise SystemExit(main())
