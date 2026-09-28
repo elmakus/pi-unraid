@@ -37,3 +37,7 @@ path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/PLANNI
 [plan_review]
 class = "plan_review"
 path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/PLAN_REVIEW.toml"
+
+[task_board]
+class = "task_board"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/TASK_BOARD.toml"
