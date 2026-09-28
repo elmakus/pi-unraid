@@ -33,3 +33,7 @@ path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/DEFINI
 [planning]
 class = "planning"
 path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/PLANNING.toml"
+
+[plan_review]
+class = "plan_review"
+path = "implementation/workstreams/feature-codex-lb-dynamic-model-catalog/PLAN_REVIEW.toml"
