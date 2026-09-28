@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 80
+revision = 81
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -344,7 +344,7 @@ condition = "The exact M05-T02 Unraid template/update-ready result is required b
 
 [[cards]]
 id = "M05-T03"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
