@@ -1,5 +1,5 @@
 workstream_id = "issue-paseo-codex-lb-env-propagation"
-state = "complete"
+state = "consumed"
 origin_role = "intake"
 origin_subject = "repair:paseo-codex-lb-runtime-env-and-llm-test-policy:v1"
 return_target = "intake"
