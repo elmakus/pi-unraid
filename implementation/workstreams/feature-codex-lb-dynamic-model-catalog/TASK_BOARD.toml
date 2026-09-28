@@ -1,5 +1,5 @@
 workstream_id = "feature-codex-lb-dynamic-model-catalog"
-revision = 9
+revision = 10
 
 [execution_ref]
 branch = "feat/codex-lb-dynamic-model-catalog"
