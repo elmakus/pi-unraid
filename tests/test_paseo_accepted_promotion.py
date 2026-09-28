@@ -1,5 +1,5 @@
 from __future__ import annotations
-import importlib.util, tempfile, unittest
+import importlib.util, tempfile, threading, time, unittest
 from pathlib import Path
 from unittest import mock
 
@@ -44,6 +44,34 @@ class PromotionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             with self.assertRaises(P.PromotionError):
                 P.promote(repository="ghcr.io/elmakus/pi-unraid",alias="accepted",candidate_digest=B,expected_current_digest=A,output_path=Path(td)/"o",final_gate=gate,guard=guard)
+
+    def test_concurrent_writer_loser_fails_before_mutation(self):
+        with tempfile.TemporaryDirectory() as td:
+            state={"digest":A}; writes=[]; first_write=threading.Event()
+            def inspect(_ref):
+                return state["digest"]
+            def run(argv):
+                candidate=argv[-1].split("@",1)[1]
+                writes.append(candidate)
+                if candidate == B:
+                    first_write.set(); time.sleep(0.1)
+                state["digest"]=candidate
+                return mock.Mock(stdout="")
+            errors=[]
+            def worker(candidate):
+                try:
+                    P.promote(repository="ghcr.io/elmakus/pi-unraid",alias="m05-fixture",
+                        candidate_digest=candidate,expected_current_digest=A,
+                        output_path=Path(td)/f"{candidate[-1]}.json",lock_path=Path(td)/"promotion.lock")
+                except P.PromotionError as exc:
+                    errors.append(str(exc))
+            with mock.patch.object(P,"inspect_digest",side_effect=inspect), mock.patch.object(P,"run_checked",side_effect=run):
+                one=threading.Thread(target=worker,args=(B,)); two=threading.Thread(target=worker,args=(C,))
+                one.start(); self.assertTrue(first_write.wait(1)); two.start(); one.join(); two.join()
+            self.assertEqual(writes,[B])
+            self.assertEqual(state["digest"],B)
+            self.assertEqual(len(errors),1)
+            self.assertIn("stale/superseded",errors[0])
 
     def test_digest_mismatch_after_promotion_fails(self):
         with tempfile.TemporaryDirectory() as td, mock.patch.object(P,"inspect_digest",side_effect=[A,A,C]), mock.patch.object(P,"run_checked"):
