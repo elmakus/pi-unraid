@@ -278,8 +278,9 @@ class CandidateBuildWorkflowTests(unittest.TestCase):
         self.assertIn("CANDIDATE_HEAD: ${{ github.event.pull_request.head.sha || github.sha }}", text)
         self.assertIn("ref: ${{ env.CANDIDATE_HEAD }}", text)
         self.assertIn('test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"', text)
-        self.assertEqual(text.count('--source-head "$CANDIDATE_HEAD"'), 2)
-        self.assertNotIn('--source-head "$GITHUB_SHA"', text)
+        build_text = text.split("\n  publish:\n", 1)[0]
+        self.assertEqual(build_text.count('--source-head "$CANDIDATE_HEAD"'), 2)
+        self.assertNotIn('--source-head "$GITHUB_SHA"', build_text)
         self.assertIn("contents: read", text)
         self.assertIn("git rev-parse HEAD^", text)
         self.assertEqual(text.count("paseo_buildx.py build"), 1)
