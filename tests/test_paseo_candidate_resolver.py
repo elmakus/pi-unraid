@@ -60,6 +60,71 @@ class ResolverTests(unittest.TestCase):
             r=self.invoke("--fixture",str(broken),"--check")
             self.assertNotEqual(r.returncode,0); self.assertIn("integrity",r.stderr)
 
+class TypedDiscoveryFreezeTests(unittest.TestCase):
+    def setUp(self):
+        self.definition=json.loads((ROOT/"config"/"environment-capabilities.json").read_text())
+        self.components=json.loads(FIXTURE.read_text())["components"]
+
+    def test_current_source_families_round_trip_exact_component_records(self):
+        records=resolver.typed_discover_components(self.components,self.definition)
+        by_component={record["component"]:record for record in records}
+        self.assertEqual(by_component["paseo"]["source_family"],"oci")
+        self.assertEqual(by_component["node"]["source_family"],"derived")
+        for name in ("pi","playwright","specpi","pi_mcp_adapter"):
+            self.assertEqual(by_component[name]["source_family"],"npm")
+        for name in ("github_cli","docker_cli","docker_compose"):
+            self.assertEqual(by_component[name]["source_family"],"github")
+        self.assertEqual(by_component["docker_cli"]["source_kind"],"github_tag")
+        self.assertEqual(
+            by_component["pi"]["immutable"]["npm"]["integrity"],
+            self.components["pi"]["npm"]["integrity"],
+        )
+        frozen=resolver.freeze_discovery_records(records,self.definition)
+        self.assertEqual(frozen,self.components)
+
+    def test_missing_immutable_identities_fail_closed_by_source_family(self):
+        cases=[]
+        value=copy.deepcopy(self.components["pi"]); del value["npm"]["integrity"]
+        cases.append(("npm","pi",value))
+        value=copy.deepcopy(self.components["github_cli"]); del value["artifact"]["digest"]
+        cases.append(("github","github_cli",value))
+        value=copy.deepcopy(self.components["paseo"]); del value["artifact"]["digest"]
+        cases.append(("oci","paseo",value))
+        value=copy.deepcopy(self.components["node"]); del value["immutable_parent"]
+        cases.append(("derived","node",value))
+        for family,component,payload in cases:
+            with self.subTest(family=family), self.assertRaises(resolver.ResolutionError):
+                resolver.normalize_discovery_record(component,payload,self.definition)
+
+    def test_unsupported_source_and_source_family_mismatch_fail_closed(self):
+        unsupported=copy.deepcopy(self.definition)
+        pi=next(item for item in unsupported["capabilities"] if item["id"]=="pi")
+        pi["managed_update"]["source"]["kind"]="apt"
+        with self.assertRaisesRegex(resolver.ResolutionError,"unsupported candidate source kind"):
+            resolver.candidate_capability_map(unsupported)
+
+        mismatched=copy.deepcopy(self.definition)
+        pi=next(item for item in mismatched["capabilities"] if item["id"]=="pi")
+        pi["managed_update"]["source"]["kind"]="github_release"
+        pi["managed_update"]["immutable_identity"]["kind"]="release_asset_digest"
+        with self.assertRaisesRegex(resolver.ResolutionError,"GitHub release asset identity"):
+            resolver.normalize_discovery_record("pi",self.components["pi"],mismatched)
+
+    def test_freeze_rejects_tampered_family_and_derived_owner_drift(self):
+        records=resolver.typed_discover_components(self.components,self.definition)
+        tampered=copy.deepcopy(records)
+        pi=next(item for item in tampered if item["component"]=="pi")
+        pi["source_family"]="github"
+        with self.assertRaisesRegex(resolver.ResolutionError,"source family mismatch"):
+            resolver.freeze_discovery_records(tampered,self.definition)
+
+        drifted=copy.deepcopy(records)
+        node=next(item for item in drifted if item["component"]=="node")
+        node["immutable"]["immutable_parent"]="ghcr.io/getpaseo/paseo@sha256:"+"0"*64
+        with self.assertRaisesRegex(resolver.ResolutionError,"not bound to exact owner"):
+            resolver.freeze_discovery_records(drifted,self.definition)
+
+
 class CoordinatedResolverTests(unittest.TestCase):
     def invoke(self,*args):
         return subprocess.run(["python3",str(SCRIPT),*args],cwd=ROOT,text=True,capture_output=True)

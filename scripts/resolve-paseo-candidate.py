@@ -79,6 +79,224 @@ STABLE_LINES={
 
 class ResolutionError(RuntimeError): pass
 
+SOURCE_FAMILY_BY_KIND={
+    "npm":"npm",
+    "github_release":"github",
+    "github_tag":"github",
+    "oci":"oci",
+    "derived":"derived",
+}
+IDENTITY_KIND_BY_SOURCE={
+    "npm":"npm_integrity",
+    "github_release":"release_asset_digest",
+    "github_tag":"git_commit",
+    "oci":"oci_digest",
+    "derived":"owner_immutable_identity",
+}
+DISCOVERY_RECORD_KEYS={
+    "schema_version","component","source_family","source_kind",
+    "stable_version","immutable",
+}
+
+def candidate_capability_map(definition):
+    if not isinstance(definition,dict): raise ResolutionError("inventory definition must be an object")
+    capabilities=definition.get("capabilities")
+    if not isinstance(capabilities,list) or not capabilities:
+        raise ResolutionError("inventory capabilities are missing")
+    selected={}
+    for capability in capabilities:
+        if not isinstance(capability,dict): raise ResolutionError("inventory capability entries must be objects")
+        desired=capability.get("desired")
+        if not isinstance(desired,dict) or desired.get("kind")!="candidate_component":
+            continue
+        component=desired.get("component")
+        if not isinstance(component,str) or not component:
+            raise ResolutionError("candidate component selector is invalid")
+        if component in selected:
+            raise ResolutionError(f"duplicate candidate component selector: {component}")
+        managed=capability.get("managed_update")
+        if not isinstance(managed,dict) or managed.get("membership")!="managed":
+            raise ResolutionError(f"candidate component is not managed: {component}")
+        source=managed.get("source")
+        source_kind=source.get("kind") if isinstance(source,dict) else None
+        family=SOURCE_FAMILY_BY_KIND.get(source_kind)
+        if family is None:
+            raise ResolutionError(f"unsupported candidate source kind for {component}: {source_kind}")
+        identity=managed.get("immutable_identity")
+        identity_kind=identity.get("kind") if isinstance(identity,dict) else None
+        expected_identity=IDENTITY_KIND_BY_SOURCE[source_kind]
+        if identity_kind!=expected_identity:
+            raise ResolutionError(
+                f"candidate source/identity mismatch for {component}: "
+                f"{source_kind} requires {expected_identity}"
+            )
+        selected[component]={
+            "capability_id":capability.get("id"),
+            "source_kind":source_kind,
+            "source_family":family,
+            "install_class":managed.get("install_class"),
+            "derived_owner":managed.get("derived_owner"),
+        }
+    return selected
+
+def _exact_source(component, immutable):
+    source=immutable.get("source")
+    if not isinstance(source,dict):
+        raise ResolutionError(f"{component} immutable source metadata is missing")
+    if not isinstance(source.get("repository"),str) or not source["repository"]:
+        raise ResolutionError(f"{component} immutable source repository is missing")
+    if not isinstance(source.get("tag"),str) or not source["tag"]:
+        raise ResolutionError(f"{component} immutable source tag is missing")
+    if not SHA40.fullmatch(str(source.get("commit",""))):
+        raise ResolutionError(f"{component} immutable source commit is missing")
+    return source
+def normalize_discovery_record(component,payload,definition):
+    descriptors=candidate_capability_map(definition)
+    descriptor=descriptors.get(component)
+    if descriptor is None:
+        raise ResolutionError(f"component is not a managed candidate: {component}")
+    if not isinstance(payload,dict):
+        raise ResolutionError(f"{component} discovery payload must be an object")
+    allowed=COMPONENT_KEYS.get(component)
+    if allowed is None:
+        raise ResolutionError(f"unsupported candidate component: {component}")
+    extra=sorted(set(payload)-(allowed-{"stable_line"}))
+    if extra:
+        raise ResolutionError(f"{component} discovery payload has unexpected field(s): {','.join(extra)}")
+    version=payload.get("version")
+    check_channel_substitution(version,f"{component} discovery version")
+    immutable=copy.deepcopy(payload)
+    immutable.pop("version",None)
+    immutable.pop("stable_line",None)
+    kind=descriptor["source_kind"]
+    family=descriptor["source_family"]
+
+    if family in {"npm","github","oci"}:
+        _exact_source(component,immutable)
+
+    if kind=="npm":
+        npmdata=immutable.get("npm")
+        if not isinstance(npmdata,dict):
+            raise ResolutionError(f"{component} npm immutable identity is missing")
+        if not isinstance(npmdata.get("package"),str) or not npmdata["package"]:
+            raise ResolutionError(f"{component} npm package identity is missing")
+        if not str(npmdata.get("integrity","")).startswith("sha512-"):
+            raise ResolutionError(f"{component} npm integrity is missing")
+        if not re.fullmatch(r"[0-9a-f]{40}",str(npmdata.get("shasum",""))):
+            raise ResolutionError(f"{component} npm shasum is missing")
+    elif kind=="github_release":
+        artifact=immutable.get("artifact")
+        if not isinstance(artifact,dict):
+            raise ResolutionError(f"{component} GitHub release asset identity is missing")
+        if not isinstance(artifact.get("name"),str) or not artifact["name"]:
+            raise ResolutionError(f"{component} GitHub release asset name is missing")
+        if not SHA256.fullmatch(str(artifact.get("digest",""))):
+            raise ResolutionError(f"{component} GitHub release asset digest is missing")
+    elif kind=="github_tag":
+        identity=immutable.get("artifact_identity")
+        if not isinstance(identity,dict) or identity.get("status")!="source-commit-exact":
+            raise ResolutionError(f"{component} GitHub tag/commit identity is missing")
+        if identity.get("digest") is not None:
+            raise ResolutionError(f"{component} GitHub tag/commit identity must not invent an asset digest")
+        line=immutable.get("stable_line_source")
+        if not isinstance(line,dict) or not isinstance(line.get("repository"),str) or not isinstance(line.get("tag"),str):
+            raise ResolutionError(f"{component} GitHub stable-line source is missing")
+    elif kind=="oci":
+        artifact=immutable.get("artifact")
+        if not isinstance(artifact,dict):
+            raise ResolutionError(f"{component} OCI immutable identity is missing")
+        digest=str(artifact.get("digest",""))
+        if not SHA256.fullmatch(digest):
+            raise ResolutionError(f"{component} OCI digest is missing")
+        if artifact.get("reference")!=f"ghcr.io/getpaseo/paseo@{digest}":
+            raise ResolutionError(f"{component} OCI reference is not bound to its digest")
+        if not SHA256.fullmatch(str(artifact.get("linux_amd64_manifest",""))):
+            raise ResolutionError(f"{component} OCI linux/amd64 manifest identity is missing")
+        if not SHA256.fullmatch(str(artifact.get("config_digest",""))):
+            raise ResolutionError(f"{component} OCI config identity is missing")
+    elif kind=="derived":
+        owner=descriptor.get("derived_owner")
+        if not isinstance(owner,str) or not owner:
+            raise ResolutionError(f"{component} derived owner is missing from managed registry")
+        if not isinstance(immutable.get("immutable_parent"),str) or not immutable["immutable_parent"]:
+            raise ResolutionError(f"{component} derived immutable parent is missing")
+
+    return {
+        "schema_version":1,
+        "component":component,
+        "source_family":family,
+        "source_kind":kind,
+        "stable_version":version,
+        "immutable":immutable,
+    }
+
+def typed_discover_components(components,definition):
+    if not isinstance(components,dict):
+        raise ResolutionError("discovery components must be an object")
+    descriptors=candidate_capability_map(definition)
+    if set(components)!=set(descriptors):
+        missing=sorted(set(descriptors)-set(components))
+        extra=sorted(set(components)-set(descriptors))
+        detail=[]
+        if missing: detail.append("missing="+",".join(missing))
+        if extra: detail.append("unexpected="+",".join(extra))
+        raise ResolutionError("typed discovery component set mismatch: "+";".join(detail))
+    return [
+        normalize_discovery_record(component,components[component],definition)
+        for component in sorted(components)
+    ]
+def freeze_discovery_record(record,definition):
+    if not isinstance(record,dict) or set(record)!=DISCOVERY_RECORD_KEYS:
+        raise ResolutionError("typed discovery record schema is invalid")
+    if record.get("schema_version")!=1:
+        raise ResolutionError("typed discovery record schema is unsupported")
+    component=record.get("component")
+    descriptors=candidate_capability_map(definition)
+    descriptor=descriptors.get(component)
+    if descriptor is None:
+        raise ResolutionError(f"typed discovery record names unmanaged component: {component}")
+    if record.get("source_family")!=descriptor["source_family"] or record.get("source_kind")!=descriptor["source_kind"]:
+        raise ResolutionError(f"typed discovery source family mismatch for {component}")
+    payload={"version":record.get("stable_version")}
+    immutable=record.get("immutable")
+    if not isinstance(immutable,dict):
+        raise ResolutionError(f"typed discovery immutable identity is missing for {component}")
+    payload.update(copy.deepcopy(immutable))
+    canonical=normalize_discovery_record(component,payload,definition)
+    if canonical!=record:
+        raise ResolutionError(f"typed discovery record is not canonical for {component}")
+    return payload
+
+def freeze_discovery_records(records,definition):
+    if not isinstance(records,list):
+        raise ResolutionError("typed discovery records must be a list")
+    descriptors=candidate_capability_map(definition)
+    frozen={}
+    for record in records:
+        if not isinstance(record,dict):
+            raise ResolutionError("typed discovery records must contain objects")
+        component=record.get("component")
+        if component in frozen:
+            raise ResolutionError(f"duplicate typed discovery record: {component}")
+        frozen[component]=freeze_discovery_record(record,definition)
+    if set(frozen)!=set(descriptors):
+        raise ResolutionError("typed discovery freeze set does not match managed candidate set")
+    for component,descriptor in descriptors.items():
+        if descriptor["source_kind"]!="derived":
+            continue
+        owner=descriptor["derived_owner"]
+        owner_payload=frozen.get(owner,{})
+        owner_reference=owner_payload.get("artifact",{}).get("reference")
+        if not isinstance(owner_reference,str) or not owner_reference:
+            raise ResolutionError(f"{component} derived owner lacks immutable reference")
+        if frozen[component].get("immutable_parent")!=owner_reference:
+            raise ResolutionError(f"{component} derived identity is not bound to exact owner")
+    return frozen
+
+def typed_discovery_freeze(components,definition):
+    return freeze_discovery_records(typed_discover_components(components,definition),definition)
+
+
 def http(url, headers=None, allow_401=False):
     h={"User-Agent":UA,"Accept":"application/json"}
     if headers: h.update(headers)
@@ -464,8 +682,8 @@ def evaluate_exceptions(components, proposals, observed_latest, approved):
 
 def assemble_candidate(components, proposals, observed_latest, approved, definition):
     check_capability_set(components, definition)
-    records=evaluate_exceptions(components, proposals, observed_latest, approved)
-    comps=copy.deepcopy(components)
+    comps=typed_discovery_freeze(components,definition)
+    records=evaluate_exceptions(comps, proposals, observed_latest, approved)
     for name in sorted(comps):
         comps[name]["stable_line"]=copy.deepcopy(STABLE_LINES[name])
     c={"schema_version":1,"policy":{"channel":"latest-stable","build_must_not_reresolve":True,
