@@ -1,0 +1,30 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+state = "active"
+origin_role = "brainstorming"
+origin_subject = "codex-lb-dynamic-model-catalog@1"
+return_target = "brainstorming"
+return_reconciliation = "pending"
+return_result = ""
+finding = ""
+limitations = ""
+conflicts = ""
+
+[[sources]]
+class = "official_upstream"
+status = "checked"
+weight = "primary"
+
+[[sources]]
+class = "project_runtime"
+status = "checked"
+weight = "direct"
+
+[[sources]]
+class = "tracker_discussion"
+status = "not_relevant"
+weight = "supporting"
+
+[[sources]]
+class = "practitioner_community"
+status = "not_relevant"
+weight = "supporting"
