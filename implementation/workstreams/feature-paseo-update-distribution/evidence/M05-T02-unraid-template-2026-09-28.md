@@ -23,3 +23,14 @@ Branch: feat/paseo-update-distribution
 - Full repository unit suite: 474/474 GREEN on Tower from /mnt/user/pw-m05-t01-checkout, outside the system temporary directory.
 - git diff --check: GREEN.
 - No production container restart/cutover/rollback, transaction-guard mutation, or production accepted-channel movement occurred.
+
+## R01 bounded correction
+- Independent review R01 found that the first template omitted two accepted production runtime surfaces: the read-only UID-99 passwd overlay at /etc/passwd and host.docker.internal:host-gateway.
+- Fresh Tower docker inspect confirmed production currently mounts /mnt/user/appdata/pi-unraid/m07-t02/passwd read-only at /etc/passwd and carries host.docker.internal:host-gateway, alongside the GraphQL and Codex-LB secret mounts.
+- The template now preserves both surfaces and focused tests assert the passwd source/mode and host-gateway argument.
+- Focused template tests: 3/3 GREEN after correction.
+- XML parse: GREEN after correction.
+- Full repository unit suite: 474/474 GREEN on Tower from /mnt/user/pw-m05-t02-r01-repair, outside the system temporary directory.
+- git diff --check: GREEN.
+- Fresh production readback after correction: container 9477662964b187f85b3f9e1a59e0ecd7143f4069e646472d7872a3cebef981af, image sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de, running/healthy, configured image pi-unraid:paseo-codex-lb-env-bc87a92.
+- Production ghcr.io/elmakus/pi-unraid:accepted remains not found on read-only registry inspect. No tag write, restart, cutover, rollback or guard mutation occurred.
