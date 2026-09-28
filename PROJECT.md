@@ -12,7 +12,7 @@ workstream_root = "implementation/workstreams"
 - Repository: `elmakus/pi-unraid`
 - Lifecycle: `active`
 - High-level goal: operate a reproducible Pi Coding Agent environment on Unraid with Paseo as the production GUI/runtime, durable project/worktree storage, bounded host control, reproducible global capabilities and rollback/recovery evidence.
-- High-level status: **Phase 1 R3, the Paseo/Pi GUI runtime scope, dynamic Codex-LB model discovery and the permanent Paseo-to-Pi Codex-LB credential repair are complete and integrated into `main`.** Phase 1 was integrated through PR #1; Paseo/Pi through PR #4; dynamic Codex-LB discovery through PR #8; the runtime credential propagation and Luna/low-only real-LLM test policy through PR #12 with REQUIRED independent review GREEN. Production Paseo is healthy on the accepted repaired image, exposes the live nine-model Codex-LB catalog without manual secret sourcing, and retains bounded rollback anchors. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
+- High-level status: **Phase 1 R3, the Paseo/Pi GUI runtime scope, dynamic Codex-LB model discovery, the permanent Paseo-to-Pi Codex-LB credential repair, and the current-upstream-main GPT-6 production-image repair are complete and integrated into `main`.** Phase 1 was integrated through PR #1; Paseo/Pi through PR #4; dynamic Codex-LB discovery through PR #8; the runtime credential propagation and Luna/low-only real-LLM test policy through PR #12; and the current-main GPT-6 image repair through PR #16 with REQUIRED independent review GREEN. Production Paseo is healthy on the accepted repaired image, exposes the live nine-model Codex-LB catalog without manual secret sourcing, and retains bounded rollback anchors. Routine scheduled Appdata Backup remains explicitly degraded; bounded M07 rollback/migration archives remain verified.
 
 ## Workflow runtime policy
 
@@ -39,6 +39,10 @@ Historical Phase 1 ADRs, plans and evidence that contain runtime-specific role r
 - Paseo Codex-LB environment repair independent review: `implementation/workstreams/issue-paseo-codex-lb-env-propagation/reviews/M01-T01-R01.toml`
 - Real LLM test policy: `docs/LLM_TEST_POLICY.md`
 - Paseo Codex-LB repair post-merge closure evidence: `implementation/workstreams/issue-paseo-codex-lb-env-propagation/evidence/WORKSTREAM_CLOSE.md`
+- Completed current-main GPT-6 image repair workstream: `implementation/workstreams/issue-codex-lb-current-main-gpt6-image/WORKSTREAM.toml`
+- Current-main GPT-6 image repair result: `implementation/workstreams/issue-codex-lb-current-main-gpt6-image/results/M01-T01.md`
+- Current-main GPT-6 image repair independent review: `implementation/workstreams/issue-codex-lb-current-main-gpt6-image/reviews/M01-T01-R01.toml`
+- Current-main GPT-6 image repair post-merge closure evidence: `implementation/workstreams/issue-codex-lb-current-main-gpt6-image/evidence/WORKSTREAM_CLOSE.md`
 - Approved requirements: `requirements/PI_UNRAID_BOOTSTRAP.md`
 - Accepted decisions:
   - `decisions/PIB_ADR_001_PHASE1_SCOPE.md`
@@ -96,6 +100,17 @@ Historical Phase 1 ADRs, plans and evidence that contain runtime-specific role r
 - Policy authority: `docs/LLM_TEST_POLICY.md`, `config/pi-agent/policies/LLM_TEST_POLICY.md`, `config/pi-agent/policies/llm-test-policy.json`, `config/pi-agent/AGENTS.md`, `config/pi-agent/bin/run-llm-test.sh`
 - Tracker state: Issue #10 `CLOSED / COMPLETED` after PR #12 integration
 
+## Codex-LB current-main GPT-6 production image state
+
+- Workstream: `issue-codex-lb-current-main-gpt6-image`
+- Repair subject: `repair:codex-lb-current-main-plus-gpt6-128k:v1`
+- Implementation state: M01-T01 terminal; REQUIRED independent review `M01-T01-R01` GREEN
+- Integrated source: PR #16, exact source head `c01af97b0ee4cc66d0adbf9f991a2711349d9c93`, merge commit `8faba8e4fd866ffa29bbbc2247b363ad9d680eac`
+- Codex-LB source: `elmakus/codex-lb@34511dd6e73e4dbc03dd54112e911fa9149f3440`, containing exact accepted upstream `Soju06/codex-lb@f8ffbac2099a113fba54dfd8d77774f5bca80ffa` plus the bounded GPT-6 repair and fork publisher workflows
+- Production state: `codex-lb-clean` and the Unraid template are pinned to immutable `ghcr.io/elmakus/codex-lb:sha-34511dd`, OCI digest `sha256:fff96614507c45cca70e980a5390eb36a67295ec74d0863a01ca065efe59e2bb`; prior `v1.25.0-beta.9-private.1` remains preserved as immediate rollback
+- Model state: authenticated Codex-LB exposes nine models; GPT-6 Astra/Sol/Luna retain context `272000` and max output `128000`, and Pi/Paseo converge to `maxTokens=128000`
+- Scope boundary: production is not pinned to mutable `:main`; no automatic upstream tracking, Pi/Paseo automatic model selection/failover, or context-window override was introduced
+
 ## Workflow
 
 - Workflow repository: `elmakus/project_workflow_v2`
@@ -107,4 +122,4 @@ This file is a high-level integrated-project router/index, not live execution st
 
 The historical brainstorming record originally accumulated on `main` before the branch-first managed-change contract was applied. The managed Phase 1 continuation was recovered onto `feat/pi-unraid-bootstrap`, completed under the namespaced workstream package and merged back to `main` through PR #1; GitHub then automatically removed the source branch. Terminal recovery truth now lives in the target-side namespaced workstream package.
 
-Master Plan R3 is approved after independent Plan Review GREEN. Phase 1 has no remaining implementation, review or Close obligation. The later Paseo/Pi GUI runtime scope was integrated through PR #4, dynamic Codex-LB model discovery through PR #8, and the permanent Paseo Codex-LB environment propagation repair plus Luna/low-only real-LLM test policy through PR #12. Their target-side recovery packages live under their respective namespaced workstreams on `main`; automatically removed source branches must not be recreated for bookkeeping.
+Master Plan R3 is approved after independent Plan Review GREEN. Phase 1 has no remaining implementation, review or Close obligation. The later Paseo/Pi GUI runtime scope was integrated through PR #4, dynamic Codex-LB model discovery through PR #8, the permanent Paseo Codex-LB environment propagation repair plus Luna/low-only real-LLM test policy through PR #12, and the current-main GPT-6 production-image repair through PR #16. Their target-side recovery packages live under their respective namespaced workstreams on `main`; automatically removed source branches must not be recreated for bookkeeping.
