@@ -23,3 +23,14 @@ Verification on Tower from the worktree outside the system temporary directory:
 - `python3 -m unittest discover -s tests -p 'test_*.py' -q`: 456/456 GREEN.
 
 No real Codex-LB user key was read or used. No production container, accepted tag, transaction guard, rollback state or pooled OAuth material was mutated.
+
+## R01 correction
+
+Independent review R01 found that substring-only `"id"` matching could accept malformed HTTP-200 response content. The smoke now parses the response with Node `JSON.parse` inside the disposable candidate and requires a JSON object with a non-empty string `id`; parse/shape failure exits through the existing structured protocol FAIL path. The focused contract test requires structural parsing and forbids the former grep check.
+
+Correction verification on Tower from a fresh non-temporary checkout with full Git history:
+- `python3 -m py_compile scripts/paseo_tower_validator.py tests/test_paseo_tower_validator.py`: GREEN;
+- `python3 -m unittest tests.test_paseo_tower_validator -v`: 6/6 GREEN;
+- `python3 -m unittest discover -s tests -p 'test_*.py' -q`: 456/456 GREEN;
+- `git diff --check`: GREEN;
+- direct malformed HTTP-200 fixture body `{"id":` against the exact structural parser: fail-closed GREEN (`MALFORMED_FAIL_CLOSED_OK`).
