@@ -1,5 +1,5 @@
 workstream_id = "feature-codex-lb-dynamic-model-catalog"
-revision = 21
+revision = 22
 
 [execution_ref]
 branch = "feat/codex-lb-dynamic-model-catalog"
@@ -82,7 +82,7 @@ condition = "The exact reviewed M01-T01 extension and provider-config contract r
 
 [[cards]]
 id = "M02-T02"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
