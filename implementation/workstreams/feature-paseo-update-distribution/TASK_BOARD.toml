@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 47
+revision = 48
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -184,7 +184,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M03
 
 [[cards]]
 id = "M03-T03"
-status = "done"
+status = "in_progress"
 
 [cards.contract]
 class = "task_card"
@@ -199,3 +199,7 @@ blob = "e62506a60dbee2623a482349914c27ee73f5cfb0"
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M03-T03-R01.toml"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M03-T03-R02.toml"
