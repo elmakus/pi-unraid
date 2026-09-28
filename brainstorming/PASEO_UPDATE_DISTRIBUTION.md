@@ -2,7 +2,7 @@
 
 Date: `2026-09-28`
 Scope ID: `paseo-update-distribution`
-Revision: `R3`
+Revision: `R4`
 Status: `active`
 
 ## Problem / goal
@@ -18,7 +18,8 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 3. GHCR plus an Unraid Docker Template / Community Apps style UX is the preferred normal production distribution/management direction. Compose remains available for development, testing, recovery and fallback unless later evidence changes that decision.
 4. Version discovery should run daily.
 5. The update inventory must be extensible and data-driven rather than hard-coded to the initial component set. Adding a future supported tool/extension to inventory should enroll it in discovery/candidate lifecycle without creating a bespoke scheduler workflow.
-6. Production cutover must not be unattended because an automatic container restart could interrupt active Paseo/Pi agent work. Only a fully GREEN accepted image may become update-ready; the actual production restart/cutover is initiated by the user from the Unraid Docker UI.
+6. Codex-LB end-to-end smoke uses a dedicated user-managed API key whose server-side policy forces a low-cost smoke model; normal agent credentials are not exposed to the update pipeline.
+7. Production cutover must not be unattended because an automatic container restart could interrupt active Paseo/Pi agent work. Only a fully GREEN accepted image may become update-ready; the actual production restart/cutover is initiated by the user from the Unraid Docker UI.
 
 ## Current component set
 
@@ -49,7 +50,7 @@ Preferred acceptance shape before the user sees an update-ready production image
 - only after those checks are GREEN, publish/promote the accepted image/tag that Unraid can detect as an available update;
 - user chooses the safe moment and clicks Update in Unraid.
 
-The Codex-LB smoke is an automated protocol/integration probe, not an LLM judgment. Its model should be independently configurable from the user's normal agent model, optimized for minimum cost/latency, with a tiny prompt/output budget. Research should verify the cleanest supported model-selection mechanism and the exact Unraid update/readback/rollback realization.
+The Codex-LB smoke is an automated protocol/integration probe, not an LLM judgment. Use a dedicated smoke-test API credential created and managed by the user in Codex-LB. That credential should be constrained server-side to a low-cost smoke-test model (and, where supported, least-privilege limits such as bounded quota/rate/output). The update pipeline receives only this dedicated credential and does not get the user's normal agent credential. The test itself should use a tiny prompt/output budget. Research should verify the cleanest supported credential/model-binding mechanism and the exact Unraid update/readback/rollback realization.
 
 ### Compatibility-aware partial advancement
 
