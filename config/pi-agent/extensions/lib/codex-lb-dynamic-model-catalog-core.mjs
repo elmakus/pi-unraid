@@ -7,6 +7,7 @@ export const DEFAULT_REFRESH_INTERVAL_MS = 300_000;
 export const MIN_REFRESH_INTERVAL_MS = 1_000;
 export const MAX_REFRESH_INTERVAL_MS = 3_600_000;
 export const DEFAULT_DISCOVERY_TIMEOUT_MS = 5_000;
+export const CATALOG_STORE_SCHEMA_VERSION = 2;
 
 const ZERO_COST = Object.freeze({ input: 0, output: 0, cacheRead: 0, cacheWrite: 0 });
 const API_KEY_REFS = new Set(["$CODEX_LB_API_KEY", "${CODEX_LB_API_KEY}"]);
@@ -299,7 +300,8 @@ export function createRefreshModels({
       accept: "application/json",
       authorization: `Bearer ${credentialValue}`,
     };
-    if (cached.length > 0 && typeof context.stored?.etag === "string" && context.stored.etag) {
+    const currentStoreSchema = context.stored?.schemaVersion === CATALOG_STORE_SCHEMA_VERSION;
+    if (currentStoreSchema && cached.length > 0 && typeof context.stored?.etag === "string" && context.stored.etag) {
       headers["if-none-match"] = context.stored.etag;
     }
 
@@ -321,9 +323,11 @@ export function createRefreshModels({
     const checkedAt = now();
 
     if (response.status === 304) {
-      if (cached.length === 0 || !context.stored) fail("received 304 without a stored catalog");
+      if (!currentStoreSchema || cached.length === 0 || !context.stored) {
+        fail("received 304 without a current-schema stored catalog");
+      }
       const published = await context.publish({
-        persist: { ...context.stored, checkedAt },
+        persist: { ...context.stored, checkedAt, schemaVersion: CATALOG_STORE_SCHEMA_VERSION },
       });
       return published === false ? fallback : cached;
     }
@@ -345,6 +349,7 @@ export function createRefreshModels({
     const etag = headerValue(response.headers, "etag");
 
     const entry = {
+      schemaVersion: CATALOG_STORE_SCHEMA_VERSION,
       models: definitions.map((model) => storedModelDefinition(model, normalizedBaseUrl)),
       checkedAt,
       ...(Number.isNaN(lastModified) ? {} : { lastModified }),
