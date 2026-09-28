@@ -1,0 +1,22 @@
+workstream_id = "feature-codex-lb-dynamic-model-catalog"
+cycle = 1
+entry_subject = "elmakus/pi-unraid@b44938e6ca8c33ecebfba15b7a0ebd4752c1cdff:implementation/workstreams/feature-codex-lb-dynamic-model-catalog/DEFINITION.toml@42e918b2af4e42af40aa4b313af1477b2cc1c7eb"
+revision = "P1"
+state = "frozen"
+planner_audit = "green"
+plan_path = "planning/CODEX_LB_DYNAMIC_MODEL_CATALOG_P1.md"
+review_mode = "independent"
+review_exemption_basis = ""
+review_exemption_base_subject = ""
+premium_a = "satisfied"
+premium_a_subject = "elmakus/pi-unraid@b44938e6ca8c33ecebfba15b7a0ebd4752c1cdff:implementation/workstreams/feature-codex-lb-dynamic-model-catalog/DEFINITION.toml@42e918b2af4e42af40aa4b313af1477b2cc1c7eb"
+premium_b = "due"
+premium_b_subject = "elmakus/pi-unraid@570466068e1b6703ed3617d37319a2cf7901804e:planning/CODEX_LB_DYNAMIC_MODEL_CATALOG_P1.md@205b203e9e8b70be9c75b542efedd165acf5b3cc"
+premium_c = "pending"
+premium_c_subject = ""
+
+[subject]
+repository = "elmakus/pi-unraid"
+commit = "570466068e1b6703ed3617d37319a2cf7901804e"
+path = "planning/CODEX_LB_DYNAMIC_MODEL_CATALOG_P1.md"
+blob = "205b203e9e8b70be9c75b542efedd165acf5b3cc"
