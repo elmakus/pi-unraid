@@ -1,8 +1,8 @@
 workstream_id = "issue-codex-lb-current-main-gpt6-image"
 card_id = "M01-T01"
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "GREEN"
+evidence_path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/evidence/M01-T01-R01-independent-review-2026-09-28.md"
 
 [subject]
 class = "git_blob"
@@ -17,4 +17,4 @@ path = "implementation/workstreams/issue-codex-lb-current-main-gpt6-image/cards/
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "Pending R01 is reserved for a fresh independent reviewer because the current execution context materially produced, deployed and reconciled the exact M01-T01 result subject."
+basis = "This reviewer context did not materially produce or repair the exact frozen M01-T01 result subject; it independently verified source ancestry and bounded diff, reran the exact-source targeted tests, and performed read-only production/catalog/Pi/Paseo readback."
