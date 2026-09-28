@@ -60,7 +60,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100, network
         if not shutil.which("docker"):
             raise ValidationBlocked("docker CLI unavailable")
         readback = run(["docker","buildx","imagetools","inspect",ref]).stdout
-        if f"Digest: {digest}" not in readback:
+        registry_digests = [line.split(None, 1)[1].strip() for line in readback.splitlines() if line.strip().startswith("Digest:") and len(line.split(None, 1)) == 2]
+        if digest not in registry_digests:
             raise ValidationError("registry immutable digest readback mismatch")
         result["checks"]["registry_digest"] = "PASS"
         run(["docker","image","pull",ref], timeout=900)
