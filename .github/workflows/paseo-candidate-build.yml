@@ -52,6 +52,11 @@ jobs:
             git merge-base --is-ancestor "$source_parent" "refs/remotes/origin/$DEFAULT_BRANCH"
           fi
           test "$(git diff --name-only HEAD^ HEAD | sort)" = "$(printf '%s\n' candidates/paseo-update/candidate.json candidates/paseo-update/evidence.json | sort)"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            expected_source_ref="refs/heads/feat/paseo-update-distribution"
+          else
+            expected_source_ref="refs/heads/$DEFAULT_BRANCH"
+          fi
           python3 scripts/paseo_candidate_build.py prepare \
             --candidate candidates/paseo-update/candidate.json \
             --handoff-evidence candidates/paseo-update/evidence.json \
@@ -60,7 +65,7 @@ jobs:
             --stage-dir "$RUNNER_TEMP/paseo-candidate-context" \
             --source-head "$CANDIDATE_HEAD" \
             --source-parent "$source_parent" \
-            --expected-source-ref "refs/heads/$DEFAULT_BRANCH"
+            --expected-source-ref "$expected_source_ref"
       - name: Build once and run exact-image core smoke
         run: |
           set -euo pipefail
