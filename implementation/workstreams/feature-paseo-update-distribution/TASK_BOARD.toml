@@ -480,3 +480,13 @@ status = "in_progress"
 [cards.contract]
 class = "task_card"
 path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T02.md"
+
+[cards.result]
+class = "result"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T02.md"
+commit = "1695984ec729b27f05a02568ce097527c2caf91d"
+blob = "0225fa6e4258dc566729d5abe8362e116b8df38d"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T02-R01.toml"
