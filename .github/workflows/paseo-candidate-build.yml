@@ -1,6 +1,9 @@
 name: Paseo exact candidate build
 
 on:
+  push:
+    branches:
+      - automation/paseo-update-candidate
   pull_request:
     paths:
       - candidates/paseo-update/candidate.json
@@ -20,7 +23,7 @@ jobs:
       (github.event_name == 'pull_request' &&
        github.head_ref == 'automation/paseo-update-candidate' &&
        github.event.pull_request.base.ref == github.event.repository.default_branch) ||
-      (github.event_name == 'workflow_dispatch' &&
+      ((github.event_name == 'workflow_dispatch' || github.event_name == 'push') &&
        github.ref == 'refs/heads/automation/paseo-update-candidate')
     runs-on: ubuntu-latest
     env:
@@ -42,7 +45,12 @@ jobs:
           test "$(git rev-parse 25719c4caffa7940898ec723e2a099f0fa3ad412:implementation/workstreams/feature-paseo-update-distribution/results/M03-T01.md)" = "b967d7c65055b5fc9ba79b6faae0502f1fcd1bdb"
           source_parent="$(git rev-parse HEAD^)"
           git fetch origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
-          git merge-base --is-ancestor "$source_parent" "refs/remotes/origin/$DEFAULT_BRANCH"
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            test "$(git show "$source_parent:candidates/paseo-update/evidence.json" 2>/dev/null || true)" = ""
+            test "$(git show "$source_parent:.github/workflows/paseo-candidate-resolver.yml" | grep -c "feat/paseo-update-distribution")" -ge 1
+          else
+            git merge-base --is-ancestor "$source_parent" "refs/remotes/origin/$DEFAULT_BRANCH"
+          fi
           test "$(git diff --name-only HEAD^ HEAD | sort)" = "$(printf '%s\n' candidates/paseo-update/candidate.json candidates/paseo-update/evidence.json | sort)"
           python3 scripts/paseo_candidate_build.py prepare \
             --candidate candidates/paseo-update/candidate.json \
@@ -91,7 +99,7 @@ jobs:
        github.head_ref == 'automation/paseo-update-candidate' &&
        github.event.pull_request.base.ref == github.event.repository.default_branch &&
        github.event.pull_request.head.repo.full_name == github.repository) ||
-      (github.event_name == 'workflow_dispatch' &&
+      ((github.event_name == 'workflow_dispatch' || github.event_name == 'push') &&
        github.ref == 'refs/heads/automation/paseo-update-candidate')
     runs-on: ubuntu-latest
     permissions:
