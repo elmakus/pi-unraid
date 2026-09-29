@@ -1,6 +1,9 @@
 name: Paseo daily candidate discovery
 
 on:
+  push:
+    branches:
+      - feat/paseo-update-distribution
   schedule:
     - cron: "17 3 * * *"
   workflow_dispatch:
@@ -15,7 +18,7 @@ concurrency:
 
 jobs:
   resolve:
-    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || (github.event_name == 'push' && github.ref == 'refs/heads/feat/paseo-update-distribution')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
