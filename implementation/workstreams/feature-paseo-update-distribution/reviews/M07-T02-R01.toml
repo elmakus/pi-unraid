@@ -1,6 +1,7 @@
 review_id = "M07-T02-R01"
 card_id = "M07-T02"
-status = "pending"
+status = "terminal"
+verdict = "GREEN"
 subject_commit = "b2189728cb92c784a3fdda951994c1cda2e13e0a"
 result_path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T02.md"
 result_commit = "1695984ec729b27f05a02568ce097527c2caf91d"
@@ -8,5 +9,5 @@ result_blob = "0225fa6e4258dc566729d5abe8362e116b8df38d"
 evidence_path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T02-R01.md"
 
 [independence]
-materially_produced_or_repaired_subject = true
-basis = "The executing context reconciled the exact M07-T02 subject/evidence and therefore cannot issue its required independent verdict."
+materially_produced_or_repaired_subject = false
+basis = "R01 independently reviewed the exact M07-T02 subject, stable Card, authority and retained failure/race evidence; this context did not materially produce or repair the reviewed subject."
