@@ -448,7 +448,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M06
 
 [[cards]]
 id = "M07-T01"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
