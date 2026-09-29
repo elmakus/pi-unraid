@@ -1,0 +1,12 @@
+review_id = "M07-T03-R01"
+card_id = "M07-T03"
+status = "pending"
+subject_commit = "4aa53c4690d75611f8edbc9aa9541351b1a8ebca"
+result_path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T03.md"
+result_commit = "c9d18c3f1c159684128221a6569496630d7fcbce"
+result_blob = "21dea73b5f663125cce8642486abc7cbffb506e3"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T03-R01.md"
+
+[independence]
+materially_produced_or_repaired_subject = true
+basis = "The executing context reconciled the exact M07-T03 release-readiness subject/evidence and therefore cannot issue its required independent verdict."
