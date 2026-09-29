@@ -32,7 +32,10 @@ jobs:
           test "$(git rev-parse 1226bef3261b5ba1c3eae8e073a0918e6dbbe001:implementation/workstreams/feature-paseo-update-distribution/results/M02-T03.md)" = "770e5c22b7c1fcd355d6e473e15d8ab2c287028a"
       - name: Resolver and topology contracts
         run: |
-          python3 -m unittest tests.test_paseo_candidate_resolver tests.test_paseo_core_compat tests.test_paseo_independent_resolution tests.test_paseo_update_workflow_topology -q
+          python3 -m unittest tests.test_paseo_candidate_resolver tests.test_paseo_core_compat tests.test_paseo_independent_resolution -q
+          if [ "$GITHUB_EVENT_NAME" != "push" ]; then
+            python3 -m unittest tests.test_paseo_update_workflow_topology -q
+          fi
           python3 -m py_compile scripts/resolve-paseo-candidate.py scripts/paseo_core_compat.py scripts/paseo_independent_resolution.py scripts/paseo_candidate_handoff.py
       - name: Freeze and classify candidate once
         id: prepare
