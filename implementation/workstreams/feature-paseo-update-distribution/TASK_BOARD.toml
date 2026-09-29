@@ -471,3 +471,12 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T01-R03.toml"
+
+
+[[cards]]
+id = "M07-T02"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T02.md"
