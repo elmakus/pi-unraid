@@ -112,7 +112,7 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
         second = inspect_digest(ref)
         if second != expected:
             raise PromotionError("promotion race detected before write")
-        run_checked(["docker", "buildx", "imagetools", "create", "-t", ref, immutable])
+        run_checked(["docker", "buildx", "imagetools", "create", "--prefer-index=false", "-t", ref, immutable])
         readback = inspect_digest(ref)
         if readback != candidate:
             raise PromotionError("registry digest mismatch after promotion")

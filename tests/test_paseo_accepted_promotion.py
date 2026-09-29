@@ -19,7 +19,7 @@ class PromotionTests(unittest.TestCase):
     def test_nonproduction_promotion_and_readback(self):
         result,count,calls=self.run_promotion([A,A,B])
         self.assertEqual(result["readback_digest"],B); self.assertEqual(count,3)
-        self.assertEqual(calls[0].args[0],["docker","buildx","imagetools","create","-t","ghcr.io/elmakus/pi-unraid:m05-fixture",f"ghcr.io/elmakus/pi-unraid@{B}"])
+        self.assertEqual(calls[0].args[0],["docker","buildx","imagetools","create","--prefer-index=false","-t","ghcr.io/elmakus/pi-unraid:m05-fixture",f"ghcr.io/elmakus/pi-unraid@{B}"])
 
     def test_stale_candidate_fails_closed(self):
         with tempfile.TemporaryDirectory() as td, mock.patch.object(P,"inspect_digest",return_value=C), mock.patch.object(P,"run_checked") as run:

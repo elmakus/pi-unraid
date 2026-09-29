@@ -1,0 +1,16 @@
+{
+  "checks": {
+    "codex_lb_smoke": "PASS",
+    "mount_isolation": "PASS",
+    "network_isolation": "PASS",
+    "registry_digest": "PASS",
+    "runtime": "PASS",
+    "secret_isolation": "PASS",
+    "uid_gid": "PASS"
+  },
+  "digest": "sha256:77e29f0d8fe8b1975725ba8b430ed7f2225dcc55c2074b397d153fcea3da4cf7",
+  "image_id": "sha256:395e1b5e89948b1681aadfba885547c04183ef9b1e93a2d2c8caf68e88329d18",
+  "immutable_ref": "ghcr.io/elmakus/pi-unraid@sha256:77e29f0d8fe8b1975725ba8b430ed7f2225dcc55c2074b397d153fcea3da4cf7",
+  "schema_version": 1,
+  "status": "PASS"
+}

@@ -1,0 +1,10 @@
+{
+  "alias": "rehearsal",
+  "candidate_digest": "sha256:77e29f0d8fe8b1975725ba8b430ed7f2225dcc55c2074b397d153fcea3da4cf7",
+  "previous_digest": "sha256:79e7a9b9ff1cbceff819f856fb374477792a5967759d94df266de7b7b4120e6f",
+  "production": false,
+  "readback_digest": "sha256:77e29f0d8fe8b1975725ba8b430ed7f2225dcc55c2074b397d153fcea3da4cf7",
+  "rollback_digest": "sha256:79e7a9b9ff1cbceff819f856fb374477792a5967759d94df266de7b7b4120e6f",
+  "schema_version": 1,
+  "status": "promoted"
+}
