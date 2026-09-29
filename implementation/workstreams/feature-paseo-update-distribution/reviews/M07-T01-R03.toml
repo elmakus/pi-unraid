@@ -1,6 +1,7 @@
 review_id = "M07-T01-R03"
 card_id = "M07-T01"
-status = "pending"
+status = "terminal"
+verdict = "GREEN"
 subject_commit = "febaad04321aa4259d79f1f04ec0e298d8b3cbdc"
 result_path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T01.md"
 result_commit = "033be9eb955a1f647bd7dd20d03bc253fb0633f7"
@@ -8,5 +9,5 @@ result_blob = "9305348e3a6bb0dfee880fc88eca0606391213f3"
 evidence_path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T01-R03.md"
 
 [independence]
-materially_produced_or_repaired_subject = true
-basis = "The context freezing R03 materially repaired the exact M07-T01 subject and therefore cannot issue the independent verdict; R03 is handed to a fresh independent review context."
+materially_produced_or_repaired_subject = false
+basis = "R03 independently reviewed the exact repaired M07-T01 subject, stable Card, prior R02 finding, coherent rehearsal evidence and exact implementation diff; this context did not materially produce or repair the reviewed subject."
