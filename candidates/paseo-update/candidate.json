@@ -1,0 +1,188 @@
+{
+  "candidate_id": "sha256:de809dab2250bbbe72d0b07cf57c74482f3ec460ad2ea7862fe2556b8393fcbc",
+  "components": {
+    "docker_cli": {
+      "artifact_identity": {
+        "digest": null,
+        "reason": "docker/cli publishes release tags without GitHub release assets",
+        "status": "source-commit-exact"
+      },
+      "source": {
+        "commit": "4a63305d74332de5ceba7fcbccbc3cbb7412f5ba",
+        "repository": "docker/cli",
+        "tag": "v29.8.1"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Docker CLI tracks the latest stable moby/moby release; upstream publishes no GitHub release asset, so identity is the exact source tag/commit.",
+        "source": "github-releases-latest:moby/moby defines the line; source commit from docker/cli tag"
+      },
+      "stable_line_source": {
+        "repository": "moby/moby",
+        "tag": "docker-v29.8.1"
+      },
+      "version": "29.8.1"
+    },
+    "docker_compose": {
+      "artifact": {
+        "digest": "sha256:db1889184726840f75c4f9c001048430d4f25b3be3cb084d3ddd762bc0aed576",
+        "name": "docker-compose-linux-x86_64",
+        "size": 32333754
+      },
+      "source": {
+        "commit": "5f94fb0aa42a2cd1248c6e6c7fafb87546b9c8de",
+        "repository": "docker/compose",
+        "tag": "v5.5.1"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Accepted line is the latest non-prerelease GitHub release with its pinned release-asset digest.",
+        "source": "github-releases-latest:docker/compose + release asset digest"
+      },
+      "version": "5.5.1"
+    },
+    "github_cli": {
+      "artifact": {
+        "digest": "sha256:9bca2d1c16825f109907a23307628a2f0698fbf99662b73a5cf0b020293072b8",
+        "name": "gh_2.101.0_linux_amd64.tar.gz",
+        "size": 15282175
+      },
+      "source": {
+        "commit": "0cf1092493af067646fc5f3db9421c6a6ec9c938",
+        "repository": "cli/cli",
+        "tag": "v2.101.0"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Accepted line is the latest non-prerelease GitHub release with its pinned release-asset digest.",
+        "source": "github-releases-latest:cli/cli + release asset digest"
+      },
+      "version": "2.101.0"
+    },
+    "node": {
+      "delivery": "provided-by-exact-paseo-image",
+      "immutable_parent": "ghcr.io/getpaseo/paseo@sha256:4dad5ba8f36c8bad9caec033b72d11b3c14a4a5040c07fafe577e8b817814b3b",
+      "minimum_for_pi": ">=22.19.0",
+      "stable_line": {
+        "channel": "derived",
+        "rationale": "Node is not an independent floating line; it is inherited from the exact immutable Paseo parent image and must satisfy the Pi floor >=22.19.0.",
+        "source": "paseo-image-NODE_VERSION"
+      },
+      "version": "22.23.3"
+    },
+    "paseo": {
+      "artifact": {
+        "config_digest": "sha256:53001d1c183a7bc0499f24c243b38be737f6e4ad57d20f6259b9c410851e0beb",
+        "digest": "sha256:4dad5ba8f36c8bad9caec033b72d11b3c14a4a5040c07fafe577e8b817814b3b",
+        "image": "ghcr.io/getpaseo/paseo:0.10.1",
+        "linux_amd64_manifest": "sha256:2e543d90d45bf6dca3e454a0712ab26e1f4ff963916ee31ecb2635ef52d36ebc",
+        "node_version": "22.23.3",
+        "reference": "ghcr.io/getpaseo/paseo@sha256:4dad5ba8f36c8bad9caec033b72d11b3c14a4a5040c07fafe577e8b817814b3b"
+      },
+      "source": {
+        "commit": "c5236c00d8575cdc4423407dd4cb9f111135564e",
+        "repository": "getpaseo/paseo",
+        "tag": "v0.10.1"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Accepted line is the latest non-prerelease GitHub release; the GHCR tag must resolve to one immutable digest with a unique linux/amd64 manifest.",
+        "source": "github-releases-latest:getpaseo/paseo + ghcr:getpaseo/paseo immutable digest"
+      },
+      "version": "0.10.1"
+    },
+    "pi": {
+      "npm": {
+        "integrity": "sha512-m8ArJUtVcQMSe1lLE/Ei7vX/JV7O39sWmWBsXV2NOU70F0qCp8GubA24pT3LnwTmM6LL2xV80/h6sQg85n69ew==",
+        "package": "@earendil-works/pi-coding-agent",
+        "shasum": "5708b9310325177d5c1b487b5c99627ffa733324"
+      },
+      "source": {
+        "commit": "f07218c4d4bbc12bef056a7058c3dd49dfe41abe",
+        "repository": "earendil-works/pi",
+        "tag": "v0.87.1"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Accepted line is npm latest agreeing with the latest non-prerelease GitHub release; prerelease versions are rejected.",
+        "source": "npm-latest:@earendil-works/pi-coding-agent + github-releases-latest:earendil-works/pi (must agree)"
+      },
+      "version": "0.87.1"
+    },
+    "pi_mcp_adapter": {
+      "declared_pi_ai_peer": "^0.84.1 || ^0.85.0 || ^0.86.0 || ^0.87.0",
+      "live_compatibility_smoke_required": true,
+      "npm": {
+        "integrity": "sha512-FzGepoyY7+fmQS3Y2PMnbu+mxbR7nrtXryfw5pKCGc9Nn8i7+zSuDjT9NOna3jatyqciIQbX2KBtTgzOE8FLDg==",
+        "package": "pi-mcp-adapter",
+        "shasum": "caa958e15cdd89b5b163a240d1a63614b8dade33"
+      },
+      "source": {
+        "commit": "b6e06a162d95322bb991b8b6214bb6fb10a90b7d",
+        "repository": "nicobailon/pi-mcp-adapter",
+        "tag": "v3.2.0"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Accepted line is npm latest agreeing with the latest non-prerelease GitHub release; the declared Pi-AI peer range must cover the resolved Pi minor.",
+        "source": "npm-latest:pi-mcp-adapter + github-releases-latest:nicobailon/pi-mcp-adapter (must agree)"
+      },
+      "version": "3.2.0"
+    },
+    "playwright": {
+      "chromium": {
+        "browser_version": "153.0.8010.12",
+        "revision": "1243"
+      },
+      "npm": {
+        "integrity": "sha512-+7ziBLidS4NaNCdt57SUDT+wYmmd5fmiQejUic/kb+YsYSCPyOOE9sebzMjNmQrsnNpDJqd4WHvV/8lfKfUDUg==",
+        "package": "playwright",
+        "shasum": "99b56f9f69b1b70c44f00bf84b2fe52348ae2511"
+      },
+      "source": {
+        "commit": "1b025d7e20a026371cd5f98ba0cdce48892737c8",
+        "repository": "microsoft/playwright",
+        "tag": "v1.63.0"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Accepted line is npm latest agreeing with the latest non-prerelease GitHub release; Chromium identity is derived from that exact release.",
+        "source": "npm-latest:playwright + github-releases-latest:microsoft/playwright (must agree); chromium derived from browsers.json"
+      },
+      "version": "1.63.0"
+    },
+    "specpi": {
+      "live_compatibility_smoke_required": true,
+      "npm": {
+        "integrity": "sha512-SWbtUdqhsymI2xaWxcTCULhpHR3O4RjG6ah+A5wdHWpKIRI1a90EUgHY5k9Iq4Uun6GA7ZAI1NV0Z1Em4vpxGg==",
+        "package": "specpi",
+        "shasum": "86ab2a803360ee1a591ae0527ca5f40421e004b3"
+      },
+      "source": {
+        "commit": "13438dc44d446f0a3113b5a450196bf48feebf24",
+        "repository": "tannermidd/SpecPi",
+        "tag": "v0.36.1"
+      },
+      "stable_line": {
+        "channel": "latest-stable",
+        "rationale": "Accepted line is npm latest agreeing with the latest non-prerelease GitHub release; prerelease versions are rejected.",
+        "source": "npm-latest:specpi + github-releases-latest:tannermidd/SpecPi (must agree)"
+      },
+      "version": "0.36.1"
+    }
+  },
+  "policy": {
+    "build_must_not_reresolve": true,
+    "channel": "latest-stable",
+    "compatibility_exceptions": [],
+    "generic_base_tooling": [
+      "bash",
+      "git",
+      "network-tools",
+      "build-tools",
+      "python3"
+    ],
+    "generic_base_tooling_identity": "owned by the exact Paseo child-image package graph; not independent floating version lines"
+  },
+  "schema_version": 1
+}
