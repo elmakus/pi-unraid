@@ -285,7 +285,7 @@ class MuseAdapterTests(unittest.TestCase):
 
     def test_witness_aggregate_request_response_terminal(self):
         tid = "t-aggregate-1"
-        evs = [{"test_id": tid, "kind": "request", "model": "muse-spark-1.3-contributor", "effort": "max"},
+        evs = [{"test_id": tid, "kind": "request", "provider": "meta", "thinking": "max", "model": "muse-spark-1.3-contributor", "effort": "max"},
                {"test_id": tid, "kind": "response", "status": "200"},
                {"test_id": tid, "kind": "terminal", "status": "completed"},
                {"test_id": tid, "kind": "terminal", "status": "settled"}]
@@ -297,7 +297,7 @@ class MuseAdapterTests(unittest.TestCase):
                                    test_id=tid, expected_model="muse-spark-1.3-contributor")
         self.assertEqual(agg2["gate"], "UNKNOWN")
         # Clamp effort fails.
-        evs3 = [{"test_id": tid, "kind": "request", "model": "muse-spark-1.3-contributor", "effort": "xhigh"},
+        evs3 = [{"test_id": tid, "kind": "request", "provider": "meta", "thinking": "xhigh", "model": "muse-spark-1.3-contributor", "effort": "xhigh"},
                 {"test_id": tid, "kind": "response", "status": "200"},
                 {"test_id": tid, "kind": "terminal", "status": "done"}]
         self.assertEqual(A.aggregate_witness(evs3, test_id=tid,
@@ -839,6 +839,7 @@ class ProbeRegressionTests(unittest.TestCase):
             ext = A.stage_witness_extension(td / "observer.mjs")
             wit = td / "w.jsonl"
             wit.write_text("")
+            wit.chmod(0o600)
             harness = td / "harness.mjs"
             harness.write_text(
                 "import {createRequire} from 'node:module';\n"
@@ -846,7 +847,8 @@ class ProbeRegressionTests(unittest.TestCase):
                 "const registered = {};\n"
                 "const ext = await import(process.argv[2]);\n"
                 "ext.default({on: (k, fn) => { registered[k] = fn; }});\n"
-                "await registered.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: 'max'}}});\n"
+                "const controller = new AbortController();\n"
+                "await registered.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: 'max'}}}, {model:{provider:'meta', id:'muse-spark-1.3-contributor'}, thinkingLevel:'max', signal:controller.signal, abort:()=>controller.abort()});\n"
                 "await registered.after_provider_response({status: 200, headers: {}});\n"
                 "await registered.turn_end({outcome: 'completed', turnIndex: 0, message: {}, toolResults: []});\n"
                 "await registered.agent_end({messages: [{role: 'assistant', stopReason: 'stop', content: []}]});\n"
@@ -1094,7 +1096,7 @@ class FourthReturnRegressionTests(unittest.TestCase):
             self.assertEqual(res["status"], "FAIL")
             self.assertFalse(res["real_validation_satisfied"])
         # Direct aggregator contract: malformed status never proves success.
-        ev = [{"test_id": "t-g", "kind": "request", "model": A.FIXED_MODEL, "effort": "max"},
+        ev = [{"test_id": "t-g", "kind": "request", "provider": "meta", "thinking": "max", "model": A.FIXED_MODEL, "effort": "max"},
               {"test_id": "t-g", "kind": "response", "status": "garbage"},
               {"test_id": "t-g", "kind": "terminal", "status": "done"}]
         self.assertEqual(A.aggregate_witness(ev, test_id="t-g",

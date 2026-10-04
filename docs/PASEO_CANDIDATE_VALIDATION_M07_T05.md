@@ -65,15 +65,34 @@ Private daemon configuration, descendant-process and agent/workspace correlation
 still need source-faithful end-to-end qualification. Resolution/version and
 expected env/argv alone cannot satisfy those requirements.
 The existing positive fake reconstructs parts of startup/dispatch; it is not a
-source-faithful separate daemon selecting and spawning Pi.
+source-faithful separate daemon selecting and spawning Pi for the full validator.
+A new, separately classified source-qualification fixture uses the **actual**
+pinned Paseo PiRpcAgentClient/PiCliRuntime/JSONL process code in an isolated
+synthetic daemon to select/spawn a separate metadata-only fake Pi. Official
+Meta model data, official clamp calculation, official catalog transformation and
+actual created-session runtime readback all exclude effective fixed max. Auth
+inheritance is tested only with a disposable synthetic value. No prompt RPC is
+sent. This qualifies that bounded source behavior, not full candidate binding.
 
 The frozen observer is opt-in: without an explicit test ID and absolute private
 witness reference it registers no handlers and observes no ordinary agents.
+The actual shipped observer reads the supported handler's **actual**
+`ctx.model.provider` and `ctx.thinkingLevel`, separately from wire model/effort.
+Both context and wire must match. It aborts on mismatch or observation failure;
+throwing alone is not relied on because official ExtensionRunner catches errors.
+If supported abort cannot synchronously prove an aborted signal (missing/stale/
+broken context), it fail-stops only that explicitly opted-in test Pi process with
+exit 42. This is a local transport fuse, not model fallback, successful completion
+or a workflow stop.
+Witness output is a bounded vocabulary, and opening it rejects symlinks,
+nonregular/wrong-owner/nonprivate files. Generated helper staging now copies
+this frozen delivery member rather than maintaining a second observer generator.
+
 Pi 0.87.1 extension types distinguish provider response (before stream consumption),
 qualified `turn_end.outcome`, low-level `agent_end.messages` and neutral final
-`agent_settled`. The generated observer records neutral `ended` for nonnegative
+`agent_settled`. The shipped observer records neutral `ended` for nonnegative
 agent_end, never success for an empty messages array. The aggregator requires one
-ordered request/response exchange, exact model/max, valid 2xx, qualified completed
+ordered request/response exchange, exact actual provider/thinking and wire model/max, valid 2xx, qualified completed
 turn and settlement. Mixed, duplicate, contradictory or out-of-order exchanges
 fail; strict readback rejects every malformed, wrong-subject or unknown-field row
 before aggregation rather than filtering it away. Missing qualified completion
@@ -148,3 +167,16 @@ candidate namespace paths translated, use actual producers with external effects
 faked, and use a separate fake daemon selecting/spawning actual fake Pi. Current
 legacy harness coverage does not satisfy all these requirements. Do not equate
 passing unit counts or a fake-tested real branch with full Card acceptance.
+
+`test_m07_t05_transport_qualification.py` uses the actual pinned official
+ExtensionRunner, Agent and OpenAI Responses implementation with an in-memory
+fake fetch for every request and no auth-store resolution. The throw-only
+negative control reaches fake fetch; the shipped observer's supported abort
+prevents even fake fetch despite the runner catching the error. Missing-signal
+and broken-abort controls instead exit the opted-in child with 42 before the
+fake-transport entry marker; the throw-only control proves that marker reachable.
+Unprivate/symlink witness controls abort without altering their targets. Separate
+supported-context diagnostics reject codex-lb/max and meta/xhigh when payload
+labels say max. These are synthetic source qualifications, **not** real inference,
+full daemon/agent/workspace proof or a general impossibility verdict. The known
+pinned max-null boundary is not used to waive the remaining remediable Card work.

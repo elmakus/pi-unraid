@@ -140,7 +140,7 @@ class FailClosedRegression(unittest.TestCase):
                 self.assertFalse(owned(obj))
 
     def events(self):
-        return [{"test_id": "t", "kind": "request", "model": A.FIXED_MODEL, "effort": "max"},
+        return [{"test_id": "t", "kind": "request", "provider": "meta", "thinking": "max", "model": A.FIXED_MODEL, "effort": "max"},
                 {"test_id": "t", "kind": "response", "status": "200"},
                 {"test_id": "t", "kind": "terminal", "status": "completed"},
                 {"test_id": "t", "kind": "terminal", "status": "settled"}]
@@ -166,8 +166,7 @@ class FailClosedRegression(unittest.TestCase):
 
     def test_actual_observer_empty_agent_end_cannot_manufacture_success(self):
         node = T._find_node()
-        if node is None:
-            self.skipTest("Node unavailable: actual observer execution not performed")
+        self.assertIsNotNone(node, "Node unavailable: required observer qualification cannot be skipped")
         with tempfile.TemporaryDirectory() as td:
             td = Path(td); ext = td / "observer.mjs"; witness = td / "witness.jsonl"
             A.stage_witness_extension(ext)
@@ -176,7 +175,9 @@ class FailClosedRegression(unittest.TestCase):
             globalThis.require = createRequire(import.meta.url);
             const h = {}; const e = await import(process.argv[1]);
             e.default({on: (k, f) => {h[k] = f;}});
-            h.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: 'max'}}});
+            const c = new AbortController();
+            h.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: 'max'}}},
+              {model:{provider:'meta', id:'muse-spark-1.3-contributor'}, thinkingLevel:'max', signal:c.signal, abort:()=>c.abort()});
             h.after_provider_response({status: 200}); h.agent_end({messages: []}); h.agent_settled({});
             """
             pr = subprocess.run([node, "--input-type=module", "-e", js, str(ext)],

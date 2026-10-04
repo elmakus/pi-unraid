@@ -26,7 +26,7 @@ class ReadbackCleanupTests(unittest.TestCase):
                                    execution_class='real', **kwargs)
 
     def test_all_malformed_wrong_subject_and_unknown_field_rows_rejected(self):
-        positive = [dict(test_id='owned', kind='request', model=A.FIXED_MODEL, effort='max'),
+        positive = [dict(test_id='owned', kind='request', provider='meta', thinking='max', model=A.FIXED_MODEL, effort='max'),
                     dict(test_id='owned', kind='response', status='200'),
                     dict(test_id='owned', kind='terminal', status='completed'),
                     dict(test_id='owned', kind='terminal', status='settled')]

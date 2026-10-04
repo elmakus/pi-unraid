@@ -31,8 +31,11 @@ Source-qualified payload semantics (pinned pi 0.87.1 / pi-ai 0.87.1):
 ``payload.reasoning.effort`` (fallback ``reasoningEffort``), plus the
 ``M07_T05_TEST_ID`` correlation env and response ``status`` from
 ``after_provider_response`` (``{type, status, headers}`` — headers never
-recorded). Provider is the fixed ``meta`` from guard policy, mapped from
-the observed model id; it is never taken from an invented payload field.
+recorded). Provider and effective Pi thinking come from the supported
+handler context (``ctx.model.provider`` and ``ctx.thinkingLevel``), never
+from policy or a model-name inference. Actual context and wire effort must
+both agree with the fixed profile. On mismatch or failed private observation,
+``ctx.abort()`` aborts the run; throwing alone is not a transport barrier.
 Only whitelisted nonsecret facts are recorded; raw headers/body/prompt/
 tokens are never recorded.
 
@@ -492,17 +495,18 @@ def stage_meta_loader(dest: Path, *, guard_path: str = "/home/paseo/.pi/agent/bi
 # ``reasoning: {effort, summary}``, ...). ``after_provider_response`` →
 # ``{type, status, headers}`` (headers never recorded). The extension also
 # reads ``M07_T05_TEST_ID`` so every event correlates to one owned test.
-# Only nonsecret ``test_id/model/effort/status/kind`` are recorded.
+# Only nonsecret whitelisted test/model/context/effort/status/kind facts are recorded.
 
 WITNESS_KINDS = ("request", "response", "terminal")
-EFFECTIVE_WITNESS_ALLOWLIST = ("test_id", "model", "effort", "status", "kind")
+EFFECTIVE_WITNESS_ALLOWLIST = ("test_id", "provider", "thinking", "model", "effort", "status", "kind")
 
 
 def stage_witness_extension(dest: Path) -> Path:
     """Stage the test-owned witness extension (actual payload fields).
 
     Records per event (JSONL): ``test_id`` (from ``M07_T05_TEST_ID``),
-    ``model`` (``payload.model`` string), ``effort``
+    ``model`` (qualified ``payload.model``), actual ``provider``/``thinking``
+    (supported context), ``effort``
     (``payload.reasoning.effort`` fallback ``reasoningEffort``), ``status``
     (response ``status``, turn ``outcome``, or agent-end derived
     stopReason), ``kind`` (request/response/terminal). Nothing else.
@@ -519,50 +523,10 @@ def stage_witness_extension(dest: Path) -> Path:
     """
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
-    dest.write_text(
-        "// Frozen, opt-in candidate-only observation; never observe ordinary agents.\n"
-        "import fs from 'node:fs';\n"
-        "export default function (ctx) {\n"
-        "  const witness = process.env.M07_T05_WITNESS_FILE;\n"
-        "  const testId = process.env.M07_T05_TEST_ID;\n"
-        "  if (!witness || !testId || !witness.startsWith('/') || !/^[A-Za-z0-9_.-]{1,64}$/.test(testId)) return;\n"
-        "  function emit(obj) {\n"
-        "    const allow = { test_id: String(testId).slice(0,64) };\n"
-        "    for (const k of ['model','effort','status','kind']) {\n"
-        "      if (obj[k] !== undefined) allow[k] = String(obj[k]).slice(0,128);\n"
-        "    }\n"
-        "    try { fs.appendFileSync(witness, JSON.stringify(allow)+'\\n', {mode: 0o600}); } catch {}\n"
-        "  }\n"
-        "  ctx.on('before_provider_request', (ev) => {\n"
-        "    try {\n"
-        "      const p = ev.payload || {};\n"
-        "      const r = p.reasoning || {};\n"
-        "      emit({kind:'request', model: p.model, effort: (r.effort || p.reasoningEffort)});\n"
-        "    } catch {}\n"
-        "    return ev.payload;\n"
-        "  });\n"
-        "  ctx.on('after_provider_response', (ev) => {\n"
-        "    try { emit({kind:'response', status: ev.status}); } catch {}\n"
-        "  });\n"
-        "  ctx.on('turn_end', (ev) => {\n"
-        "    try { emit({kind:'terminal', status: (ev && ev.outcome) || 'unknown'}); } catch {}\n"
-        "  });\n"
-        "  ctx.on('agent_end', (ev) => {\n"
-        "    try {\n"
-        "      let neg = false;\n"
-        "      const msgs = (ev && ev.messages) || [];\n"
-        "      for (const m of msgs) {\n"
-        "        if (m && (m.stopReason === 'aborted' || m.stopReason === 'error')) { neg = true; break; }\n"
-        "      }\n"
-        "      emit({kind:'terminal', status: neg ? 'aborted' : 'ended'});\n"
-        "    } catch {}\n"
-        "  });\n"
-        "  ctx.on('agent_settled', (ev) => {\n"
-        "    try { emit({kind:'terminal', status:'settled'}); } catch {}\n"
-        "  });\n"
-        "}\n",
-        encoding="utf-8",
-    )
+    # Stage the actual frozen delivery member, not an independently maintained
+    # source generator that can diverge from what the candidate executes.
+    source = Path(__file__).resolve().parents[1] / 'config/pi-agent/extensions/m07-t05-witness.js'
+    dest.write_bytes(source.read_bytes())
     try:
         dest.chmod(0o644)
     except OSError:
@@ -595,7 +559,7 @@ def parse_witness_readback(text: str, test_id: str) -> list:
         if not isinstance(doc, dict) or doc.get('test_id') != test_id:
             raise AdapterError("witness readback contains a wrong subject")
         kind = doc.get('kind')
-        fields = {'request': {'test_id', 'kind', 'model', 'effort'},
+        fields = {'request': {'test_id', 'kind', 'provider', 'thinking', 'model', 'effort'},
                   'response': {'test_id', 'kind', 'status'},
                   'terminal': {'test_id', 'kind', 'status'}}.get(kind)
         if fields is None or set(doc) != fields or any(
@@ -696,7 +660,12 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
     if effort is None:
         return {"gate": "UNKNOWN", "observed": None,
                 "reason": "witness effort missing; " + EFFECTIVE_UNOBSERVABLE_BOUNDARY, "replay": False}
-    observed = {"provider": FIXED_PROVIDER, "model": model, "thinking": effort}
+    request = reqs[0]
+    observed = {"provider": request.get('provider'), "model": model,
+                "thinking": request.get('thinking'), "effort": effort}
+    if request.get('provider') != FIXED_PROVIDER or request.get('thinking') != FIXED_THINKING:
+        return {"gate": "FAIL", "observed": observed,
+                "reason": "actual Pi context has wrong provider or effective thinking", "replay": False}
     if effort != FIXED_THINKING:
         return {"gate": "FAIL", "observed": observed,
                 'reason': 'wrong or downgraded on-wire effort (requested max); '

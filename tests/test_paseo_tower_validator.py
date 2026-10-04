@@ -267,6 +267,10 @@ def _emit_full_sequence_via_observer(*, staged_ext: Path, witness_host: str, tes
     node = _find_node()
     if node is None:
         return False
+    # This host-side file stands in for the private candidate tmpfs witness;
+    # legacy fixtures precreate it, unlike real open(O_CREAT, 0600).
+    if Path(witness_host).exists():
+        Path(witness_host).chmod(0o600)
     agent_end_arg = "aborted" if turn_outcome in ("aborted", "error") else "stop"
     harness = (
         "import {createRequire} from 'node:module';\n"
@@ -275,14 +279,16 @@ def _emit_full_sequence_via_observer(*, staged_ext: Path, witness_host: str, tes
         "const ext = await import(process.argv[1]);\n"
         "ext.default({on: (k, fn) => { registered[k] = fn; }});\n"
         "const cfg = JSON.parse(process.argv[2]);\n"
+        "const controller = new AbortController();\n"
+        "const ctx = {model: {provider:'meta', id:'muse-spark-1.3-contributor'}, thinkingLevel:cfg.effort, signal:controller.signal, abort:()=>controller.abort()};\n"
         "if (registered.before_provider_request) {\n"
-        "  await registered.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: cfg.effort}}});\n"
+        "  try { await registered.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: cfg.effort}}}, ctx); } catch {}\n"
         "}\n"
-        "if (registered.after_provider_response) {\n"
+        "if (!controller.signal.aborted && registered.after_provider_response) {\n"
         "  await registered.after_provider_response({status: cfg.response, headers: {}});\n"
         "}\n"
         "if (cfg.turn !== null && registered.turn_end) {\n"
-        "  await registered.turn_end({outcome: cfg.turn, turnIndex: 0, message: {}, toolResults: []});\n"
+        "  await registered.turn_end({outcome: controller.signal.aborted ? 'aborted' : cfg.turn, turnIndex: 0, message: {}, toolResults: []});\n"
         "}\n"
         "if (cfg.agentEnd && registered.agent_end) {\n"
         "  await registered.agent_end({messages: [{role: 'assistant', stopReason: cfg.agentEnd, content: []}]});\n"
