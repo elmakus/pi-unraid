@@ -24,9 +24,13 @@ Frozen binding: the EXISTING real schemas are consumed —
 ``config/paseo-candidate.json`` (candidate_id/components/policy),
 prepare ``.pi-unraid-candidate-build-input.json``
 (candidate_id/accepted/candidate_file_sha256/handoff_evidence_sha256/
-source_head/parent/ref/companion_bundle), and tested-image evidence
+source_head/parent/ref/companion_bundle), the build record
+(``candidate.candidate_id``/``image.id``/phases), tested-image evidence
 (candidate_id/candidate_file_sha256/build_record_sha256/image_id/
-source/companion_bundle). In-candidate ``sha256sum``/``cat`` outputs are
+source/companion_bundle), and the publication record (``candidate_id`` ↔
+OCI ``digest`` ↔ ``image_id`` binding from ``paseo_candidate_publish``).
+candidate_id, OCI digest and local image ID are DISTINCT types; equating
+them fails closed. In-candidate ``sha256sum``/``cat`` outputs are
 COMPARED to expected hashes/policy (returncode 0 alone is not readback).
 ``build_record``/``tested`` input is REQUIRED for real mode (no longer
 unused). Missing/malformed/mismatched input fails closed before inference.
@@ -275,12 +279,25 @@ EXPECTED_MOUNT_PAIRS = (
 
 
 def _container_owned(obj: dict, work: Path, network: str, *,
-                     expected_image_id: str, expected_nonce: str) -> bool:
+                     expected_image_id: str, expected_nonce: str,
+                     expected_container_id: str | None = None) -> bool:
     """Exact acquisition+current ownership: Id, Image, nonce label, network,
-    exact source→destination/mode pairs. All required, no exceptions."""
+    exact source→destination/mode pairs. All required, no exceptions.
+
+    When expected_container_id is supplied (post-acquisition boundaries),
+    the live object Id must equal the acquired ID (exact or unambiguous
+    prefix in either direction); a replaced container with preserved
+    mounts/nonce but a different Id is foreign and fails. """
     try:
         if not isinstance(obj, dict) or not obj.get("Id"):
             return False
+        if expected_container_id:
+            live = str(obj.get("Id") or "")
+            want = str(expected_container_id or "")
+            if not live or not want:
+                return False
+            if not (live == want or live.startswith(want) or want.startswith(live)):
+                return False
         host = obj.get("HostConfig") or {}
         if host.get("NetworkMode") != network:
             return False
@@ -349,10 +366,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
              companion_bundle=None, candidate_file=None, handoff_file=None,
              build_input_file=None, tested_image_file=None, muse_secret=None,
              muse_observed_effective=None, daemon_info=None, pi_info=None,
-             build_record=None):
+             build_record=None, publication_file=None):
     """Validate one immutable candidate (see module docstring for product path)."""
-    if build_record is not None and tested_image_file is None:
-        tested_image_file = build_record
     ref = immutable_ref(repository, digest)
     name = f"paseo-validator-{digest[7:19]}"
     if execution_class not in ("fixture", "rehearsal", "real"):
@@ -393,18 +408,34 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         if not shutil.which("docker"):
             raise ValidationBlocked("docker CLI unavailable")
         # --- Frozen artifact chain (EXISTING real schemas, no invented envelopes) ---
+        # Types are distinct: candidate_id is the resolver's component-resolution
+        # identity (candidate/build/handoff/tested/publication records); digest is
+        # the OCI manifest digest (registry/immutable_ref); image_id is the local
+        # platform image identity (docker inspect .Id). scripts/paseo_candidate_publish.py
+        # publish() outputs candidate_id and digest as separate fields; equating them
+        # is a type error and fails closed.
         real_mode = execution_class == "real"
         cand = _load_json_file(candidate_file, what="candidate file", required=real_mode)
-        handoff = _load_json_file(handoff_file, what="handoff evidence", required=False)
-        build_input = _load_json_file(build_input_file, what="build-input record", required=False)
+        handoff = _load_json_file(handoff_file, what="handoff evidence", required=real_mode)
+        build_input = _load_json_file(build_input_file, what="build-input record", required=real_mode)
         tested = _load_json_file(tested_image_file, what="tested-image record", required=real_mode)
-        if real_mode and build_input is None and tested is None:
-            raise ValidationBlocked("real validation requires build-input or tested-image record")
+        build_rec = _load_json_file(build_record, what="build record", required=real_mode)
+        publication = _load_json_file(publication_file, what="publication record", required=real_mode)
+        if real_mode and (cand is None or handoff is None or build_input is None
+                           or tested is None or build_rec is None or publication is None):
+            raise ValidationBlocked(
+                "real validation requires candidate + handoff + build-input + "
+                "tested-image + build record + publication records")
+        candidate_id = None
+        candidate_raw = None
+        handoff_raw = None
+        build_rec_raw = None
         if cand is not None:
             if not isinstance(cand, dict):
                 raise ValidationError("candidate file must be an object")
-            if cand.get("candidate_id") != digest:
-                raise ValidationError("candidate file candidate_id mismatch vs digest")
+            candidate_id = cand.get("candidate_id")
+            if not isinstance(candidate_id, str) or not DIGEST.fullmatch(candidate_id):
+                raise ValidationError("candidate file candidate_id is not an immutable sha256 identity")
             comp = cand.get("components") or {}
             if not isinstance(comp, dict):
                 raise ValidationError("candidate components malformed")
@@ -414,32 +445,94 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             expected_pi = pi_c.get("version")
             if not expected_paseo or not expected_pi:
                 raise ValidationError("candidate components lack frozen Paseo/Pi versions")
-            result["subject"]["candidate_id"] = digest
+            result["subject"]["candidate_id"] = candidate_id
             result["subject"]["expected_paseo_version"] = expected_paseo
             result["subject"]["expected_pi_version"] = expected_pi
             result["subject"]["version_source"] = f"candidate:{Path(candidate_file).name}"
-            if candidate_file is not None:
-                raw = Path(candidate_file).read_bytes()
-                result["subject"]["candidate_file_sha256"] = "sha256:" + hashlib.sha256(raw).hexdigest()
+            candidate_raw = Path(candidate_file).read_bytes()
+            result["subject"]["candidate_file_sha256"] = "sha256:" + hashlib.sha256(candidate_raw).hexdigest()
+            if handoff_file is not None:
+                handoff_raw = Path(handoff_file).read_bytes()
+            if isinstance(build_record, (str, Path)):
+                build_rec_raw = Path(build_record).read_bytes()
         else:
             expected_paseo = expected_pi = None
             result["subject"]["version_source"] = "absent (real gate unsatisfied)"
+        # Publication binds the distinct types: candidate_id <-> OCI digest <-> image.
+        if publication is not None:
+            if not isinstance(publication, dict):
+                raise ValidationError("publication record must be an object")
+            if publication.get("status") != "published":
+                raise ValidationError("publication record is not a published binding")
+            if publication.get("digest") != digest:
+                raise ValidationError("publication digest mismatch vs validated OCI digest")
+            if str(publication.get("repository", "")).strip().lower() != repository.strip().lower():
+                raise ValidationError("publication repository mismatch")
+            if candidate_id is not None and publication.get("candidate_id") != candidate_id:
+                raise ValidationError("publication candidate_id mismatch vs candidate file")
+            if publication.get("immutable_ref") != ref:
+                raise ValidationError("publication immutable_ref mismatch vs validated reference")
+            result["subject"]["publication_image_id"] = publication.get("image_id")
+        elif real_mode:
+            raise ValidationBlocked("real validation requires the publication binding")
         if handoff is not None:
-            if handoff.get("candidate_id") != digest:
-                raise ValidationError("handoff candidate_id mismatch")
+            if not isinstance(handoff, dict):
+                raise ValidationError("handoff evidence must be an object")
+            if candidate_id is not None and handoff.get("candidate_id") != candidate_id:
+                raise ValidationError("handoff candidate_id mismatch vs candidate file")
+            if handoff.get("schema_version") != 1 or handoff.get("status") != "update":
+                raise ValidationError("handoff evidence is not a material-change record")
+            if not handoff.get("source_sha") or not handoff.get("source_ref"):
+                raise ValidationError("handoff evidence lacks discovery source provenance")
+            if handoff_raw is not None:
+                expect_hfs = "sha256:" + hashlib.sha256(handoff_raw).hexdigest()
+                for rec, what in ((build_input, "build-input"), (tested, "tested-image")):
+                    if isinstance(rec, dict) and rec.get("handoff_evidence_sha256") not in (None, expect_hfs):
+                        raise ValidationError(f"{what} handoff byte digest mismatch vs handoff evidence")
+            if candidate_raw is not None and handoff.get("candidate_file_sha256") not in (
+                    None, result["subject"].get("candidate_file_sha256")):
+                raise ValidationError("handoff candidate byte digest mismatch vs candidate file")
         for rec, what in ((build_input, "build-input"), (tested, "tested-image")):
             if rec is None:
                 continue
-            if rec.get("candidate_id") != digest:
-                raise ValidationError(f"{what} candidate_id mismatch")
+            if not isinstance(rec, dict):
+                raise ValidationError(f"{what} record must be an object")
+            if candidate_id is not None and rec.get("candidate_id") != candidate_id:
+                raise ValidationError(f"{what} candidate_id mismatch vs candidate file")
             cfs = rec.get("candidate_file_sha256")
-            if cand is not None and cfs is not None and cfs != result["subject"].get("candidate_file_sha256"):
+            if candidate_raw is not None and cfs is not None and cfs != result["subject"].get("candidate_file_sha256"):
                 raise ValidationError(f"{what} candidate byte digest mismatch")
             cdp = rec.get("companion_bundle") or rec.get("companion_declared")
             if companion_bundle is not None and cdp is not None:
                 if (cdp.get("source_digest") != companion_bundle.get("source_digest")
                         or cdp.get("files") != companion_bundle.get("files")):
                     raise ValidationError(f"{what} companion conflicts with declared binding")
+        if build_input is not None:
+            if build_input.get("schema_version") != 1 or build_input.get("status") != "prepared":
+                raise ValidationError("build-input record is not a prepared binding")
+            if not isinstance(build_input.get("companion_bundle"), dict):
+                raise ValidationError("build-input record lacks the companion bundle declaration")
+        if tested is not None:
+            if tested.get("status") != "tested_image_preserved":
+                raise ValidationError("tested-image record is not a preserved tested image")
+            if build_rec_raw is not None and tested.get("build_record_sha256") not in (
+                    None, "sha256:" + hashlib.sha256(build_rec_raw).hexdigest()):
+                raise ValidationError("tested-image build record digest mismatch vs build record")
+            if real_mode and build_rec_raw is not None and not tested.get("build_record_sha256"):
+                raise ValidationBlocked("real validation requires the tested build-record digest")
+            if real_mode and not tested.get("handoff_evidence_sha256"):
+                raise ValidationBlocked("real validation requires the tested handoff digest")
+            if real_mode and not tested.get("image_id"):
+                raise ValidationBlocked("real validation requires the tested image identity")
+        if build_rec is not None:
+            if not isinstance(build_rec, dict):
+                raise ValidationError("build record must be an object")
+            rec_cand = (build_rec.get("candidate") or {})
+            if candidate_id is not None and rec_cand.get("candidate_id") != candidate_id:
+                raise ValidationError("build record candidate mismatch vs candidate file")
+            rec_img = (build_rec.get("image") or {})
+            if not rec_img.get("id"):
+                raise ValidationError("build record lacks the built image identity")
         result["checks"]["frozen_chain"] = "PASS" if cand is not None else "SKIP"
         # --- Registry + local image (distinct, mapped) ---
         readback = run(["docker", "buildx", "imagetools", "inspect", ref]).stdout
@@ -464,8 +557,12 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             raise ValidationError("RepoDigests OCI-to-local mapping unverified; fails closed")
         result["checks"]["image_mapping"] = "PASS"
         result["subject"]["observed_image_id"] = image_id
+        if publication is not None and publication.get("image_id") not in (None, image_id):
+            raise ValidationError("publication image_id mismatch vs pulled local ID")
         if tested is not None and tested.get("image_id") not in (None, image_id):
             raise ValidationError("tested-image image_id mismatch vs pulled local ID")
+        if build_rec is not None and (build_rec.get("image") or {}).get("id") not in (None, image_id):
+            raise ValidationError("build record image mismatch vs pulled local ID")
         # --- Companion/policy/launcher from frozen source (recompute what runs) ---
         if source_root is not None:
             import importlib.util as _ilu
@@ -619,17 +716,20 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             created_id = (created_proc.stdout or "").strip().splitlines()[-1].strip() or None
         except Exception:
             created_id = None
+        if not created_id:
+            raise ValidationBlocked("container acquisition identity unavailable; failing closed")
         container_created = True
         obj = wait_for_runtime(name)
         # Running image MUST be the pulled ID (no Config.Image/registry fallback).
         if not obj.get("Image") or obj.get("Image") != image_id:
             raise ValidationError("running container image mismatch; fails closed")
         result["subject"]["observed_running_image"] = image_id
-        if created_id and obj.get("Id") and obj.get("Id") != created_id:
-            _cid, _oid = created_id, obj.get("Id")
-            if not (_oid.startswith(_cid) or _cid.startswith(_oid)):
-                raise ValidationError("container replacement detected; fails closed")
-        # Re-verify exact current ownership BEFORE any exec.
+        if not obj.get("Id"):
+            raise ValidationBlocked("running container identity unavailable; failing closed")
+        _live_id, _want_id = str(obj.get("Id")), str(created_id)
+        if not (_live_id == _want_id or _live_id.startswith(_want_id) or _want_id.startswith(_live_id)):
+            raise ValidationError("container replacement detected; fails closed")
+        # Re-verify exact current ownership BEFORE any exec (ID-bound).
         cur0 = run(["docker", "inspect", name], check=False)
         if cur0.returncode != 0:
             raise ValidationBlocked("container vanished before exec")
@@ -637,7 +737,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             cur0obj = json.loads(cur0.stdout)[0]
         except (json.JSONDecodeError, IndexError, KeyError):
             cur0obj = {}
-        if not _container_owned(cur0obj, work, network, expected_image_id=image_id, expected_nonce=attempt_nonce):
+        if not _container_owned(cur0obj, work, network, expected_image_id=image_id, expected_nonce=attempt_nonce,
+                                expected_container_id=created_id):
             raise ValidationError("container ownership unverified before exec; preserving")
         cfg, host, mounts = cur0obj.get("Config") or {}, cur0obj.get("HostConfig") or {}, cur0obj.get("Mounts") or []
         if cfg.get("User") != f"{uid}:{gid}":
@@ -676,6 +777,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 except OSError:
                     pass
             adap.stage_witness_extension(dst_agent / "extensions" / "m07-t05-witness.js")
+            adap.stage_meta_loader(dst_agent / "bin" / "m07-t05-meta-loader.sh")
             (work / "home" / ".pi" / "agent" / "bin" / "run-llm-test.sh").chmod(0o755)
         # --- Candidate-local execs (each compared, not just returncode) ---
         def _exec(args, **kw):
@@ -702,39 +804,34 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             except (json.JSONDecodeError, IndexError, AttributeError) as exc:
                 raise ValidationError("candidate policy unreadable") from exc
             result["checks"]["muse_policy_readback"] = "PASS"
-        # Daemon + Pi lifecycle INSIDE the candidate namespace (validator calls adapter).
+        # Daemon + Pi lifecycle INSIDE the candidate namespace (validator CALLS
+        # the adapter observers; AST-verifiable product path, never caller labels).
+        # Supported interfaces (pinned Paseo 0.9.2 dist/commands/daemon/status.js):
+        # localDaemon/connectedDaemon/serverId/workerPid/daemonNode/providers
+        # plus home/listen/version. Pinned Pi types.d.ts terminal semantics:
+        # agent_end/agent_settled (observer) — see adapter.aggregate_witness.
+        def _candidate_exec(argv, timeout=30):
+            return _exec(argv, timeout=timeout, check=False)
+
         if expected_paseo is not None:
-            # Real candidate-namespace observation: paseo status --home.
-            d = _exec(["paseo", "status", "--format", "json", "--home", "/home/paseo/.paseo"], timeout=30, check=False)
-            if d.returncode != 0:
-                raise ValidationBlocked("candidate daemon status unavailable") if not real_mode else ValidationBlocked("candidate daemon status unavailable")
             try:
-                ddoc = json.loads((d.stdout or "").strip())
-                if isinstance(ddoc, list):
-                    ddoc = ddoc[0] if ddoc else {}
-            except (json.JSONDecodeError, ValueError) as exc:
-                raise ValidationError("candidate daemon status malformed") from exc
-            # Validate against the CANDIDATE namespace home + frozen version.
-            if ddoc.get("home") not in ("/home/paseo/.paseo", "/home/paseo"):
-                raise ValidationError("daemon home is not the candidate home")
-            if str(ddoc.get("daemonVersion") or ddoc.get("version") or "") != str(expected_paseo):
-                raise ValidationError("daemon version mismatch vs frozen candidate")
-            if not (ddoc.get("listen") or ddoc.get("endpoint") or ddoc.get("configuredListen")):
-                raise ValidationError("daemon endpoint is missing")
-            daemon_ref = {"home": ddoc.get("home"), "endpoint": ddoc.get("listen") or ddoc.get("endpoint") or ddoc.get("configuredListen"), "pid": ddoc.get("pid"), "version": str(expected_paseo)}
+                daemon_ref = adap.observe_daemon_status(
+                    _candidate_exec, candidate_home="/home/paseo/.paseo",
+                    expected_version=str(expected_paseo))
+            except adap.AdapterBlocked as exc:
+                raise ValidationBlocked(_sanitize(str(exc), 200)) from exc
+            except adap.AdapterError as exc:
+                raise ValidationError(_sanitize(str(exc), 200)) from exc
             result["subject"]["daemon_binding"] = daemon_ref
             result["checks"]["daemon_binding"] = "PASS"
-            w = _exec(["sh", "-c", "command -v pi"], timeout=30, check=False)
-            v = _exec(["pi", "--version"], timeout=30, check=False)
-            if w.returncode != 0 or v.returncode != 0:
-                raise ValidationBlocked("candidate Pi unavailable")
-            pipath = (w.stdout or "").strip().splitlines()
-            pipath = pipath[-1].strip() if pipath else ""
-            piver = (v.stdout or "").strip().splitlines()
-            piver = piver[-1].strip() if piver else ""
-            if not pipath or piver != str(expected_pi):
-                raise ValidationError("Pi version mismatch vs frozen candidate")
-            result["subject"]["pi_binding"] = {"path": pipath, "version": piver}
+            try:
+                pi_ref = adap.observe_pi_version(
+                    _candidate_exec, expected_version=str(expected_pi))
+            except adap.AdapterBlocked as exc:
+                raise ValidationBlocked(_sanitize(str(exc), 200)) from exc
+            except adap.AdapterError as exc:
+                raise ValidationError(_sanitize(str(exc), 200)) from exc
+            result["subject"]["pi_binding"] = pi_ref
             result["checks"]["pi_binding"] = "PASS"
         # Codex checks via the staged ONE program (actual execution in tests).
         if codex_secret is not None:
@@ -777,11 +874,28 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             result["subject"]["muse_native_shape"] = "export-only (not dispatch)"
         dispatch_summary = None
         if muse_secret is not None and source_root is not None:
+            # Record the owned test BEFORE possible dispatch so UNKNOWN occurrence
+            # retains a usable exact reference (bounded readback, never blind resend).
+            Path(owned_test_path).write_text(json.dumps({
+                "schema_version": SCHEMA_VERSION, "test_id": test_id,
+                "attempt_nonce": attempt_nonce,
+                "container": {"name": name, "id": created_id},
+                "daemon": daemon_ref, "image_id": image_id,
+                "dispatch": {"state": "pending"},
+            }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
             prompt = f"M07-T05 synthetic smoke {test_id} (no inference claim)"
+            # Candidate-local dispatch through the staged Meta auth loader (reads
+            # META_API_KEY_FILE inside the candidate, exports META_API_KEY for
+            # the guard/Pi process, execs the canonical guard PROMPT form).
+            # Pinned Paseo run.js forwards only parsed --env into createAgent.env;
+            # CLI-invocation variables are not auto-forwarded to the daemon/Pi
+            # process, so the loader + M07_T05_* correlation env are the staged
+            # candidate-local wiring exercised here under fakes; exact on-wire
+            # forwarding proof remains M08-T01 with dedicated credentials.
             dg = _exec(["bash", "-c",
                         f"guarded-dispatch; M07_T05_TEST_ID={test_id} M07_T05_WITNESS_FILE={WITNESS_CANDIDATE_PATH} "
                         f"{MUSE_POINTER_ENV}={MUSE_SECRET_TARGET} "
-                        f"bash /home/paseo/.pi/agent/bin/run-llm-test.sh {json.dumps(prompt)} /tmp"],
+                        f"bash /home/paseo/.pi/agent/bin/m07-t05-meta-loader.sh {json.dumps(prompt)} /tmp"],
                        timeout=120, check=False)
             if dg.returncode is None:
                 raise ValidationUnknown("guarded dispatch occurrence unknown; preserving test object")
@@ -805,9 +919,11 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         raise ValidationError("fake caller witness contradicts candidate observation")
             agg = adap.aggregate_witness(events, test_id=test_id, expected_model=FIXED_MODEL)
             result["subject"]["muse_witness_events"] = len(events)
+            # Aggregate UNKNOWN stays UNKNOWN (preserves owned refs, no rm, no
+            # resend); only terminal FAIL becomes a validation failure.
+            if agg["gate"] == "UNKNOWN":
+                raise ValidationUnknown("guarded dispatch occurrence unknown; preserving test object")
             if dg.returncode != 0 or agg["gate"] != "PASS":
-                if agg["gate"] == "UNKNOWN":
-                    raise ValidationUnknown("guarded dispatch occurrence unknown; preserving test object") if dg.returncode is None else ValidationError(f"guarded dispatch incomplete: {agg['reason']}")
                 raise ValidationError(f"guarded dispatch failed: {agg['reason']}")
             result["checks"]["muse_dispatch"] = "PASS"
             result["checks"]["muse_effective_profile"] = "PASS"
@@ -874,18 +990,27 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         cur_obj = json.loads(cur.stdout)[0]
                     except (json.JSONDecodeError, IndexError, KeyError):
                         cur_obj = {}
-                    if _container_owned(cur_obj, work, network, expected_image_id=image_id, expected_nonce=attempt_nonce):
-                        run(["docker", "rm", "-f", name], check=False)
+                    if _container_owned(cur_obj, work, network, expected_image_id=image_id,
+                                        expected_nonce=attempt_nonce,
+                                        expected_container_id=created_id):
+                        # Remove by immutable ID, never a mutable name: a replaced
+                        # same-name foreign object is never removed here.
+                        run(["docker", "rm", "-f", created_id or name], check=False)
             # else: UNKNOWN preserves the container; foreign never removed.
         except (ValidationBlocked, ValidationError, ValidationUnknown):
             pass
         try:
-            # Never erase work while a live container still mounts it.
+            # Never erase work while a live container still mounts it. A nonzero
+            # or failed ownership inspection is UNCERTAIN (not verified absence):
+            # preserve the work so a later authorized caller can inspect.
             _live_mounts_work = False
+            _inspect_uncertain = False
             try:
                 if work is not None and shutil.which("docker"):
                     _lc = run(["docker", "inspect", name], check=False)
-                    if _lc.returncode == 0:
+                    if _lc.returncode != 0:
+                        _inspect_uncertain = True
+                    else:
                         try:
                             _lobj = json.loads(_lc.stdout)[0]
                         except (json.JSONDecodeError, IndexError, KeyError):
@@ -901,6 +1026,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                                     pass
             except (ValidationBlocked, ValidationError, ValidationUnknown):
                 _live_mounts_work = True  # inspection failed → preserve
+                _inspect_uncertain = True
+            if _inspect_uncertain:
+                _live_mounts_work = True  # nonzero/failed readback ≠ verified absence
             if (work is not None and not _is_unknown and not _live_mounts_work and attempt_nonce is not None
                     and _owned_work(work, Path(state_root), nonce=attempt_nonce, candidate_id=digest)):
                 shutil.rmtree(work, ignore_errors=True)
@@ -952,6 +1080,7 @@ def main():
     p.add_argument("--build-input-file", type=Path)
     p.add_argument("--tested-image-file", type=Path)
     p.add_argument("--build-record", type=Path)
+    p.add_argument("--publication-file", type=Path)
     p.add_argument("--companion-bundle", type=Path)
     p.add_argument("--muse-secret", type=Path)
     a = p.parse_args()
@@ -965,7 +1094,8 @@ def main():
                       source_root=a.source_root, companion_bundle=_comp,
                       candidate_file=a.candidate_file, handoff_file=a.handoff_file,
                       build_input_file=a.build_input_file,
-                      tested_image_file=a.tested_image_file or a.build_record,
+                      tested_image_file=a.tested_image_file,
+                      build_record=a.build_record, publication_file=a.publication_file,
                       muse_secret=a.muse_secret)
     print(json.dumps(result, sort_keys=True))
     return 0 if result["status"] == "PASS" else (3 if result["status"] == "BLOCKED" else (4 if result["status"] == "UNKNOWN" else 2))

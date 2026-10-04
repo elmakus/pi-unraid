@@ -171,6 +171,24 @@ def read_dedicated_secret(secret_path) -> str:
     return value
 
 
+def _origin_tuple(url: str) -> tuple:
+    """Normalized origin: (scheme, hostname, port) with default ports resolved.
+
+    Source-qualified redirect boundary: only the identical origin may be
+    followed. A cross-port localhost redirect is a different origin and
+    fails closed (no credential forwarding, no request). """
+    parsed = urlsplit(url)
+    scheme = (parsed.scheme or "").lower()
+    host = (parsed.hostname or "").lower()
+    try:
+        port = parsed.port
+    except ValueError:
+        raise CodexError("Codex-LB redirect target is not a valid URL")
+    if port is None:
+        port = 443 if scheme == "https" else 80 if scheme == "http" else None
+    return (scheme, host, port)
+
+
 def assert_safe_redirect(from_url: str, to_url: str) -> None:
     """Fail closed on unsafe redirect targets.
 
@@ -190,24 +208,43 @@ def assert_safe_redirect(from_url: str, to_url: str) -> None:
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise CodexError("Codex-LB redirect target must not carry credentials/query/fragment")
     assert_no_inference_url(to_url)
+    # Same-origin only: scheme/host/port must match the request origin.
+    # A cross-port (or scheme/host) redirect is a foreign origin and fails
+    # closed before any network effect with credentials.
+    try:
+        from_origin = _origin_tuple(from_url)
+        to_origin = _origin_tuple(to_url)
+    except CodexError:
+        raise
+    except ValueError as exc:
+        raise CodexError("Codex-LB redirect target is not a valid URL") from exc
+    if from_origin != to_origin:
+        raise CodexError(
+            "Codex-LB redirect leaves the request origin; "
+            "cross-origin redirects are rejected without credential forwarding"
+        )
 
 
 class _NoAuthForwardRedirectHandler(urllib.request.HTTPRedirectHandler):
-    """Redirect handler that validates targets and strips auth cross-host."""
+    """Redirect handler that enforces same-origin and never forwards auth off-origin."""
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
-        # Validate the redirect target before following.
+        # Validate the redirect target before following (same-origin,
+        # non-inference, no credentials/query/fragment). Cross-origin
+        # (including cross-port) raises here: no request is issued and no
+        # Authorization is forwarded.
         assert_safe_redirect(req.full_url, newurl)
         nxt = super().redirect_request(req, fp, code, msg, headers, newurl)
         if nxt is None:
             return None
-        # Never forward Authorization (or proxy-auth) to a different host.
+        # Defense in depth: strip auth headers on ANY origin change
+        # (scheme/host/port), even if the pre-check above is bypassed.
         try:
-            orig_host = (urlsplit(req.full_url).hostname or "").lower()
-            new_host = (urlsplit(nxt.full_url).hostname or "").lower()
+            orig = _origin_tuple(req.full_url)
+            new = _origin_tuple(nxt.full_url)
         except ValueError:
             raise CodexError("Codex-LB redirect target is not a valid URL")
-        if orig_host != new_host:
+        if orig != new:
             for h in ("Authorization", "Proxy-Authorization", "Cookie"):
                 try:
                     if nxt.has_header(h):

@@ -414,6 +414,58 @@ def muse_secret_mount_args(secret_resolved) -> list:
     return ["-v", f"{secret_resolved}:{MUSE_SECRET_TARGET}:ro"]
 
 
+LOADER_REL = Path("bin/m07-t05-meta-loader.sh")
+
+
+def stage_meta_loader(dest: Path, *, guard_path: str = "/home/paseo/.pi/agent/bin/run-llm-test.sh") -> Path:
+    """Stage the candidate-local Meta auth loader (test-owned, ephemeral).
+
+    Source-qualified mechanism: official ``pi-ai`` ``providers/meta.ts``
+    authenticates the Model API via ``envApiKeyAuth("Meta Model API key",
+    ["META_API_KEY"])`` — Pi reads the ``META_API_KEY`` environment
+    variable. The disposable candidate receives only the ``META_API_KEY_FILE``
+    pointer (read-only mount at ``/run/secrets/pi-unraid-meta``); this
+    loader reads the pointer INSIDE the candidate, exports ``META_API_KEY``
+    for the guard/Pi process, and execs the canonical guard PROMPT form.
+    The secret value never appears on host argv/env, in evidence, or in
+    logs; only synthetic files in M07-T05. Missing/unreadable/empty
+    pointer fails closed (exit 42) before any dispatch.
+    """
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(
+        "#!/bin/sh\n"
+        "# M07-T05 candidate-local Meta auth loader (test-owned, ephemeral).\n"
+        "# Shell builtins only (read/case/export/exec): no sed/awk/tr/head/cat\n"
+        "# dependency beyond the executable itself. Invoked via bash by the\n"
+        "# validator dispatch, like the canonical guard.\n"
+        "set -eu\n"
+        "ptr=\"${META_API_KEY_FILE:-" + MUSE_SECRET_TARGET + "}\"\n"
+        "if [ ! -f \"$ptr\" ]; then echo 'M07-T05 loader: META_API_KEY_FILE unavailable' >&2; exit 42; fi\n"
+        "count=0\n"
+        "val=\"\"\n"
+        "while read -r line || [ -n \"$line\" ]; do\n"
+        "  case \"$line\" in \"\"|\\#*) continue ;; esac\n"
+        "  count=$((count+1))\n"
+        "  case \"$line\" in\n"
+        "    " + MUSE_SECRET_ENV_NAME + "=*) val=\"${line#" + MUSE_SECRET_ENV_NAME + "=}\" ;;\n"
+        "    *=*) echo 'M07-T05 loader: unexpected credential entry' >&2; exit 42 ;;\n"
+        "    *) val=\"$line\" ;;\n"
+        "  esac\n"
+        "done < \"$ptr\"\n"
+        "if [ \"$count\" -ne 1 ]; then echo 'M07-T05 loader: credential must hold exactly one entry' >&2; exit 42; fi\n"
+        "case \"$val\" in \"\"|*[[:space:]]*) echo 'M07-T05 loader: dedicated Muse credential is empty or invalid' >&2; exit 42 ;; esac\n"
+        "export META_API_KEY=\"$val\"\n"
+        "exec \"" + guard_path + "\" \"$@\"\n",
+        encoding="utf-8",
+    )
+    try:
+        dest.chmod(0o755)
+    except OSError:
+        pass
+    return dest
+
+
 # ---------------------------------------------------------------------------
 # Witness observer (actual pinned payload semantics, per-test aggregation)
 # ---------------------------------------------------------------------------
@@ -463,6 +515,12 @@ def stage_witness_extension(dest: Path) -> Path:
         "  });\n"
         "  ctx.on('after_provider_response', (ev) => {\n"
         "    try { emit({kind:'response', status: ev.status}); } catch {}\n"
+        "  });\n"
+        "  ctx.on('agent_end', (ev) => {\n"
+        "    try { emit({kind:'terminal', status:'done'}); } catch {}\n"
+        "  });\n"
+        "  ctx.on('agent_settled', (ev) => {\n"
+        "    try { emit({kind:'terminal', status:'done'}); } catch {}\n"
         "  });\n"
         "}\n",
         encoding="utf-8",
@@ -620,6 +678,46 @@ def classify_aggregated_witness(events: list, *, test_id: str) -> dict:
 # Integrated product path: daemon/Pi observers + guarded dispatch (validator calls these)
 # ---------------------------------------------------------------------------
 
+def _require_candidate_local_endpoint(endpoint: str) -> str:
+    """Require a candidate-local daemon endpoint (loopback, never remote).
+
+    The candidate daemon runs inside the disposable candidate namespace;
+    its listen endpoint must be loopback (127.x/::1/localhost). A remote
+    address (e.g. documentation TEST-NET-3 203.0.113.10) proves the
+    observation belongs to another daemon and fails closed. """
+    host = endpoint.strip()
+    # Strip scheme if present, then take host before ':' or '/'.
+    if "://" in host:
+        host = host.split("://", 1)[1]
+    host = host.split("/", 1)[0].split(":", 1)[0].strip().lower().strip("[]")
+    if not host:
+        raise AdapterError("daemon endpoint host is missing")
+    loopback = (
+        host in ("localhost", "::1")
+        or host.startswith("127.")
+        or host in ("0.0.0.0", "::")  # wildcard bind inside the candidate netns
+    )
+    if not loopback:
+        raise AdapterError(f"daemon endpoint is not candidate-local: {endpoint!r}")
+    return endpoint
+
+
+def _require_candidate_local_pi_path(path: str) -> str:
+    """Require a candidate-local Pi executable path (never foreign).
+
+    The Pi that runs must resolve inside the candidate (candidate HOME,
+    candidate agent bindir, or the container system path). A foreign
+    provider path proves the observation belongs to another runtime. """
+    if not path.startswith("/"):
+        raise AdapterError(f"candidate Pi path is not absolute: {path!r}")
+    low = path.lower()
+    if "foreign" in low or ".." in path.split("/"):
+        raise AdapterError(f"candidate Pi path is not candidate-local: {path!r}")
+    if "pi" not in low and "paseo" not in low:
+        raise AdapterError(f"candidate Pi path is not a Pi executable: {path!r}")
+    return path
+
+
 def observe_daemon_status(exec_run, *, candidate_home: str, expected_version: str) -> dict:
     """Observe the candidate-local daemon via exec (validator callsite).
 
@@ -646,17 +744,28 @@ def observe_daemon_status(exec_run, *, candidate_home: str, expected_version: st
     if not isinstance(home, str) or home != candidate_home:
         # Candidate-namespace comparison (both sides are in-candidate paths
         # observed via exec inside the candidate; host resolve() must NOT be
-        # applied across the namespace boundary).
+        # applied across the namespace boundary). Production protection here
+        # is exec scoping (docker exec into the candidate) plus the host-side
+        # validate_candidate_home disposable-root binding; the string
+        # "/home/paseo/.paseo" is the candidate's own home inside its mount
+        # namespace, not the host production HOME.
         raise AdapterError("daemon home is not the candidate home")
     endpoint = doc.get("listen") or doc.get("endpoint") or doc.get("configuredListen")
     if not isinstance(endpoint, str) or not endpoint:
         raise AdapterError("daemon endpoint is missing")
+    _require_candidate_local_endpoint(endpoint)
     version = doc.get("daemonVersion") or doc.get("version")
     if version is None or str(version) != str(expected_version):
         raise AdapterError(f"daemon version mismatch vs frozen candidate: {version!r}")
     pid = doc.get("pid")
-    if pid is not None and (not isinstance(pid, int) or pid <= 0):
-        raise AdapterError("daemon pid is invalid")
+    if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
+        raise AdapterError("daemon pid is missing or invalid; process identity unverified")
+    local_state = doc.get("localDaemon")
+    if local_state is not None and local_state != "running":
+        raise AdapterError(f"candidate daemon is not running: {local_state!r}")
+    connected = doc.get("connectedDaemon")
+    if connected is not None and connected not in ("reachable",):
+        raise AdapterError(f"candidate daemon is not reachable: {connected!r}")
     return {"home": home, "endpoint": endpoint, "pid": pid, "version": str(version)}
 
 
@@ -673,6 +782,7 @@ def observe_pi_version(exec_run, *, expected_version: str) -> dict:
     path = path[-1].strip() if path else ""
     if not path:
         raise AdapterError("candidate Pi path missing")
+    _require_candidate_local_pi_path(path)
     ver = exec_run(["pi", "--version"], timeout=30)
     if getattr(ver, "returncode", 1) != 0:
         raise AdapterBlocked("candidate Pi version unavailable")
@@ -693,13 +803,16 @@ def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cw
     NOT ``--native-create-agent-args`` export) with ``PATH`` isolated to the
     test-owned ``bindir`` (fake ``paseo`` records dispatch + witness, never
     real inference), ``M07_T05_TEST_ID``/``M07_T05_WITNESS_FILE`` correlation,
-    and ``META_API_KEY_FILE`` pointer (never the secret value). Snapshots
-    dispatch + witness events BEFORE temp cleanup. Timeout → UNKNOWN snapshot
-    with ``replay: False`` (never resend blindly).
+    and ``META_API_KEY_FILE`` pointer (never the secret value). The staged
+    :func:`stage_meta_loader` wrapper reads the pointer and exports
+    ``META_API_KEY`` for the guard/Pi process — the same loader bytes the
+    validator stages into the candidate. Snapshots dispatch + witness events
+    BEFORE temp cleanup. Timeout → UNKNOWN snapshot with ``replay: False``
+    (never resend blindly).
 
-    The validator CALLS this function; the fake candidate exec in tests runs
-    the actual guard script locally with the fake bindir, exercising real
-    guard bytes (profile gates, fallback refusal, exec line).
+    Local helper-level dispatch for direct unit coverage; the validator's
+    candidate path performs the equivalent loader→guard sequence via
+    ``docker exec`` into the disposable candidate (see the Tower validator).
     """
     if not test_id or not isinstance(test_id, str):
         raise AdapterError("test_id is required for guarded dispatch")
@@ -720,16 +833,19 @@ def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cw
         (agent / "policies" / "llm-test-policy.json").write_bytes(src_policy.read_bytes())
         witness_file = Path(witness_file)
         witness_file.parent.mkdir(parents=True, exist_ok=True)
+        loader = stage_meta_loader(agent / "bin" / "m07-t05-meta-loader.sh",
+                                   guard_path=str(launcher))
         env = {
             "PATH": str(bindir),
             "M07_T05_TEST_ID": test_id,
             "M07_T05_WITNESS_FILE": str(witness_file),
         }
         if meta_secret_file is not None:
-            # Pointer only; the value is read inside the candidate wrapper.
+            # Pointer only; the staged loader reads the value inside the
+            # (here local-simulated) candidate boundary and exports it.
             env[MUSE_SECRET_POINTER_ENV] = str(meta_secret_file)
         try:
-            proc = subprocess.run([str(launcher), prompt, cwd], env=env, text=True,
+            proc = subprocess.run(["bash", str(loader), prompt, cwd], env=env, text=True,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   timeout=timeout, check=False)
         except subprocess.TimeoutExpired:

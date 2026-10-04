@@ -429,3 +429,114 @@ checkpoint `734a6dd`).
 - Executable resolution/transport isolated (fake bindirs, mocked Docker,
   local 127.0.0.1 server, synthetic secrets); real inference impossible.
   Docs/report claim only the above.
+
+## Correction 3 (2026-10-04) — third-return provenance/lifecycle/completion repair
+
+Old bytes above stay in Git history. This section reports ONLY actually
+proven behavior after Main's third validation
+(`evidence/M07-T05-return-validation-2026-10-04.md` §"Third contribution",
+checkpoint `9d4cdec`). The prior six-path filename list is not used as
+authority to stage unbound code; every change below is inside the stable
+Card/contract boundary (validator/guard/delivery/binding/argument/test/doc).
+
+### 1. Distinct frozen-identity types with publication binding (probes 1-3)
+
+- `candidate_id` (resolver component-resolution identity) and the OCI
+  manifest `digest` (registry identity) are now DIFFERENT types throughout
+  `scripts/paseo_tower_validator.py`: equating them fails closed. The
+  validator consumes the EXISTING `scripts/paseo_candidate_publish.py`
+  publication schema (`candidate_id`, `digest`, `immutable_ref`,
+  `repository`, `image_id`, `source_head`, byte digests, `status:
+  published`) via a new `--publication-file` / `publication_file` input
+  that binds candidate ↔ digest ↔ local image before any Docker exec.
+- Real mode now REQUIRES the full existing chain — candidate + handoff
+  (`schema_version: 1`, `status: update`, source provenance, byte digest)
+  + build-input (`status: prepared`, handoff linkage, companion
+  declaration) + tested-image (`status: tested_image_preserved`,
+  `build_record_sha256`) + build record (`candidate.candidate_id`,
+  `image.id`, per-phase record) + publication — with byte/source/shared-
+  identity linkage verified, not merely `candidate_id` string equality.
+  Tested-only minimal records and forged handoff/prepared/build records
+  FAIL/BLOCK before disallowed calls. The old `--build-record`-aliases-
+  tested aliasing is removed; both records validate independently.
+- Fixtures use the REAL candidate bytes (real `candidate_id
+  sha256:b4e0…`) with a clearly synthetic distinct OCI digest
+  (`sha256:dddd…`) plus a real-schema publication/build record; the
+  positive output records both types separately (`candidate_id` vs
+  `digest` vs `observed_image_id`/`publication_image_id`).
+
+### 2. Candidate auth, observation, lifecycle and bounded completion (probes 4-6)
+
+- New staged `m07-t05-meta-loader.sh` (`adapter.stage_meta_loader`, shell
+  builtins only): reads `META_API_KEY_FILE` INSIDE the candidate, exports
+  `META_API_KEY` for the guard/Pi process (source-qualified: `pi-ai`
+  `providers/meta.ts` `envApiKeyAuth(..., ["META_API_KEY"])`), execs the
+  canonical guard PROMPT form. Missing/unreadable/empty/wrong-name
+  pointers exit 42 before dispatch. The fake Paseo REQUIRES `META_API_KEY`
+  (exit 42 otherwise), so every positive proves the loader provisioned it.
+- The validator CALLS `adapter.observe_daemon_status` /
+  `adapter.observe_pi_version` (AST-verifiable) with strict candidate-local
+  semantics: home equals the candidate home, endpoint loopback-only
+  (remote TEST-NET/unreachable rejected), version equals the FROZEN
+  candidate (never host pins), PID a positive int, `localDaemon ==
+  running` / `connectedDaemon == reachable` when reported by pinned Paseo
+  0.9.2 `daemon/status.js`, Pi path absolute and candidate-local (foreign
+  rejected). Stopped/unreachable/remote/null-PID/foreign observations FAIL
+  before dispatch. Pinned `run.js` forwards only parsed `--env` into
+  `createAgent.env`; exact on-wire forwarding proof remains M08-T01.
+- The staged witness extension now handles `agent_end` + `agent_settled`
+  (pinned `types.d.ts` terminal semantics) emitting `kind: terminal` /
+  `status: done`. The fake Paseo writes request+response only (simulated
+  external provider boundary); the terminal event comes from the ACTUAL
+  staged observer bytes executed under node with a fake SDK boundary
+  (`_emit_terminal_via_observer`), proven by a committed node-harness test
+  that aggregates request+response+terminal to PASS through the real code.
+
+### 3. Uncertain occurrence and immutable owned resources (probes 7-10)
+
+- The owned test file is written BEFORE possible dispatch and updated after;
+  aggregate UNKNOWN stays UNKNOWN (never converted to terminal FAIL),
+  preserves the container + work + `owned_reference` (an EXISTING file) +
+  `owned_container` + `owned_daemon`, and never resends.
+- Acquisition IDs are verified at EVERY pre-exec/cleanup boundary
+  (`expected_container_id` in `_container_owned`); a replaced container
+  with preserved mounts/nonce but a different Id fails before exec, and
+  cleanup removes by immutable ID, never a mutable name (foreign
+  same-name objects never removed).
+- Nonzero/failed ownership inspection is UNCERTAIN, not verified absence:
+  work is preserved while any acquired/replaced/unverified object may still
+  mount it (proven by a committed cleanup-race test: PASS status with work
+  intact). Network removal still defaults to preserve.
+
+### 4. Same-origin Codex transport and rebuilt honest coverage (probe 11)
+
+- Redirects are now same-origin enforced: normalized
+  scheme/host/port must match the request origin, else the redirect fails
+  closed BEFORE any network effect with credentials (cross-port localhost
+  rejected). Auth stripping remains as defense in depth. A committed test
+  drives the EXACT shipped check program against two localhost origins and
+  asserts the foreign receiver observes zero requests and zero
+  Authorization.
+- Targeted suite: 30 tests (was 28), all through genuine entrypoints with
+  fake-only external boundaries; the 11 third-return probes are committed
+  as `test_third_return_regressions` subtests plus dedicated
+  redirect/observer/loader/daemon/Pi negatives. Fixture class always leaves
+  `real_validation_satisfied: false`; the fake-tested real branch proves
+  structural reachability only, never real evidence.
+
+### Remaining real-gate limitations (not waived)
+
+- Exact Paseo `--env` on-wire forwarding of `M07_T05_*`/`META_API_KEY_FILE`
+  into the Pi agent process, real candidate-local daemon bring-up, real
+  Codex-LB reads against operator endpoints, dedicated credential admission,
+  and effective-`max` wire proof remain M08-T01 with dedicated credentials
+  after autonomous machinery/rehearsal. Unsupported/unknown fails closed to
+  the owning Research/Planning boundary with precise source facts (pinned
+  `run.js` env forwarding, `daemon/status.js` fields, `types.d.ts` terminal
+  events, `meta.ts` auth shape, Contributor `max:null` + `max→xhigh` clamp
+  negatives).
+- Staged ephemeral files (witness extension, Meta loader, per-attempt local
+  loader copies) are test-owned tooling outside the frozen 10-file
+  companion identity; any future guard/delivery change still needs a new
+  downstream artifact via prepare/build/package (M07-T07), never mutable
+  HOME code blessed to an old digest.

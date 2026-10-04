@@ -48,7 +48,14 @@ A = importlib.util.module_from_spec(ADAP_SPEC)
 ADAP_SPEC.loader.exec_module(A)
 
 REAL_CANDIDATE = json.loads((ROOT / "config" / "paseo-candidate.json").read_text(encoding="utf-8"))
-REAL_DIGEST = REAL_CANDIDATE["candidate_id"]
+# DISTINCT TYPES (publisher schema): candidate_id is the resolver's component-
+# resolution identity; the OCI digest is the registry manifest identity.
+# scripts/paseo_candidate_publish.py outputs both separately — equating them
+# is a type error. Fixtures use the REAL candidate bytes (real candidate_id)
+# with a clearly synthetic OCI digest.
+REAL_CANDIDATE_ID = REAL_CANDIDATE["candidate_id"]
+REAL_OCI_DIGEST = "sha256:" + "d" * 64
+REAL_REPOSITORY = "ghcr.io/elmakus/pi-unraid"
 REAL_PASEO = REAL_CANDIDATE["components"]["paseo"]["version"]
 REAL_PI = REAL_CANDIDATE["components"]["pi"]["version"]
 
@@ -143,8 +150,16 @@ class LocalCodexServer:
 
 
 def make_fake_paseo(bindir: Path, *, effort="max", response_status="200",
-                    terminal="done", dispatch=True):
-    """Test-owned fake paseo: records dispatch, writes witness, never infers."""
+                    dispatch=True):
+    """Test-owned fake paseo: records dispatch, writes witness, never infers.
+
+    The fake simulates the EXTERNAL candidate Paseo/Pi/SDK event boundary
+    only: it requires META_API_KEY (exit 42 when the loader fails to
+    provision it — proving the staged loader works) and writes the
+    request+response events a provider interaction would produce. The
+    terminal event is NOT fabricated here: the docker-exec harness runs the
+    ACTUAL staged witness extension under node to emit it (see
+    _emit_terminal_via_observer). No real inference ever occurs. """
     bindir.mkdir(parents=True, exist_ok=True)
     for tool in ("dirname", "jq", "bash", "sh", "sha256sum", "cat", "command"):
         tgt = shutil.which(tool)
@@ -160,6 +175,10 @@ def make_fake_paseo(bindir: Path, *, effort="max", response_status="200",
         "  printf '%s' \"$PASEO_STATUS_JSON\"\n"
         "  exit 0\n"
         "fi\n"
+        "if [ -z \"$META_API_KEY\" ]; then\n"
+        "  echo 'fake-paseo: META_API_KEY unavailable' >&2\n"
+        "  exit 42\n"
+        "fi\n"
         f"DISPATCH={1 if dispatch else 0}\n"
         "if [ \"$DISPATCH\" = \"1\" ]; then\n"
         "  printf '%s\\n' \"$@\" > \"$DISPATCH_MARKER\"\n"
@@ -169,7 +188,6 @@ def make_fake_paseo(bindir: Path, *, effort="max", response_status="200",
         "if [ -n \"$WIT\" ] && [ -n \"$TID\" ] && [ \"$DISPATCH\" = \"1\" ]; then\n"
         f"  printf '{{\"test_id\":\"%s\",\"kind\":\"request\",\"model\":\"muse-spark-1.3-contributor\",\"effort\":\"{effort}\"}}\\n' \"$TID\" >> \"$WIT\"\n"
         f"  printf '{{\"test_id\":\"%s\",\"kind\":\"response\",\"status\":\"{response_status}\"}}\\n' \"$TID\" >> \"$WIT\"\n"
-        f"  printf '{{\"test_id\":\"%s\",\"kind\":\"terminal\",\"status\":\"{terminal}\"}}\\n' \"$TID\" >> \"$WIT\"\n"
         "fi\n"
         f"exit {0 if dispatch else 3}\n"
     )
@@ -181,31 +199,137 @@ def make_fake_paseo(bindir: Path, *, effort="max", response_status="200",
     return bindir
 
 
-def build_artifact_chain(td: Path, *, digest=REAL_DIGEST):
-    """Real-schema fixture chain bound to the actual candidate bytes."""
+def _find_node():
+    """Locate the node executable without shutil.which.
+
+    The validator tests mock shutil.which (docker-CLI isolation); a which-
+    based lookup inside the patched context would return the docker stub.
+    Scan PATH directly for an executable node binary instead. """
+    import os as _os
+    seen = []
+    for directory in _os.environ.get("PATH", "/usr/local/bin:/usr/bin:/bin").split(_os.pathsep):
+        candidate = Path(directory) / "node"
+        if candidate.is_file() and _os.access(candidate, _os.X_OK):
+            return str(candidate)
+    for fallback in ("/usr/local/bin/node", "/usr/bin/node"):
+        if fallback not in seen and Path(fallback).is_file() and _os.access(fallback, _os.X_OK):
+            return fallback
+    return None
+
+
+def _emit_terminal_via_observer(*, staged_ext: Path, witness_host: str, test_id: str) -> bool:
+    """Emit the terminal event through the ACTUAL staged witness extension.
+
+    Loads the shipped ``m07-t05-witness.js`` bytes under node with a fake SDK
+    event boundary (register + fire agent_settled/agent_end) and the owned
+    test's correlation env. Returns True when a terminal event for test_id
+    was appended by the real observer code (never fabricated shell JSON).
+    """
+    node = _find_node()
+    if node is None:
+        return False
+    harness = (
+        "import {createRequire} from 'node:module';\n"
+        "globalThis.require = createRequire(import.meta.url);\n"
+        "const registered = {};\n"
+        "const ext = await import(process.argv[1]);\n"
+        "ext.default({on: (k, fn) => { registered[k] = fn; }});\n"
+        "if (registered.agent_settled) { await registered.agent_settled({}); }\n"
+        "else if (registered.agent_end) { await registered.agent_end({messages: []}); }\n"
+        "else { console.log('NO_TERMINAL_HANDLER'); }\n"
+    )
+    try:
+        pr = subprocess.run(
+            [node, "--input-type=module", "-e", harness, str(staged_ext)],
+            env={"M07_T05_TEST_ID": test_id, "M07_T05_WITNESS_FILE": witness_host,
+                 "PATH": "/usr/bin:/bin"},
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if pr.returncode != 0:
+        return False
+    try:
+        lines = Path(witness_host).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return False
+    for ln in lines:
+        try:
+            doc = json.loads(ln)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if doc.get("test_id") == test_id and doc.get("kind") == "terminal":
+            return True
+    return False
+
+
+def build_artifact_chain(td: Path, *, image_id="sha256:" + "b" * 64):
+    """Real-schema fixture chain: candidate + handoff + build-input + build record
+    + tested-image + publication, bound to the actual candidate bytes.
+
+    Uses the EXISTING producer schemas (no invented envelopes): candidate_id is
+    the component-resolution identity from the real candidate file; the OCI
+    digest (REAL_OCI_DIGEST) is the distinct registry identity; the publication
+    record binds candidate_id <-> digest <-> image_id (publisher schema).
+    image_id is the pulled local platform identity, filled per-test. """
+    import hashlib as _hl
     cand_src = ROOT / "config" / "paseo-candidate.json"
     cand_file = td / "candidate.json"
     cand_file.write_bytes(cand_src.read_bytes())
     raw = cand_file.read_bytes()
-    import hashlib as _hl
     cfs = "sha256:" + _hl.sha256(raw).hexdigest()
-    handoff = {"candidate_id": digest, "accepted_candidate_id": "sha256:" + "0" * 64,
+    repo = REAL_REPOSITORY
+    digest = REAL_OCI_DIGEST
+    cid = REAL_CANDIDATE_ID
+    handoff = {"candidate_id": cid, "accepted_candidate_id": "sha256:" + "0" * 64,
                "schema_version": 1, "status": "update", "source_ref": "refs/heads/main",
                "source_sha": "0" * 40, "candidate_file_sha256": cfs}
     handoff_file = td / "handoff.json"
     handoff_file.write_text(json.dumps(handoff))
+    hfs = "sha256:" + _hl.sha256(handoff_file.read_bytes()).hexdigest()
     _full = _companion_arg()
-    build_input = {"candidate_id": digest, "candidate_file_sha256": cfs,
+    build_input = {"schema_version": 1, "status": "prepared", "candidate_id": cid,
+                   "accepted_candidate_id": handoff["accepted_candidate_id"],
+                   "candidate_file_sha256": cfs, "handoff_evidence_sha256": hfs,
+                   "source_head": "1" * 40, "source_parent": handoff["source_sha"],
+                   "source_ref": handoff["source_ref"],
                    "companion_bundle": _full}
     build_input_file = td / "build-input.json"
     build_input_file.write_text(json.dumps(build_input))
-    import hashlib as _hl2
-    tested = {"candidate_id": digest, "candidate_file_sha256": cfs,
-              "image_id": None,  # filled per-test after pull id known
-              "companion_bundle": build_input["companion_bundle"]}
+    build_record = {"schema_version": 1, "command": "build",
+                    "candidate": {"path": str(cand_file), "candidate_id": cid},
+                    "context": str(td), "tag": f"{repo}:paseo-{cid[7:19]}",
+                    "image": {"id": image_id, "digests": [f"{repo}@{digest}"],
+                              "candidate_label": cid},
+                    "phases": {"resolution_readback": {"status": "ok"},
+                               "builder_ensure": {"status": "ok"},
+                               "build": {"status": "ok"}, "test": {"status": "ok"}},
+                    "companion_bundle": _full}
+    build_record_file = td / "build-record.json"
+    build_record_file.write_text(json.dumps(build_record))
+    brs = "sha256:" + _hl.sha256(build_record_file.read_bytes()).hexdigest()
+    tested = {"schema_version": 1, "status": "tested_image_preserved",
+              "candidate_id": cid, "accepted_candidate_id": handoff["accepted_candidate_id"],
+              "candidate_file_sha256": cfs, "handoff_evidence_sha256": hfs,
+              "build_record_sha256": brs, "image_id": image_id,
+              "source_head": build_input["source_head"],
+              "discovery_source_sha": handoff["source_sha"],
+              "discovery_source_ref": handoff["source_ref"],
+              "companion_bundle": _full}
     tested_file = td / "tested.json"
     tested_file.write_text(json.dumps(tested))
-    return cand_file, handoff_file, build_input_file, tested_file
+    tfs = "sha256:" + _hl.sha256(tested_file.read_bytes()).hexdigest()
+    publication = {"schema_version": 1, "status": "published",
+                   "candidate_id": cid, "accepted_candidate_id": handoff["accepted_candidate_id"],
+                   "source_head": build_input["source_head"],
+                   "discovery_source_sha": handoff["source_sha"],
+                   "discovery_source_ref": handoff["source_ref"],
+                   "candidate_file_sha256": cfs, "handoff_evidence_sha256": hfs,
+                   "build_record_sha256": brs, "tested_image_evidence_sha256": tfs,
+                   "image_id": image_id, "repository": repo,
+                   "digest": digest, "immutable_ref": f"{repo}@{digest}"}
+    publication_file = td / "publication.json"
+    publication_file.write_text(json.dumps(publication))
+    return cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file
 
 
 def make_fake_docker(*, digest, image_id, calls, state, server_base,
@@ -247,6 +371,10 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
         if argv[:2] == ["docker", "inspect"]:
             if not state.get("ran"):
                 return mock.Mock(returncode=1, stdout="", stderr="No such")
+            if state.get("inspect_failure"):
+                return mock.Mock(returncode=1, stdout="", stderr="synthetic inspect transport failure")
+            if state.get("fail_cleanup_inspect") and state.get("dispatch_complete"):
+                return mock.Mock(returncode=1, stdout="", stderr="synthetic inspect transport failure")
             run_call = next(x for x in calls if x[:2] == ["docker", "run"])
             mounts = []
             for i, x in enumerate(run_call):
@@ -256,7 +384,8 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                                    "RW": (parts[2] if len(parts) > 2 else "rw") != "ro"})
             nonce = state.get("nonce", "unknown")
             img = state.get("wrong_image") or image_id
-            obj = {"Id": "fake-container-id-123", "Image": img,
+            cid = state.get("replaced_id") or "fake-container-id-123"
+            obj = {"Id": cid, "Image": img,
                    "Config": {"User": "99:100", "Env": ["TZ=Europe/Zurich", "HOME=/home/paseo"],
                               "Labels": {"io.pi-unraid.validator-nonce": nonce}},
                    "HostConfig": {"NetworkMode": state.get("network", "pi-unraid-validator")},
@@ -299,7 +428,7 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 try:
                     import hashlib as _hl
                     h = _hl.sha256(staged_guard.read_bytes()).hexdigest()
-                    if break_guard:
+                    if break_guard or state.get("break_guard"):
                         h = "0" * 64
                     return mock.Mock(returncode=0, stdout=f"{h}  /home/paseo/.pi/agent/bin/run-llm-test.sh\n", stderr="")
                 except OSError:
@@ -312,13 +441,20 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 except OSError:
                     return mock.Mock(returncode=1, stdout="", stderr="")
             # Daemon status inside candidate (fake daemon boundary, parsed for real).
+            # state["daemon_override"] lets negatives inject stopped/unreachable/
+            # remote/null-pid/foreign observations through the genuine entrypoint.
             if "paseo" in argv and "status" in argv:
-                doc = daemon_json if daemon_json is not None else {
-                    "home": "/home/paseo/.paseo", "listen": "127.0.0.1:7777",
-                    "pid": 1234, "daemonVersion": REAL_PASEO}
+                doc = state.get("daemon_override")
+                if doc is None:
+                    doc = daemon_json if daemon_json is not None else {
+                        "home": "/home/paseo/.paseo", "listen": "127.0.0.1:7777",
+                        "pid": 1234, "daemonVersion": REAL_PASEO,
+                        "localDaemon": "running", "connectedDaemon": "reachable"}
+                if isinstance(doc, dict) and doc.get("__unavailable"):
+                    return mock.Mock(returncode=1, stdout="", stderr="")
                 return mock.Mock(returncode=0, stdout=json.dumps(doc), stderr="")
             if "command -v pi" in payload:
-                return mock.Mock(returncode=0, stdout="/home/paseo/.pi/agent/bin/pi\n", stderr="")
+                return mock.Mock(returncode=0, stdout=(state.get("pi_path") or "/home/paseo/.pi/agent/bin/pi") + "\n", stderr="")
             if argv[-2:] == ["pi", "--version"] or payload.strip() == "pi --version":
                 return mock.Mock(returncode=0, stdout=pi_version + "\n", stderr="")
             # Native export: run ACTUAL staged guard with --native-create-agent-args.
@@ -330,11 +466,14 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 except Exception as exc:
                     return mock.Mock(returncode=2, stdout="", stderr=str(exc)[:200])
                 return mock.Mock(returncode=pr.returncode, stdout=pr.stdout, stderr=pr.stderr)
-            # Guarded PROMPT dispatch: run ACTUAL staged guard with fake bindir.
-            # Candidate witness path (/tmp/...) maps to the host witness file;
-            # the value is never confused with the candidate path.
+            # Guarded PROMPT dispatch: run the ACTUAL staged Meta loader (namespace-
+            # translated guard path only), then emit the terminal event through the
+            # ACTUAL staged witness extension under node. Candidate witness path
+            # (/tmp/...) maps to the host witness file; never confused.
             if "guarded-dispatch" in payload:
+                staged_loader = Path(work) / "home" / ".pi" / "agent" / "bin" / "m07-t05-meta-loader.sh" if work else None
                 staged_guard = Path(work) / "home" / ".pi" / "agent" / "bin" / "run-llm-test.sh" if work else None
+                staged_ext = Path(work) / "home" / ".pi" / "agent" / "extensions" / "m07-t05-witness.js" if work else None
                 bindir = state.get("bindir", "/tmp")
                 wit = state.get("witness_host", "/tmp/m07-t05-witness.jsonl")
                 tid = state.get("test_id", "")
@@ -343,18 +482,35 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 if m:
                     tid = m.group(1).strip().strip("'\"")
                     state["test_id"] = tid
-                # Extract prompt JSON string (last quoted arg) — run guard with synthetic prompt.
+                # Execute the staged loader bytes with only the in-candidate guard
+                # path translated to the staged host path (namespace translation).
+                try:
+                    loader_text = staged_loader.read_text(encoding="utf-8")
+                except OSError as exc:
+                    return mock.Mock(returncode=42, stdout="", stderr=str(exc)[:200])
+                local_loader = Path(work) / f"loader-{tid}.sh"
+                local_loader.write_text(loader_text.replace(
+                    "/home/paseo/.pi/agent/bin/run-llm-test.sh", str(staged_guard)),
+                    encoding="utf-8")
+                local_loader.chmod(0o755)
                 env = {"PATH": str(bindir), "M07_T05_TEST_ID": tid,
                        "M07_T05_WITNESS_FILE": str(wit),
                        "META_API_KEY_FILE": str(muse_secret_host) if muse_secret_host else ""}
                 try:
-                    pr = subprocess.run(["bash", str(staged_guard), f"SYNTHETIC_PROMPT_{tid}", "/tmp"],
+                    pr = subprocess.run(["bash", str(local_loader), f"SYNTHETIC_PROMPT_{tid}", "/tmp"],
                                         env=env, text=True, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE, timeout=60)
                 except subprocess.TimeoutExpired:
                     return mock.Mock(returncode=None, stdout="", stderr="timeout")
                 except Exception as exc:
                     return mock.Mock(returncode=3, stdout="", stderr=str(exc)[:200])
+                if pr.returncode == 0 and not state.get("omit_terminal"):
+                    # Terminal completion via the REAL staged observer (fake SDK
+                    # boundary fires agent_settled; observer code emits terminal).
+                    _emit_terminal_via_observer(staged_ext=staged_ext,
+                                              witness_host=str(wit), test_id=tid)
+                if pr.returncode == 0:
+                    state["dispatch_complete"] = True
                 return mock.Mock(returncode=pr.returncode, stdout=pr.stdout, stderr=pr.stderr)
             # Witness read: return ACTUAL witness file.
             if "witness-read" in payload:
@@ -415,25 +571,21 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             muse_sec = td / "muse.env"
             muse_sec.write_text("META_API_KEY=fixture-meta-key\n")
             muse_sec.chmod(0o600)
-            cand_file, handoff_file, build_input_file, tested_file = build_artifact_chain(td)
             image_id = "sha256:" + "b" * 64
-            # tested image_id must equal pulled id for the chain.
-            tested = json.loads(tested_file.read_text())
-            tested["image_id"] = image_id
-            tested_file.write_text(json.dumps(tested))
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = build_artifact_chain(td, image_id=image_id)
             bindir = make_fake_paseo(td / "bindir", effort="max")
             wit = td / "witness.jsonl"
             wit.write_text("")
             calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
                                 "bindir": str(bindir), "witness_host": str(wit)}
             with LocalCodexServer(mode="ok") as srv:
-                fake = make_fake_docker(digest=REAL_DIGEST, image_id=image_id, calls=calls,
+                fake = make_fake_docker(digest=REAL_OCI_DIGEST, image_id=image_id, calls=calls,
                                         state=state, server_base=srv.base,
                                         codex_secret_host=codex_sec, muse_secret_host=muse_sec)
                 with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
                      mock.patch.object(V.os, "chown"), \
                      mock.patch.object(V, "run", side_effect=fake):
-                    res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=REAL_DIGEST,
+                    res = V.validate(repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                                      output=td / "out.json", state_root=td / "state",
                                      codex_secret=codex_sec, codex_base_url=srv.base,
                                      codex_model="fixture-model", execution_class="fixture",
@@ -441,7 +593,8 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                                      companion_bundle=_companion_arg(),
                                      candidate_file=cand_file, handoff_file=handoff_file,
                                      build_input_file=build_input_file,
-                                     tested_image_file=tested_file, muse_secret=muse_sec)
+                                     tested_image_file=tested_file, build_record=build_record_file,
+                                     publication_file=publication_file, muse_secret=muse_sec)
             self.assertEqual(res["status"], "PASS")
             self.assertFalse(res["real_validation_satisfied"])
             for k in ("registry_digest", "image_mapping", "frozen_chain", "companion_binding",
@@ -467,24 +620,21 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             muse_sec = td / "muse.env"
             muse_sec.write_text("META_API_KEY=k\n")
             muse_sec.chmod(0o600)
-            cand_file, handoff_file, build_input_file, tested_file = build_artifact_chain(td)
             image_id = "sha256:" + "b" * 64
-            tested = json.loads(tested_file.read_text())
-            tested["image_id"] = image_id
-            tested_file.write_text(json.dumps(tested))
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = build_artifact_chain(td, image_id=image_id)
             bindir = make_fake_paseo(td / "bindir", effort="max")
             wit = td / "witness.jsonl"
             wit.write_text("")
             calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
                                 "bindir": str(bindir), "witness_host": str(wit)}
             with LocalCodexServer(mode="ok") as srv:
-                fake = make_fake_docker(digest=REAL_DIGEST, image_id=image_id, calls=calls,
+                fake = make_fake_docker(digest=REAL_OCI_DIGEST, image_id=image_id, calls=calls,
                                         state=state, server_base=srv.base,
                                         codex_secret_host=codex_sec, muse_secret_host=muse_sec)
                 with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
                      mock.patch.object(V.os, "chown"), \
                      mock.patch.object(V, "run", side_effect=fake):
-                    res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=REAL_DIGEST,
+                    res = V.validate(repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                                      output=td / "out.json", state_root=td / "state",
                                      codex_secret=codex_sec, codex_base_url=srv.base,
                                      codex_model="m", execution_class="real",
@@ -492,7 +642,8 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                                      companion_bundle=_companion_arg(),
                                      candidate_file=cand_file, handoff_file=handoff_file,
                                      build_input_file=build_input_file,
-                                     tested_image_file=tested_file, muse_secret=muse_sec)
+                                     tested_image_file=tested_file, build_record=build_record_file,
+                                     publication_file=publication_file, muse_secret=muse_sec)
             self.assertEqual(res["status"], "PASS")
             self.assertTrue(res["real_validation_satisfied"])
 
@@ -505,25 +656,22 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             muse_sec = td / "muse.env"
             muse_sec.write_text("META_API_KEY=k\n")
             muse_sec.chmod(0o600)
-            cand_file, handoff_file, build_input_file, tested_file = build_artifact_chain(td)
             image_id = "sha256:" + "b" * 64
-            tested = json.loads(tested_file.read_text())
-            tested["image_id"] = image_id
-            tested_file.write_text(json.dumps(tested))
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = build_artifact_chain(td, image_id=image_id)
             bindir = make_fake_paseo(td / "bindir", effort="max")
             wit = td / "witness.jsonl"
             wit.write_text("")
             calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
                                 "bindir": str(bindir), "witness_host": str(wit)}
             with LocalCodexServer(mode="ok") as srv:
-                fake = make_fake_docker(digest=REAL_DIGEST, image_id=image_id, calls=calls,
+                fake = make_fake_docker(digest=REAL_OCI_DIGEST, image_id=image_id, calls=calls,
                                         state=state, server_base=srv.base,
                                         codex_secret_host=codex_sec, muse_secret_host=muse_sec,
                                         break_guard=True)
                 with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
                      mock.patch.object(V.os, "chown"), \
                      mock.patch.object(V, "run", side_effect=fake):
-                    res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=REAL_DIGEST,
+                    res = V.validate(repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                                      output=td / "o.json", state_root=td / "st",
                                      codex_secret=codex_sec, codex_base_url=srv.base,
                                      codex_model="m", execution_class="fixture",
@@ -536,15 +684,15 @@ class TowerValidatorGenuineTests(unittest.TestCase):
     def test_malformed_build_record_fails(self):
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
-            cand_file, handoff_file, build_input_file, tested_file = build_artifact_chain(td)
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = build_artifact_chain(td)
             tested_file.write_text('{"candidate_id": "forged"}')
             calls, state = [], {"net_exists": False, "network": "pi-unraid-validator"}
             with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
                  mock.patch.object(V, "run", side_effect=make_fake_docker(
-                     digest=REAL_DIGEST, image_id="sha256:" + "b" * 64, calls=calls,
+                     digest=REAL_OCI_DIGEST, image_id="sha256:" + "b" * 64, calls=calls,
                      state=state, server_base="http://127.0.0.1:9/v1",
                      codex_secret_host=None, muse_secret_host=None)):
-                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=REAL_DIGEST,
+                res = V.validate(repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                                  output=td / "o.json", state_root=td / "st",
                                  execution_class="real", source_root=ROOT,
                                  candidate_file=cand_file, tested_image_file=tested_file)
@@ -559,11 +707,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             muse_sec = td / "muse.env"
             muse_sec.write_text("META_API_KEY=k\n")
             muse_sec.chmod(0o600)
-            cand_file, handoff_file, build_input_file, tested_file = build_artifact_chain(td)
-            image_id = "sha256:" + "b" * 64
-            tested = json.loads(tested_file.read_text())
-            tested["image_id"] = image_id
-            tested_file.write_text(json.dumps(tested))
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = build_artifact_chain(td, image_id="sha256:" + "b" * 64)
             comp = td / "comp.json"
             _ca = _companion_arg()
             comp.write_text(json.dumps(_ca))
@@ -573,14 +717,19 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
                                 "bindir": str(bindir), "witness_host": str(wit)}
             with LocalCodexServer(mode="ok") as srv:
-                fake = make_fake_docker(digest=REAL_DIGEST, image_id=image_id, calls=calls,
+                fake = make_fake_docker(digest=REAL_OCI_DIGEST, image_id="sha256:" + "b" * 64, calls=calls,
                                         state=state, server_base=srv.base,
                                         codex_secret_host=codex_sec, muse_secret_host=muse_sec)
-                argv = ["paseo_tower_validator", "--digest", REAL_DIGEST,
+                argv = ["paseo_tower_validator", "--digest", REAL_OCI_DIGEST,
                         "--output", str(td / "cli.json"), "--state-root", str(td / "st"),
                         "--codex-secret", str(codex_sec), "--codex-base-url", srv.base,
                         "--codex-model", "m", "--source-root", str(ROOT),
-                        "--candidate-file", str(cand_file), "--muse-secret", str(muse_sec),
+                        "--candidate-file", str(cand_file), "--handoff-file", str(handoff_file),
+                        "--build-input-file", str(build_input_file),
+                        "--tested-image-file", str(tested_file),
+                        "--build-record", str(build_record_file),
+                        "--publication-file", str(publication_file),
+                        "--muse-secret", str(muse_sec),
                         "--companion-bundle", str(comp)]
                 with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
                      mock.patch.object(V.os, "chown"), \
