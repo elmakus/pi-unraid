@@ -1,12 +1,15 @@
 # M07-T04 — Baseline implementation (preserved target + reproducible R2 delivery)
 
-Date: 2026-10-04 (corrected after Main return validation)
+Date: 2026-10-04 (corrected after Main return validations, two rounds)
 Card: `M07-T04`
 Initial contribution (retained in Git history): implementation `1991306705f894839529ff619bad4f2b0e6f2755`,
 evidence `bae5214980f6f0ea21fe41fa07ce4a4096147370`.
+First correction (retained): implementation `38d704ac78c40e88dbc4d81851d3bdad4b2337bf`,
+evidence `9c3141601b3dc80ef37165f0c809b1b344bb98ac`.
 Correction basis: Main return validation `0c0337379b51f9ac305b22bba80e169092b2fa8c`
-(`evidence/M07-T04-return-validation-2026-10-04.md`) — stable contract valid,
-initial return incomplete/incorrect, no semantic result or review attempt exists.
+plus `25d1ff9f3db340dfdafdc9743bfa354055acc34e` (§"Second contribution validation",
+boundaries A/B/C) — stable contract valid, contributions incomplete, no semantic
+result or review attempt exists.
 Target observation (refreshed before correction): `main@e9476b4987290767a195a9de2ecd655de5f09605`
 (unchanged). Merge-base: `fc7a470a7330839cbaf8eaf0c2914323981d6901`.
 DONE dependency (verified unchanged): `implementation/workstreams/feature-paseo-update-distribution/results/M07-T03.md@c9d18c3f1c159684128221a6569496630d7fcbce:21dea73b5f663125cce8642486abc7cbffb506e3`
@@ -65,9 +68,13 @@ Reconciled (not verbatim) product contract/documentation:
   ownership and verified dynamic capability metadata preserved from the accepted target
   repair; ONLY the superseded real-test profile provisions replaced by the R2 fixed
   profile (`meta/muse-spark-1.3-contributor`/`max`, no fallback, Astra forbidden) with
-  pointers to R2/ADR-PUD-004/P4, and the real-model-call bullet deferred to M08-T01
-  after M07-T05 machinery. No new product decision, no frozen planning/requirements
-  change, no Card technical contract created.
+  pointers to R2/ADR-PUD-004/P4. Rollout wording R2/P4-aligned: final real validation
+  is a required gate before any accepted-channel exposure (never "if performed");
+  exposure follows validation-GREEN → guard arm/readback → channel write/readback →
+  user-triggered Update + Verify with bounded immediate acceptance/recovery; immediate
+  GREEN ends automatic rollback authority (later unrelated faults must not restore).
+  Real-model-call proof deferred to M08-T01 after M07-T05 machinery. No new product
+  decision, no frozen planning/requirements change, no Card technical contract created.
 
 Intentionally NOT imported (classified, not executed, not silently bypassed):
 
@@ -120,13 +127,19 @@ Instruction-plane bundle (existing `scripts/pi_instruction_plane.py` + `configur
 
 Explicit frozen companion binding (actual declaration, not copy inference):
 
-- `scripts/paseo_candidate_build.py` now declares the companion through the existing
-  prepare/build evidence path: `companion_bundle_identity(source_root)` computes the
-  file set, per-path modes and content digest with the installer's OWN
-  `safe_files`/`managed_mode`/`digest_source` (loaded from this builder's tooling, not
-  from the inspected source), and `prepare_context` records it as `companion_bundle`
-  in the result and the staged `.pi-unraid-candidate-build-input.json` alongside the
-  candidate/handoff/build-readback identities.
+- `scripts/paseo_candidate_build.py` now declares AND enforces the companion through
+  the existing prepare/build-input/package evidence path:
+  `companion_bundle_identity(source_root)` computes the file set, per-path modes and
+  content digest with the installer's OWN `safe_files`/`managed_mode`/`digest_source`
+  (loaded from this builder's tooling, not from the inspected source);
+  `prepare_context` records it as `companion_bundle` in the result and the staged
+  `.pi-unraid-candidate-build-input.json` AND verifies the actual staged copy via
+  `verify_companion_binding(stage_dir, companion)` before the record is written —
+  a divergent staged payload fails the real entrypoint, not just a helper test.
+  `package_tested_image(..., build_input_path=None)` retains the declaration in the
+  package evidence and checks record presence/shape, candidate linkage and schema
+  BEFORE any docker call (omitted input preserves prior CLI/workflow behavior; new
+  additive `--build-input` flag, no workflow edit).
 - `verify_companion_binding(source_root, declared)` fails closed (raises
   `CandidateBuildError`, never preserves the binding) on changed content, added/removed
   files, wrong modes, wrong digest, missing/unsafe source, or malformed declarations.
@@ -178,17 +191,21 @@ host/production action taken.
   `config/pi-agent/bin/run-llm-test.sh PROMPT` with a real prompt (would infer — never run);
   `paseo_tower_validator` Codex `/responses` smoke with a real secret (M07-T05 scope, not run);
   docker-image builds, Tower live state, production guard/channel/cutover/rollback.
-- Executed synthetic only (all with the real delivered bytes, fake `paseo`, temp roots):
+- Executed synthetic only (real delivered bytes, fake-only executables, temp roots):
   - Behavioral launcher rejection (`tests/test_llm_test_policy_contract.py`): the ACTUAL
-    repo launcher copied into a disposable symlink-free agent root; bad provider
-    (`codex-lb`), bad models (`gpt-6-luna`, `gpt-6-astra`), downgraded contributions
-    (`xhigh`, `low`), `fallback_allowed: true`, emptied `forbidden_models`, and missing
-    policy each → exit `3` (policy) / nonzero (missing) with NO dispatch to the fake
-    executable (no fallback/substitution); `--native-create-agent-args` with a bad
-    profile → exit `3` with no payload; valid policy with no binary on PATH →
-    nonzero with no dispatch (unavailable execution fails closed). Positive control
-    (valid R2 + fake `paseo`) → exit `0` dispatching exactly
-    `meta/muse-spark-1.3-contributor` + `max`.
+    repo launcher copied into a disposable symlink-free agent root; resolution runs
+    ONLY through a test-owned bindir (symlinks to the real `dirname`/`jq`/`bash` plus
+    an optional fake `paseo`), so no ambient host binary — including a real Paseo in
+    `/usr/bin` or elsewhere — can ever be reached on any host. Dispatch state is
+    snapshotted BEFORE temp-dir cleanup. Bad provider (`codex-lb`), bad models
+    (`gpt-6-luna`, `gpt-6-astra`), downgraded contributions (`xhigh`, `low`),
+    `fallback_allowed: true`, emptied `forbidden_models`, and missing policy each →
+    exit `3` (policy) / nonzero (missing) with NO dispatch (no fallback/substitution);
+    `--native-create-agent-args` with a bad profile → exit `3` with no payload;
+    valid policy with empty bindir → nonzero with no dispatch (unavailable execution
+    fails closed on every host). Positive control (valid R2 + fake `paseo`) → exit
+    `0` with an OBSERVED dispatch carrying exactly `meta/muse-spark-1.3-contributor` +
+    `max`, proving negative assertions are meaningful.
   - Downgraded/native-shape non-acceptance (`tests/test_m07_t04_policy_delivery.py`):
     `xhigh`/`high` policies fail closed in BOTH prompt and native-args shapes
     (exit `3`, no dispatch, no payload) — neither observation satisfies final gates.
@@ -198,20 +215,26 @@ host/production action taken.
     installed bundle is `0.87.1`, `node` present: actual `dist/models.js` functions
     return supported `minimal..xhigh` (no `max`) and clamp `max→xhigh`; fixture map
     equals installed map. Zero skips taken; skip branches documented in-test.
-  - Companion binding (`tests/test_paseo_companion_bundle.py`, 10 tests): identity
+  - Companion binding (`tests/test_paseo_companion_bundle.py`, 14 tests): identity
     declares sorted files + `bin→0755`/`0644` modes + digest deterministically and
     secret-free; `verify` accepts the match and rejects changed content, removed file,
     added file, wrong digest, wrong modes, malformed declarations (6 shapes), missing
-    source, and symlink sources; real source bundle binds.
+    source, and symlink sources; real source bundle binds. Integration against REAL
+    entrypoints with mocked Docker only (no image build, no daemon, no production):
+    `prepare_context` records the declaration in the staged build-input record and
+    enforces the staged copy; post-prepare staged content/file-set mutations each
+    break the binding; `package_tested_image` with a build-input record retains the
+    declaration in package evidence, and missing/malformed/schema/candidate-mismatch
+    declarations fail with zero docker calls (mock asserts not called).
   - `prepare` integration (`test_paseo_candidate_build_pipeline.py`): staged record
     carries the declared `companion_bundle` (source/files/modes/digest).
   - Targeted: `test_llm_test_policy_contract` + `test_m07_t04_policy_delivery` +
     `test_paseo_companion_bundle` + `test_paseo_candidate_build_pipeline` +
-    `test_pi_instruction_plane_contract` → **44/44 GREEN**.
+    `test_pi_instruction_plane_contract` → **48/48 GREEN**.
   - Affected incl. entrypoint/auth-shadow/catalog/Compose/relay/rpc/lifecycle/resolver →
     GREEN (see full run); `node --test tests/codex_lb_dynamic_model_catalog_core_test.mjs`
     → **1/1 GREEN**.
-  - Full: `python3 -m unittest discover -s tests -p 'test_*.py'` → **549/549 GREEN**,
+  - Full: `python3 -m unittest discover -s tests -p 'test_*.py'` → **553/553 GREEN**,
     zero skips in the corrected modules.
   - `git diff --check` → **GREEN**.
   - Secret-safe scans: `config/`+`scripts/`+`docs/`+`contracts/` grep for credential
@@ -262,9 +285,10 @@ host/production action taken.
 - Implementation commits: to be recorded by Main on commit (bounded source corrections
   in §1–§2 plus this updated evidence file only; no push, PR, Issue, or workflow-state change).
 - Evidence: this file (`implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T04-baseline-implementation-2026-10-04.md`;
-  original `bae5214` bytes retained in Git history).
-- Tests: §3 classification/results (44/44 targeted, 549/549 full + node 1/1, diff-check
-  GREEN; upstream clamp readback executed, zero skips).
+  `bae5214` and `9c31416` bytes retained in Git history).
+- Tests: §3 classification/results (48/48 targeted, 553/553 full + node 1/1, diff-check
+  GREEN; upstream clamp readback executed, zero skips; dispatch snapshots pre-cleanup;
+  fake-only PATH on every host).
 - Preserved target: §1 verbatim + reconciled-contract list, update-system intact;
   delivery/binding provenance §2+§4.
 - Limitations/gaps: §5 (effective-max unverified → M08-T01; validator/gates → M07-T05/T06;
