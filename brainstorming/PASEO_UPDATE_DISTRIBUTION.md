@@ -1,9 +1,9 @@
 # Brainstorm — automated Paseo/Pi updates and Unraid distribution
 
-Date: `2026-09-28`
+Date: `2026-10-04`
 Scope ID: `paseo-update-distribution`
-Revision: `R10`
-Status: `active`
+Revision: `R11`
+Status: `promoted`
 
 ## Problem / goal
 
@@ -18,7 +18,7 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 3. GHCR plus an Unraid Docker Template / Community Apps style UX is the preferred normal production distribution/management direction. Compose remains available for development, testing, recovery and fallback unless later evidence changes that decision.
 4. Version discovery should run daily.
 5. The update inventory must be extensible and data-driven rather than hard-coded to the initial component set. Adding a future supported tool/extension to inventory should enroll it in discovery/candidate lifecycle without creating a bespoke scheduler workflow.
-6. Codex-LB end-to-end smoke uses a dedicated user-managed API key whose server-side policy forces a low-cost smoke model; normal agent credentials are not exposed to the update pipeline.
+6. Final validation uses a real Muse Spark 1.3 Contributor/max smoke through the mandatory guarded launcher and non-inference Codex-LB integration checks. Validation consumes only dedicated operator-controlled credentials in the disposable candidate boundary; normal agent credentials are not exposed to the update pipeline. R11 supersedes the earlier real Codex-LB/low-cost-model smoke requirement.
 7. Production cutover must not be unattended because an automatic container restart could interrupt active Paseo/Pi agent work. Only a fully GREEN accepted image may become update-ready; the actual production restart/cutover is initiated by the user from the Unraid Docker UI.
 8. Keep exactly two previous known-good production images available for rollback.
 9. Do not add a separate candidate changelog/UX surface for now; keep the user-facing flow minimal.
@@ -51,11 +51,11 @@ Preferred acceptance shape before the user sees an update-ready production image
 
 - GitHub/CI mechanical build and compatibility tests;
 - a disposable candidate validation on Tower using the real production integration boundaries without mutating the active production container;
-- one minimal real Codex-LB model round-trip using a separately configurable low-cost smoke-test model when available;
+- one bounded real Muse smoke through the mandatory fixed-profile guarded launcher, plus authenticated Codex-LB metadata/auth/health checks without inference;
 - only after those checks are GREEN, publish/promote the accepted image/tag that Unraid can detect as an available update;
 - user chooses the safe moment and clicks Update in Unraid.
 
-The Codex-LB smoke is an automated protocol/integration probe, not an LLM judgment. Use a dedicated smoke-test API credential created and managed by the user in Codex-LB. That credential should be constrained server-side to a low-cost smoke-test model (and, where supported, least-privilege limits such as bounded quota/rate/output). The update pipeline receives only this dedicated credential and does not get the user's normal agent credential. The test itself should use a tiny prompt/output budget. Research should verify the cleanest supported credential/model-binding mechanism and the exact Unraid update/readback/rollback realization.
+The real Muse smoke is a bounded protocol/runtime probe, not an LLM judgment. It must execute through the exact disposable candidate's Paseo/Pi path, with fixed provider/model/contribution and no fallback as required by the mandatory environment test policy. Codex-LB checks must not send inference requests. Dedicated validation credentials remain operator-controlled and available only to the disposable candidate boundary, never to GitHub CI, images, Git or evidence; ordinary agent credentials are not provided to the update pipeline. A missing credential, unavailable fixed profile or inability to bind the probe to the exact candidate blocks acceptance rather than weakening the gate.
 
 ### Compatibility-aware partial advancement
 
@@ -108,7 +108,7 @@ The 12-lane Research wave found the selected direction feasible and refined the 
 4. Policy for a future desired release with an irreversible migration that cannot pass `A -> C -> A`.
 
 
-## Owner decisions after Research — R8
+## Owner decisions after Research — R8 (historical; smoke superseded by R11)
 
 Accepted:
 - Freshness tie-break for incomparable Pareto-maximal candidates: minimize aggregate lag from newest available versions across managed independently versioned components, with equal component weight; use a deterministic technical tie-break only after equal aggregate lag.
@@ -178,7 +178,7 @@ The human operator does not need to invoke component-management helpers directly
 - Definition/Planning should provide machine-checkable guidance/tests so an agent can discover and use the correct helper automatically without the user needing to remember registry mechanics.
 
 
-## Final challenge audit — R10
+## Final challenge audit — R10 (historical)
 
 Status: **GREEN**
 
@@ -193,4 +193,12 @@ Reconciled points:
 - Codex-LB smoke key provisioning remains an operator prerequisite at implementation/deployment time, not an unresolved Brainstorming choice;
 - irreversible future persistent-state migration remains a separately handled maintenance class rather than weakening the ordinary rollback contract.
 
-No additional adaptive-grilling round has material expected decision value. The exact current promotion subject is `paseo-update-distribution@10`.
+No additional adaptive-grilling round had material expected decision value at R10. Its promotion subject was `paseo-update-distribution@10`.
+
+## Accepted validation correction and promotion — R11
+
+On 2026-10-04 the user explicitly approved the bounded correction proposed at the M08-T01 authority stop: real inference validation through the mandatory Muse Spark/max guarded path, with Codex-LB validation restricted to non-inference checks. This approval applies to this exact R11 scope delta; it is not approval for production restart, cutover, inference-policy bypass, or later premium gates.
+
+Unchanged: daily GitHub-hosted preparation; immutable build-once/GHCR identity; Tower disposable validation; no ordinary-agent credentials in the update pipeline; direct A -> C -> A state-transition proof; exact transaction-guard pre-arm before accepted-channel exposure; user-chosen Unraid cutover; bounded immediate RED rollback and cessation after GREEN; current plus exactly two previous known-good identities; narrow compatibility search and managed-component lifecycle.
+
+Final challenge audit: **GREEN**. The earlier unresolved smoke-provider choice is now resolved. Credential admission, exact candidate-bound launcher realization, profile availability and actual test results are implementation/acceptance inputs, not waived gates or claims of success. The exact authorized promotion subject is `paseo-update-distribution@11`; Definition R2 owns conversion into requirements/decision authority.
