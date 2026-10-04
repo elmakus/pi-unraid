@@ -745,3 +745,175 @@ optional fourth-probes script was used as diagnostic convenience only.
 - Returns to Main for classification/reconciliation and later fresh
   independent review; not a workflow stop, result, verdict, DONE, or
   successor permission. This context cannot later review its own subject.
+
+## Correction 5 — fail-closed safety contribution [INCOMPLETE]
+
+Date: 2026-10-04. Exact source/tests/current product documentation commit:
+`e965948e146c671745dcc7e73a3b3f4f90d6a348` (unpushed).
+
+Implementation contribution only: NOT an accepted result, Review verdict,
+workflow stop or authorization to run a real test. FULL unchanged M07-T05
+acceptance remains **INCOMPLETE**. Passing tests do not close the remaining
+realization/binding/cleanup gates. No general unsupported-max impossibility or
+non-remediable supported-source blocker is claimed.
+
+### Recovery and preservation
+
+Recovered current environment policy, project-recovery/bootstrap, legal feature
+worktree, PROJECT/manifest/pre-execution pointers, Router/Execution/Continuation,
+stable Card/technical contract, every named authority, prep reconciliation,
+exact M07-T04 DONE/R01 GREEN and the complete Fifth correction. Independently
+refreshed remote default workflow `d3ab917f02e4de91b7dbb17915c2287c2387333e`, then
+cloned it to a disposable directory and byte-compared Router/Execution/Continuation
+to the supplied snapshot. `python3 -m tools.router` selects execution/M07-T05,
+no handoff (`python` is absent on this host; no standalone-script invocation).
+
+Refreshed remote main `e9476b4987290767a195a9de2ecd655de5f09605` and remote feature
+`8a0553079abac233b4ddc88ef4ce666cfbf3a661`. Clean launch was `12f2de8` on
+`feat/paseo-update-distribution`. Seven permitted source/test/doc paths changed;
+this appended report is the sole evidence change. Integration worktree remains
+clean/read-only. Board119, manifest, stable acceptance blobs, all 22 exact DONE
+result blobs and last terminal GREEN bindings, requirements/decisions/planning
+and results/reviews are unchanged. Preservation audit initially assumed every
+review used lowercase/nested V2 fields, exit 1; corrected mixed-schema audit
+verifies all 22 subjects, exit 0. No result/Review/Board finalization, successor,
+delegation or push occurred.
+
+### Implemented safety changes (specific gates, not FULL closure)
+
+- Before inference-capable dispatch, candidate-daemon `provider models pi
+  --thinking --json --home` requires exactly one
+  `meta/muse-spark-1.3-contributor` item with typed `thinkingOptionIds` including
+  `max`. Missing/malformed/ambiguous catalog or unavailable max blocks before
+  guarded prompt. Known max-null/clamped configuration must not first issue an
+  xhigh request and then reject it. Catalog capability is necessary, NOT sufficient
+  selected-process/effective/wire proof.
+- Failed startup and already_running fail closed. Typed `daemon start --json`
+  must report started and home/pid/listen must agree with status. Require explicit
+  running/reachable plus worker PID/server identity/Node/provider details. Reread
+  the same daemon binding immediately before guarded dispatch; replacement fails.
+  This prevents false inheritance acceptance but does NOT implement missing
+  controlled pre-staged startup/auth/selection.
+- Observer agent_end without negative stop reason emits neutral ended, not done;
+  empty messages plus settlement remain UNKNOWN. Aggregation requires one ordered
+  request/response exchange, valid 2xx, exact model/max, qualified completed turn
+  and final settlement. Duplicate/mixed/contradictory/malformed/reversed exchanges
+  fail; arbitrary done/success cannot manufacture completion; abort/error is not
+  overwritten. Agent-inspection model and ID comparisons are exact.
+- Publication tested-image bytes are checked; prepared/tested candidate and handoff
+  links and publication candidate/handoff/build links cannot silently omit hashes.
+  Require builder_ensure GREEN, command=build, accepted IDs and complete companion
+  declarations across prepared/build/tested. Omitted real-mode CLI companion derives
+  from the frozen prepared declaration and is verified. Pulled image candidate label
+  and Env must match resolution. Full producer/source/used-payload binding is NOT
+  claimed complete.
+- Acquired container/network IDs require equality, never prefixes. Every exec/cleanup
+  container proof checks configured UID:GID, readonly root, required /tmp and /run
+  tmpfs flags, bind mount type, no duplicates/extra destinations and exact secret
+  sources. Exec remains immutable-ID addressed. Network/work/partial effects and
+  honest cleanup accounting remain open.
+- Codex transport positively permits only implemented GET /v1/models and /health,
+  with redirects preserving exact check path and scheme/host/port. Arbitrary /v1/*
+  is not assumed non-inference. Synthetic Docker's Codex boundary executes shipped
+  argv with only namespace mount translation, no model/secret/base substitution.
+- Shell markers are comments, not nonexistent commands. Product docs were rewritten
+  coherently around current behavior/open gaps, not append-only completion claims.
+  Historical evidence is preserved. No observer/success layer, profile/fallback
+  relaxation or companion-delivery change was introduced.
+
+### Source-qualified interface facts (metadata/source reads only)
+
+Installed packages: @getpaseo/cli and @getpaseo/server 0.9.2;
+@earendil-works/pi-coding-agent 0.87.1. Public locators under
+`/usr/local/lib/node_modules/`:
+
+- CLI `@getpaseo/cli/dist/commands/provider/models.js`,
+  `sha256:259e92f5ac22bf0acdfd47485fc8db014c842ad0dd8db1cebb1b970c697adeee`:
+  emits id/thinkingOptionIds/defaultThinkingOptionId from daemon catalog.
+- Server `@getpaseo/server/dist/server/server/agent/providers/pi/agent.js`,
+  `sha256:7faa688227512c81e8e5ac18b80c7719e85984a8e0b9b7c55f46b3eb15a40ee3`:
+  resolvePiThinkingConfig excludes null mappings; fetchCatalog calls
+  getAvailableModels(null) without prompt. PI_COMMAND/PI_ACP_PI_COMMAND and
+  runtimeSettings.command affect executable selection, so another command -v
+  invocation cannot prove daemon selection.
+- Corresponding `pi/cli-runtime.js`,
+  `sha256:64fe167d66ecd8a6429a8111bc5e289a9be564b08bdc8db9834ecd950c167ca9`:
+  getAvailableModels/getState are non-inference RPC; prompt is inference-capable.
+- CLI `dist/commands/daemon/start.js`,
+  `sha256:0f78c30f71d905b75f182d5befcc505894316a1d35a34b5d1446e4f7d3100b5f`:
+  typed started/already_running; status.js exposes independent connected/live facts.
+  An existing process cannot inherit a later loader's auth.
+- Pi `dist/core/extensions/types.d.ts`,
+  `sha256:14d00e645b453f4361440da6fcda86ed6cef9a8fc36d483a621a0250e0d4a396`:
+  response notification precedes stream consumption; turn_end has qualified
+  outcome; agent_end has messages; final agent_settled is outcome-less.
+
+These facts support preflight/negative gates, NOT a general unsupported-realization
+blocker or effective-profile acceptance. No installed auth/credential value read.
+
+### Executed synthetic verification and limitations
+
+Final runs used PYTHONDONTWRITEBYTECODE=1 and disposable PYTHONPYCACHEPREFIX;
+explicit test py_compile output is confined there. Node executes shipped observer
+under fake SDK, HTTP is localhost-only, Docker mocked, guard PATH disposable fake
+Paseo only. Classification: pure source/catalog/clamp readback, static readback
+harnesses, mock-only external subprocesses and disposable synthetic secrets.
+No real Paseo/Pi/provider inference entrypoint, auth/admission, installed HOME/
+runtime/harness mutation, live Docker/Tower/host, image/CI/publication or production
+operation occurred. Tests still have incomplete internal reconstruction; passing
+counts are regression evidence, NOT full meaningful-entrypoint acceptance.
+
+Final exact-source commands/counts, direct exits retained:
+
+- `python3 -m unittest tests.test_paseo_tower_validator tests.test_m07_t05_validator_adapter tests.test_m07_t05_fail_closed`:
+  **54 tests, exit 0, zero skips**.
+- Same eight affected policy/delivery/companion/build/transaction/instruction/
+  runtime/image modules as prior contributions: **72 tests, exit 0, zero skips**.
+- `python3 -m unittest discover -s tests -p 'test_*.py'`:
+  **607 tests, exit 0, zero skips** (594 prior + 13 new).
+- `node --test tests/codex_lb_dynamic_model_catalog_core_test.mjs`:
+  **1 test, exit 0, zero skips**.
+- Changed-file AST and high-confidence secret-pattern scan: exit 0;
+  diff check: exit 0; no untracked bytecode. No raw tokens, headers, bodies,
+  dependency tails or secret values retained in this report.
+
+Initial targeted run: 41 tests, exit 1 (one failure/two errors): legacy expectations
+permitted unqualified done, omitted daemon fields and arbitrary same-origin
+/v1/other redirects. Corrected expectations, not waived gates. Intermediate
+52-test/full runs were superseded by final exact-source 54/72/607 gates.
+
+New genuine-validate negatives assert no guarded dispatch for unsupported/absent/
+ambiguous max, failed/already-running startup, omitted live details, truncated IDs
+and independently changed producer links/phase/companion. Actual staged observer
+executes empty messages negative. Current-ownership matrix challenges root user,
+volume mounts, writable root, missing tmpfs, duplicate mounts and truncated ID.
+Omitted-companion positive derives and verifies frozen declaration. Fake-tested
+real flags remain structural diagnostics only; fixture mode leaves real gate false.
+
+### Remaining FULL unchanged acceptance (not deferred missing M08 code)
+
+1. Implement controlled pre-staged candidate startup, supported daemon config/env,
+   actual daemon-selected Pi/process proof and private auth realization. Existing
+   image startup can create upstream daemon; rejecting already_running is safe but
+   not complete realization. Positive fake still returns canned startup/reconstructs
+   guard plumbing, not a separate daemon selecting/spawning actual fake Pi.
+2. Freeze all used observer/loader/Codex/helper behavior and relevant config through
+   existing prepare/build/package, with complete actual file/content/mode readback.
+   Generated helpers remain outside the 10-file companion. Finish full producer/
+   source/archive/config linkage and actual-producer positive fixtures with only
+   external effects fake; hand-authored chain is not acceptance proof.
+3. Finish independently bound selected provider/workspace/process/owned-child
+   observations, usable created-agent references under uncertain inspection and
+   per-call correlation. Single-exchange aggregation is conservative protection,
+   not full runtime provenance. Catalog max alone cannot prove effective/wire max.
+4. Finish positive not-found vs failed inspect, partial/uncertain acquisition,
+   full network/work identity/security and honest cleanup. Old cleanup can swallow
+   failed removals/unverified mounted work; safe complete cleanup is NOT claimed.
+5. Replace remaining harness reconstruction with exact shipped argv and namespace-only
+   translation, separate daemon/Pi lifecycle and complete race/absence/partial checks.
+   Do not treat 607 passing tests or fake real flag as closure of missing mechanics.
+
+These are remediable SAME-Card implementation obligations, not missing credentials,
+user inputs or permission for a bypass. No result/Review should be frozen from this
+INCOMPLETE contribution. Main alone classifies/reconciles/reroutes. This context
+cannot independently Review the source it materially repaired.
