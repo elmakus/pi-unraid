@@ -917,3 +917,177 @@ These are remediable SAME-Card implementation obligations, not missing credentia
 user inputs or permission for a bypass. No result/Review should be frozen from this
 INCOMPLETE contribution. Main alone classifies/reconciles/reroutes. This context
 cannot independently Review the source it materially repaired.
+
+## Correction 6 — frozen payload, strict readback and honest cleanup [INCOMPLETE]
+
+Date: 2026-10-04. Exact source/tests/current product-documentation commit:
+`f10e29b6cb0e6e46cb69c8928fdccf8f6c9a51ab` (unpushed).
+
+**FULL unchanged M07-T05 acceptance remains INCOMPLETE.** This is an unsuccessful
+full-Card producing return, not a selected-subset completion, accepted result,
+independent Review, workflow stop or authorization for real execution. I did not
+finish the requested coherent daemon/process/owned-agent/provenance realization
+and source-faithful external fixture. No genuine unsupported-realization blocker,
+missing permission/credential or runtime safety fuse is established by this
+return. Passing regression counts cannot compensate for those missing mechanics.
+Main must not freeze Review or accept a semantic result from this contribution.
+
+### Independently recovered authority and preservation
+
+Read current environment AGENTS, project-recovery/bootstrap, feature PROJECT and
+manifest, canonical Router/Execution/launch refresh/Continuation, all router-selected
+records, unchanged M07-T05 Card and selective technical contract, every named
+Card authority/P4 and exact M07-T04 DONE result/R01 GREEN evidence. Verified
+`6329cf488cebaf955a49cbace71d87613381dc11:results/M07-T04.md` (workstream-relative)
+resolves to `c45b3f707b1246e195c9138d027cbb1b05b9b112`.
+
+Fresh `git ls-remote --symref` and a separate disposable default-branch clone of
+`elmakus/project_workflow_v2` both identify
+`d3ab917f02e4de91b7dbb17915c2287c2387333e`; selected Router/Execution/Execution Prep/
+Continuation/router.py bytes match the supplied read-only snapshot. Invoked the
+router from its package root with PYTHONDONTWRITEBYTECODE=1: execution/M07-T05,
+handoff none. Fresh target/remote feature are respectively `e9476b4` and `8a05530`.
+Clean legal launch was `a6ef5141b5e190de5720d79b6451625a6f541577`; all project work
+used the absolute legal feature worktree, never integration/main.
+
+Fourteen source/test/current-doc/delivery paths changed. Board119, the manifest,
+stable Card/contract, requirements/decisions/planning/Research, results/reviews and
+Main's return-validation evidence are unchanged. Reverified all 22 DONE result
+blobs against their immutable bindings. M07-T05 remains in_progress, M08-T01
+planned; no successor/result/attempt/state write, delegation or push occurred.
+Integration worktree remains clean. Initial commit attempt failed for absent Git
+author configuration (exit 128); corrected with invocation-scoped `git -c` identity,
+not installed/global configuration mutation.
+
+### Implemented changes and their limits
+
+- Docker's upstream entrypoint/healthcheck is overridden with a non-daemon hold
+  process before staging. Candidate code starts only through the later loader/
+  daemon path. A fixed PATH and absolute PI_COMMAND are supplied; observed Pi
+  resolution must be `/usr/local/bin/pi`. Status must actually advertise Pi, not
+  merely a nonempty provider list. These are prerequisites, NOT actual daemon-
+  selected executable/descendant/process proof; that remaining gap is explicit.
+- Loader, actual ESM observer and the two shared Codex programs are now frozen
+  `config/pi-agent` companion members, not host-generated post-staging additions.
+  Existing prepare/build/package semantics carry `validation_sources` for nine
+  used host-side source/helper files. Producer linkage validates its exact key set
+  and SHA types; companion verification compares executing/source bytes. Actual
+  staging requires the exact declared file set and actual modes; candidate readback
+  compares every declaration member's hash/mode, not just two files/profile fields.
+  Old declarations/digests cannot silently gain this payload. A fresh real artifact
+  remains M07-T07; full source-commit/producer-chain qualification remains incomplete.
+- Shipped observer is opt-in and inert for ordinary agents; absent test ID/private
+  witness reference registers no handlers. Generated helper bytes are checked
+  against frozen delivery. Strict witness readback validates every row before
+  aggregation: malformed JSON/types, wrong subjects, unknown fields/kinds, empty
+  rows or exceeded bounds fail instead of being filtered away. Missing readback
+  stays UNKNOWN. Existing ordered exchange/qualified-terminal negatives remain.
+  Selected Meta/Pi/process/workspace and actual owned-creation correlation are NOT
+  thereby proved; title lookup/usage/idle is not full success evidence.
+- Exact positively identified Docker absence is required before network/container
+  creation; generic nonzero inspect/auth/permission/transport failure is not absence.
+  Existing containers are never reclaimed without acquisition authority. Work
+  device/inode/nonce are checked before exec/deletion, with symlink markers rejected.
+  Network bridge/local/security properties, endpoint membership, acquired full ID
+  and container NetworkID are checked at execution boundaries. Acquired-reference
+  files exist before any possible object creation and are updated with returned IDs.
+- Failed/uncertain cleanup now has explicit bounded fixed summaries and recovery
+  locators. Failed removal, replaced/unverified objects or possibly mounted work
+  cannot coexist with complete PASS or structural real=true. UNKNOWN is preserved;
+  only verified acquired immutable objects are removal targets. Dedicated private
+  input is untouched and must be owned by the candidate UID; ordinary auth/HOME
+  input roots are rejected before content reads. Helper dispatch summaries no
+  longer retain dependency stdout/stderr tails. Partial-acquisition reconciliation
+  and the complete race matrix still require qualification.
+- Added genuine-validate regressions for malformed/wrong-subject readback, absent
+  Pi provider, failed removal and failed absence. Added frozen-source mutation,
+  shipped observer opt-in, generated/delivered byte parity and exact hold-argv
+  checks. Existing harness metadata/daemon reconstructions remain explicitly
+  unqualified; no canned success is promoted to full acceptance.
+
+### Exact stable-source verification (synthetic only)
+
+Final runs used PYTHONDONTWRITEBYTECODE=1 and disposable PYTHONPYCACHEPREFIX,
+including explicit py_compile. External Docker/Paseo/provider execution is fake;
+HTTP is localhost-only, secrets disposable synthetic values. Actual guard/loader,
+observer under fake SDK events and Codex programs are executed by the existing
+harness. Existing pure producer prepare/build/package fixtures are exercised in
+affected/full suites, but the validator's positive six-record fixture is still
+hand-authored and is NOT full actual-producer-chain acceptance.
+
+Stable source was no longer edited during the final run. Direct command exits
+were separately captured; no tail pipeline hid failures:
+
+- `python3 -m unittest tests.test_paseo_tower_validator tests.test_m07_t05_validator_adapter tests.test_m07_t05_fail_closed tests.test_m07_t05_readback_cleanup`:
+  **64 executed, exit 0, zero skips**.
+- `python3 -m unittest tests.test_llm_test_policy_contract tests.test_m07_t04_policy_delivery tests.test_paseo_companion_bundle tests.test_paseo_candidate_build_pipeline tests.test_paseo_transaction_guard tests.test_pi_instruction_plane_contract tests.test_paseo_runtime_contract tests.test_paseo_child_image_contract`:
+  **72 executed, exit 0, zero skips**.
+- `python3 -m unittest discover -s tests -p 'test_*.py'`:
+  **617 executed, exit 0, zero skips**.
+- `node --test tests/codex_lb_dynamic_model_catalog_core_test.mjs`:
+  **1 executed, exit 0, zero skips**.
+- Changed-file AST/explicit py_compile: **11 Python files, exit 0**, cache outside
+  the repository. Node observer syntax, loader shell syntax, diff check, no derived
+  repository bytecode and bounded high-confidence scan of **14 changed files**:
+  exit 0. The scan is not proof of total secret absence.
+
+Intermediate runs are not hidden: initial 74-test combined run exited 1 (8
+failures/4 errors), exposing strict-source declaration, old Pi/stale-row expectations
+and a fake boundary that mistook shell file readback for Python execution. Later
+81-test combined run passed. An intermediate 61-test targeted run passed while
+72 affected failed a source-syntax secret-pattern check; its full run also failed
+because source fingerprints were changed while the background run was active.
+Those mixed-source runs are NOT exact-subject evidence and were superseded by the
+stable 64/72/617/1 runs above. Source syntax was corrected rather than weakening
+the secret-scan contract. Historical report bytes remain intact.
+
+### Agent-findable pinned source facts, not a general impossibility claim
+
+Official installed source inspected without inference/auth/ordinary-credential
+reads, under `/usr/local/lib/node_modules/`:
+
+- Paseo server 0.9.2 `dist/server/server/agent/providers/pi/agent.js`, SHA256
+  `7faa688227512c81e8e5ac18b80c7719e85984a8e0b9b7c55f46b3eb15a40ee3`:
+  resolvePiThinkingConfig excludes null mappings; PI_COMMAND/PI_ACP_PI_COMMAND
+  and runtimeSettings.command can select the executable.
+- Corresponding `runtime.js`, SHA256
+  `8a17e41b8b04f457580334b61831a2d83f6c1ae4bac76d35f73f5cec5739dcd2`:
+  supported replace-command selection and session/runtime env overlay.
+- Pi-ai 0.87.1 `dist/providers/data/meta.json`, SHA256
+  `1b650998c0f9b404246cde1d353105e6d825d8a7292d8f8c43e85dd3402dc130`:
+  exact Contributor max=null; non-Contributor max=max is a different model.
+- `dist/models.js`, SHA256
+  `75fa33149fb608bc4a7b7a0586c8ca8f0024465d580091b0c426c0baf3fbc80a`:
+  getSupportedThinkingLevels excludes max and unmodified clamp maps requested
+  Contributor max to xhigh. No override/substitution/fallback was adopted.
+- `dist/providers/meta.js`, SHA256
+  `f0ba7b97a407336f30cfb230c4c32bece9e0fd23b0ebdbdae11503374e5ab44c`:
+  supported META_API_KEY/native OAuth. This does not prove actual private daemon/
+  Pi auth inheritance; that realization still needs integrated qualification.
+
+These are precise known default-path negatives and supported-interface facts,
+not proof that every supported realization is impossible, a new Research result,
+or permission to defer missing M07-T05 code to M08.
+
+### Exact remaining full-Card mechanics
+
+1. Source-qualified private daemon config/auth inheritance and actual selected Pi/
+   process/connected-server correlation; scrub/bind every later selector and effect.
+2. Complete actual producer schema/status/type/byte/source/shared identity proof,
+   including source-commit/configuration linkage and positive chains from the real
+   producers with external effects only faked.
+3. Supported actual owned creation/readback, selected provider/Pi/process/workspace
+   and effective request/response/qualified final completion correlation. Preserve
+   actual IDs/references on uncertain creation/inspection, not anticipated titles.
+4. Finish partial/uncertain acquisition readback and all current-isolation/race/
+   cleanup cases with source-faithful external fixtures. Conservative preservation
+   alone is not full lifecycle qualification.
+5. Separate fake daemon selecting/spawning fake Pi from inherited/scoped env;
+   execute exact shipped argv/internal shell/guard/loader/observer/non-inference
+   logic with namespace translation only. Replace remaining internal metadata/
+   argv/witness reconstruction and qualify the full omission/mutation matrix.
+
+These remain remediable SAME-Card coding obligations. No user input, credential or
+new approval is requested; no canonical stop is asserted. Main retains acceptance,
+reconciliation and Review freezing. This context materially produced the source
+and cannot independently Review it. The canonical route remains Execution/M07-T05.
