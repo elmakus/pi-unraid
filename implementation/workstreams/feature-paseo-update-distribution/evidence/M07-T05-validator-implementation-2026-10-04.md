@@ -364,3 +364,92 @@ remains 119, M07-T05 `in_progress`, no result/Review attempt. No push.
 - Completion returns to Main for classification/reconciliation; not a workflow
   stop, result, or verdict. Later independent reviewer must be another
   non-producing context.
+
+---
+
+## Correction 2 (2026-10-04) — coherent rewrite for executable-path findings
+
+Old bytes above stay in Git history (`9abd0fc`, `5942df3`, `d937e8f`,
+`81dd999`). This corrects Main's second validation
+(`evidence/M07-T05-return-validation-2026-10-04.md` §“Second contribution”,
+checkpoint `734a6dd`) inside the SAME valid Card/contract. Board 119,
+M07-T05 `in_progress`, no result/attempt. No push. All 22 DONE preserved.
+
+### Recovery and scope
+
+- Legal worktree `/home/paseo/projects/pi-unraid-paseo-update-distribution`,
+  `feat/paseo-update-distribution` (main worktree read-only). Current Main
+  checkpoint `734a6dd93e9515292f8c9add6d880b897fc358e7` (unpushed).
+- Recovered: `project-recovery` + bootstrap, `PROJECT.md`, default
+  `elmakus/project_workflow_v2@d3ab917` ROUTER + EXECUTION, WORKSTREAM,
+  unchanged `cards/M07-T05.md`, every named authority, exact DONE
+  `results/M07-T04.md@6329cf488cebaf955a49cbace71d87613381dc11:c45b3f707b1246e195c9138d027cbb1b05b9b112`,
+  `contracts/PASEO_R2_CANDIDATE_VALIDATION.md`. No Card/contract/authority/
+  state/history/Main-validation writes. Profile `pi/meta/muse-spark-1.3-contributor/max` kept.
+
+### Exact source/provenance
+
+- Implementation commit: `f5a23466767ad4e4828493077858a9fd8356ee8c` (unpushed):
+  `scripts/paseo_tower_validator.py` (rewrite),
+  `scripts/paseo_candidate_muse_adapter.py` (rewrite),
+  `scripts/paseo_codex_candidate_check.py` (new, ONE shared program),
+  `tests/test_paseo_tower_validator.py` (genuine harness),
+  `tests/test_m07_t05_validator_adapter.py` (rewrite),
+  `docs/PASEO_CANDIDATE_VALIDATION_M07_T05.md` (Correction 2).
+  `paseo_codex_noninference.py` unchanged (shared transport already sound).
+- Provenance recomputed: guard
+  `sha256:7fd922da42fcebfb6ed9e83f1f3471ed5365ea7961bec2ca25cdc9fd62827e33`,
+  policy `sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40`,
+  companion `sha256:a51036c56f67012758457ade0c01770e355767ce566cc2fd9e2a84a9cc437119`,
+  candidate `sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69`
+  (Paseo 0.9.2 / Pi 0.87.1 from frozen components).
+- Meta auth source: `pi-ai` `providers/meta.ts` (`META_API_KEY` + native
+  OAuth) and `env-api-keys.ts` (`meta: "META_API_KEY"`); payload semantics
+  from `sdk.js`/`extensions/types.d.ts`/`openai-responses` (`payload.model`,
+  `payload.reasoning.effort`, response `status`) and `models.js` clamp.
+
+### Reachable behavior (executing fakes, isolated so real inference never occurs)
+
+- `paseo_codex_candidate_check.py --mode catalog|health` compiles
+  (`py_compile`) and runs against a local 127.0.0.1 fixture (counts/health,
+  auth-denied/malformed/redirect-inference classified 0/20/21/22/23).
+- Genuine validator API AND CLI through staged guard/check/witness + fake
+  Paseo/Pi lifecycle to completed shared-subject mechanical PASS (fixture
+  real false; real-mode structural `real_validation_satisfied: true`
+  proven under fakes). Execs run actual staged bytes (guard `bash`,
+  `sha256sum`/`cat` compared, check program via subprocess, fake `paseo`
+  writing request/response/terminal witness).
+- Negatives (all fail required gates + assert no disallowed calls before
+  cleanup): syntax failure, false guard hash, malformed/missing chain
+  (incl. `build_record` used), native-export-without-dispatch, false/caller
+  witness, aggregation (response-only UNKNOWN, clamp FAIL, missing terminal
+  UNKNOWN), empty META value, wrong/missing IDs/nonce/source→dest/modes/
+  network, label-less network, readback failure, timeout/UNKNOWN with exact
+  owned refs + no resend. Seven old probes stay closed.
+
+### Counts/exits (honest, preserved)
+
+- Targeted: 28 tests OK, exit 0 (validator 6 + adapter/matrix/probe 22).
+- Affected (8 modules): 72 OK, exit 0. Full: 581 OK, exit 0, 0 skips.
+- Node catalog core: GREEN, exit 0. Diff: only the six permitted paths;
+  no Card/contract/authority/state/history writes. Secret scans: only
+  `*_API_KEY=` names + synthetic `fixture-*` in disposable temps; no raw
+  secrets/bodies/prompts/tokens.
+
+### Limits (not waived)
+
+- Fixture/rehearsal never satisfies the real gate. Real guarded inference,
+  dedicated credential admission, live daemon bring-up, and on-wire max
+  proof remain M08-T01. Unsupported/unknown fails closed without fallback
+  or provider bypass; missing supported interfaces would return facts for
+  Research/Planning (none needed — all six findings implemented with
+  quoted sources above). No eligibility/production authorization claimed.
+
+### Return
+
+- Implementation SHA: `f5a23466767ad4e4828493077858a9fd8356ee8c` (unpushed).
+- This report path:
+  `implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-validator-implementation-2026-10-04.md`
+  (correction commit/blob below; secret-safe).
+- Returns to Main for classification; not a stop/result/verdict. This
+  context cannot later review its own subject.
