@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 116
+revision = 117
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -511,7 +511,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07
 
 [[cards]]
 id = "M07-T04"
-status = "in_progress"
+status = "done"
 
 [cards.contract]
 class = "task_card"
@@ -530,7 +530,7 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07
 [[jit_triggers]]
 id = "after-M07-T04-materialize-M07-T05"
 after_card = "M07-T04"
-state = "waiting"
+state = "satisfied"
 condition = "M07-T05 exact-candidate guarded validator and non-inference Codex-LB implementation require the actual independently GREEN M07-T04 source/policy/provider/bundle delivery result. Keep the real gate unsatisfied; materialize only after the exact DONE result and its delivery/profile limitations are refreshed."
 
 [[cards]]
