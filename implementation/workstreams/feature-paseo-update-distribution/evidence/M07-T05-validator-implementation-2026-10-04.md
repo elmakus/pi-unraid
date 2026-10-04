@@ -239,3 +239,128 @@ Exit statuses preserved; no skips taken.
   closed without replay).
 - Completion is a return to Main for classification/reconciliation and
   later fresh independent review; not a workflow stop, result, or verdict.
+
+---
+
+## Correction (2026-10-04) — bounded repair for Main return-validation A-E
+
+This section is appended by the fresh implementation/repair context. Old bytes
+above remain in Git history (implementation `9abd0fc`, report `5942df3`). This
+is a correction contribution, not a new task/contract, result, or verdict. Board
+remains 119, M07-T05 `in_progress`, no result/Review attempt. No push.
+
+### Legal scope and recovery
+
+- Legal worktree: `/home/paseo/projects/pi-unraid-paseo-update-distribution`,
+  branch `feat/paseo-update-distribution`. Default `main` worktree untouched
+  (read-only/outside write scope).
+- Launch checkpoint: `6b4bef92e48ddd4d52b062634fa8790e840292ba` (unpushed).
+  Independent recovery: `project-recovery` SKILL + bootstrap, `PROJECT.md`,
+  default-branch `elmakus/project_workflow_v2@d3ab917f02e4de91b7dbb17915c2287c2387333e`
+  (`ROUTER.md` → `EXECUTION.md` common Execution), workstream root
+  `implementation/workstreams/feature-paseo-update-distribution`
+  (`WORKSTREAM.toml`, `TASK_BOARD.toml` rev 119, `cards/M07-T05.md`, exact DONE
+  `results/M07-T04.md@6329cf488cebaf955a49cbace71d87613381dc11:c45b3f707b1246e195c9138d027cbb1b05b9b112`,
+  `contracts/PASEO_R2_CANDIDATE_VALIDATION.md`,
+  `evidence/M07-T05-prep-reconciliation-2026-10-04.md`, and most importantly
+  Main's `evidence/M07-T05-return-validation-2026-10-04.md` at `6b4bef9`).
+- P4 approval/A/B/C in `PLANNING.toml` + GREEN `PLAN_REVIEW.toml`, not frozen-plan
+  prose. All 22 DONE preserved; stable Card/technical contract unchanged.
+- Unaccepted contribution source `9abd0fcbb3e1ba4a7f3cf50d3b76d734d4aa19cc`;
+  report `5942df3ec5ac73817f94a000ab86affc83fffbf6:12e7f82056d236d043aa7ba834e5393037c6c28c`
+  (reported 594 tests are not acceptance; Main reran 41 OK + 7 probes).
+
+### Exact source and provenance (recomputed)
+
+- Corrected implementation commit: `d937e8f7ade60ee284f29d7dee42259318ce9755`
+  (six paths: `scripts/paseo_tower_validator.py`,
+  `scripts/paseo_codex_noninference.py`,
+  `scripts/paseo_candidate_muse_adapter.py`,
+  `tests/test_paseo_tower_validator.py`,
+  `tests/test_m07_t05_validator_adapter.py`,
+  `docs/PASEO_CANDIDATE_VALIDATION_M07_T05.md`; unpushed).
+- Pinned: Paseo `0.9.2`
+  (`ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136`),
+  Pi `0.87.1` (`sha512-m8ArJUtVcQMSe1lLE/Ei7vX/JV7O39sWmWBsXV2NOU70F0qCp8GubA24pT3LnwTmM6LL2xV80/h6sQg85n69ew==`),
+  candidate `sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69`.
+- Guard `sha256:7fd922da42fcebfb6ed9e83f1f3471ed5365ea7961bec2ca25cdc9fd62827e33`
+  (`0755`); policy `sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40`
+  (verbatim, no modification).
+- Companion `config/pi-agent` recomputed
+  `source_digest sha256:a51036c56f67012758457ade0c01770e355767ce566cc2fd9e2a84a9cc437119`
+  (unchanged; any future guard change must propagate via prepare/build/package).
+- Negative facts preserved: Contributor `thinkingLevelMap.max=null`
+  (pinned `meta.json`), unmodified `max→xhigh` clamp (`pi-ai/dist/models.js`);
+  `before_provider_request`/`after_provider_response` are extension events
+  requiring explicit handlers (`dist/core/sdk.js`, `extensions/types.d.ts`,
+  `onPayload`/`onResponse` in compat chunks) — source lead only, not proof.
+  Witness extension records only nonsecret `provider/model/thinking/status/count`.
+
+### Reachable behavior (genuine entrypoints, fake-only boundaries)
+
+- `scripts/paseo_tower_validator.validate` (integrated product path):
+  fixture `PASS` with `real_validation_satisfied:false`,
+  `codex_no_inference:PASS`, no `/responses`; real mode missing → `BLOCKED/FAIL`;
+  foreign daemon/Pi → `FAIL`; wrong running `Image` → `FAIL`; absent
+  `RepoDigests` → `FAIL`; foreign secret-only → preserved (`0 run/rm`);
+  opaque echoes redacted; `UNKNOWN` preserves `owned_reference` + container.
+- `scripts/paseo_codex_noninference.run_all`/`check_catalog`/`check_health`/
+  `parse_*`/`assert_safe_redirect`/`sanitize_message`: `PASS`/`FAIL`/`BLOCKED`/
+  `SKIP` without inference; redirects validated (no inference traversal, no
+  cross-host auth forward); bodies bounded in-memory, never persisted.
+- `scripts/paseo_candidate_muse_adapter.run_guard_dispatch` (real guard bytes
+  via disposable agent root + fake-only `PATH`): positive dispatch observed
+  (`meta/muse-spark-1.3-contributor` + `max` marker); missing policy →
+  `AdapterBlocked` (no fabrication); `classify_effective_profile`/`outcome_for_fixture`
+  clamp/unknown fail closed without replay; `read_dedicated_muse_secret` +
+  `write_effective_witness_extension`/`parse_effective_witness_file` provide
+  dedicated Muse plumbing + secret-free witness.
+- CLI now exposes `--candidate-file`/`--muse-secret`/`--companion-bundle`/
+  `--daemon-info`/`--pi-info` for typed frozen inputs (expected versions from
+  candidate, not host pins).
+
+### Counts and exits (worker-observed, honest, preserved)
+
+- Targeted: `tests.test_paseo_tower_validator` + `tests.test_m07_t05_validator_adapter`
+  (incl. new `MainSevenProbesTests` 10 tests) → `Ran 51 tests … OK`, exit 0, 0 skips.
+- Affected (guarded-policy/instruction-plane/companion/build/runtime, 8 modules):
+  `Ran 72 tests … OK`, exit 0.
+- Full classified Python: `discover -s tests` → `Ran 604 tests … OK`, exit 0, 0 skips.
+- Node: `codex_lb_dynamic_model_catalog_core_test.mjs` → GREEN, exit 0.
+- Diff: only the six allowed source/test/doc paths; no Card/contract/plan/
+  requirement/decision/result/Board/manifest/Research/review writes.
+- Secret-safe scans: changed files contain only `CODEX_LB_API_KEY=` name +
+  synthetic `fixture-*` in disposable temp fixtures; opaque tokens redacted;
+  no raw headers/body/prompt/token output.
+- Entry-point classification: every touched inference-capable entrypoint
+  (`run-llm-test.sh PROMPT`, `--native-create-agent-args`, `paseo run/status`,
+  `pi --model`, validator Codex `/responses` (removed), live harnesses, docker
+  builds, Tower live) — NOT executed as real; executed synthetically only via
+  fake bindirs/mocked Docker/injected HTTP/disposable roots + approved
+  non-inference readback (`paseo --help/version`, `pi --version`, pinned
+  `meta.json`, guard/policy bytes). `PATH` isolated so actual test inference
+  cannot occur. No test agent created; no real provider inference.
+
+### Preservation and remaining real-gate limitations
+
+- Preserved all 22 DONE result/review subjects, stable Card/technical contract,
+  P4/R2/authority, unrelated target repairs/recovery packages. No
+  M07-T06/M07-T07/M08/M09 implementation; no state/result/Review writes.
+- Fixture/rehearsal never satisfies the real gate by construction.
+  Unsupported/unobservable effective `max` fails closed to M08-T01/
+  Research-Planning (precise facts above), not bypass/manufactured witness/
+  M08 coding. Real guarded inference, dedicated credential admission,
+  candidate-local daemon bring-up, exact wire/inference proof, and real
+  Codex-LB reads against operator endpoints remain M08-T01 after autonomous
+  machinery/rehearsal. Changed candidate/companion needs new immutable identity
+  (M07-T07). No eligibility/production authorization claimed.
+
+### Return
+
+- Implementation SHA: `d937e8f7ade60ee284f29d7dee42259318ce9755` (unpushed).
+- This report path:
+  `implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-validator-implementation-2026-10-04.md`
+  (correction commit/blob to be filled by the committing step; secret-safe).
+- Completion returns to Main for classification/reconciliation; not a workflow
+  stop, result, or verdict. Later independent reviewer must be another
+  non-producing context.
