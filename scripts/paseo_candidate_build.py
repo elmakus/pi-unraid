@@ -728,6 +728,9 @@ def verify_docker_save(archive: Path, image_id: str, tag: str) -> dict:
             config_document = json.loads(config)
             if sha256_bytes(config) != image_id or not isinstance(config_document, dict):
                 raise CandidateBuildError('docker-save config does not hash to tested local image ID')
+            if (not isinstance(config_document.get('architecture'), str)
+                    or not config_document['architecture'] or config_document.get('os') != 'linux'):
+                raise CandidateBuildError('docker-save runtime/platform configuration is unsupported')
             rootfs = config_document.get('rootfs')
             if (not isinstance(rootfs, dict) or rootfs.get('type') != 'layers'
                     or not isinstance(rootfs.get('diff_ids'), list)

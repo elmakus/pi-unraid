@@ -5,7 +5,9 @@ for negative controls reserialize them. No real inference/auth/Docker/Git remote
 """
 import copy
 import hashlib
+import io
 import json
+import tarfile
 from pathlib import Path
 import tempfile
 import unittest
@@ -144,6 +146,49 @@ class ProducerProofTests(unittest.TestCase):
                 self.assertEqual(reference['attempt_nonce'], (work / '.attempt-nonce').read_text().strip())
                 self.assertEqual(reference['network']['id'], result['recovery_reference']['network_id'])
                 self.assertTrue((work / 'home/.m07-t05/owned.json').exists())
+
+    def test_self_consistently_relinked_archive_platform_rootfs_and_layer_forgeries(self):
+        original = T.build_artifact_chain
+        for fault in ('architecture', 'os', 'rootfs', 'layer'):
+            def changed(td, **kwargs):
+                chain = original(td, **kwargs)
+                _, _, _, tested_path, record_path, publication_path = chain
+                archive_path = tested_path.parent / 'image.tar'
+                with tarfile.open(archive_path) as archive:
+                    entries = {v.name:archive.extractfile(v).read() for v in archive.getmembers() if v.isfile()}
+                manifest = json.loads(entries['manifest.json'])
+                old_name = manifest[0]['Config']
+                config = json.loads(entries.pop(old_name))
+                if fault == 'architecture': config['architecture'] = True
+                elif fault == 'os': config['os'] = 'windows'
+                elif fault == 'rootfs': config['rootfs']['type'] = True
+                elif fault == 'layer': config['rootfs']['diff_ids'][0] = 'sha256:' + '0'*64
+                config_bytes = json.dumps(config, sort_keys=True).encode()
+                image_id = 'sha256:' + hashlib.sha256(config_bytes).hexdigest()
+                new_name = image_id[7:] + '.json'
+                entries[new_name] = config_bytes
+                manifest[0]['Config'] = new_name
+                entries['manifest.json'] = json.dumps(manifest).encode()
+                with tarfile.open(archive_path, 'w') as archive:
+                    for name, raw in entries.items():
+                        member = tarfile.TarInfo(name);member.size = len(raw)
+                        archive.addfile(member, io.BytesIO(raw))
+                archive_sha = 'sha256:' + hashlib.sha256(archive_path.read_bytes()).hexdigest()
+                for path in (tested_path, publication_path):
+                    record = json.loads(path.read_bytes())
+                    record.update(image_id=image_id, image_archive_sha256=archive_sha)
+                    path.write_text(json.dumps(record))
+                record = json.loads(record_path.read_bytes())
+                record['image']['id'] = image_id
+                record_path.write_text(json.dumps(record))
+                relink(chain)
+                return chain
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as td, T.LocalCodexServer() as server:
+                with mock.patch.object(T, 'build_artifact_chain', side_effect=changed):
+                    result, calls, _ = H._run_validate(Path(td), server_base=server.base, execution_class='real')
+                self.assertEqual(result['status'], 'FAIL', result)
+                self.assertFalse(result['real_validation_satisfied'])
+                self.assertEqual(calls, [])
 
     def test_source_commit_ref_parent_config_and_archive_mutations_before_effects(self):
         original = T.build_artifact_chain
