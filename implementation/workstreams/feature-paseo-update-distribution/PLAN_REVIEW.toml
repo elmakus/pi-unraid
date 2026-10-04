@@ -1,16 +1,16 @@
 workstream_id = "feature-paseo-update-distribution"
-plan_revision = "P3"
-planning_cycle = 3
+plan_revision = "P4"
+planning_cycle = 4
 attempt = "R01"
-verdict = "green"
-evidence_path = "planning/reviews/PASEO_UPDATE_DISTRIBUTION_P3_R01.md"
+verdict = "pending"
+evidence_path = ""
 
 [subject]
 class = "git_blob"
 repository = "elmakus/pi-unraid"
-commit = "88feb2ba8d9f2b18ac58b9c57a465759277efa60"
-path = "planning/PASEO_UPDATE_DISTRIBUTION_P3.md"
-blob = "043ad95bf300dee7c0289f44fc6547684f82b664"
+commit = "d1dde3cde040eea4421d1d4c92a5f9c77e13da18"
+path = "planning/PASEO_UPDATE_DISTRIBUTION_P4.md"
+blob = "fc2167e26dfc97e574526bab2bb1849b1aa82cef"
 
 [acceptance]
 class = "authority"
@@ -18,4 +18,4 @@ path = "requirements/PASEO_UPDATE_DISTRIBUTION.md"
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "R01 was performed in the fresh independent review context entered for Premium B / independent Plan Review; this context did not materially author or repair the exact frozen P3 subject."
+basis = "Pending R01 is reserved for a fresh independent context that did not materially author or repair this exact frozen P4 subject. The planning context authored P4 and must not issue its verdict or internally spawn its Stage-6 reviewer; the receiving reviewer must verify exact-subject independence before review."
