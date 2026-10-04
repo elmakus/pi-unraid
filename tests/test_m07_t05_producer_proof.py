@@ -151,7 +151,8 @@ class ProducerProofTests(unittest.TestCase):
                        'source-missing', 'source-untracked', 'dockerfile', 'readback',
                        'build-command', 'build-context', 'phase-type', 'smoke-omission',
                        'archive-bytes', 'archive-missing', 'archive-format', 'archive-hash', 'candidate-ref',
-                       'schema-bool', 'prepared-omission'):
+                       'schema-bool', 'source-schema', 'companion-schema', 'builder-type',
+                       'builder-driver', 'cache-type', 'image-type', 'prepared-omission'):
             def changed(td, **kwargs):
                 chain = original(td, **kwargs)
                 _, _, prepared_path, tested_path, record_path, publication_path = chain
@@ -180,6 +181,14 @@ class ProducerProofTests(unittest.TestCase):
                 elif defect == 'archive-hash': publication['image_archive_sha256'] = 'sha256:' + '0' * 64
                 elif defect == 'candidate-ref': publication['candidate_ref'] = publication['repository'] + ':accepted'
                 elif defect == 'schema-bool': tested['schema_version'] = True
+                elif defect == 'source-schema': prepared['source_identity']['schema_version'] = True
+                elif defect == 'companion-schema': prepared['companion_bundle']['schema_version'] = True
+                elif defect in ('builder-type', 'builder-driver'):
+                    if defect == 'builder-type': record['builder']['reused'] = int(record['builder']['reused'])
+                    else: record['builder']['driver'] = 'shell'
+                    record['phases']['builder_ensure']['detail'] = {k:v for k,v in record['builder'].items() if k != 'state_dir'}
+                elif defect == 'cache-type': record['cache']['local_dir'] = 0
+                elif defect == 'image-type': record['image']['digests'] = {}
                 elif defect == 'prepared-omission': prepared.pop('source_identity')
                 prepared_path.write_text(json.dumps(prepared))
                 # Keep strings/byte links self-consistent to isolate actual proofs.

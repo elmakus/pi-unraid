@@ -133,7 +133,7 @@ def verify_companion_binding(source_root: Path, declared: dict) -> dict:
     """
     if not isinstance(declared, dict):
         raise CandidateBuildError("companion binding declaration must be an object")
-    if declared.get("schema_version") != COMPANION_SCHEMA_VERSION:
+    if type(declared.get('schema_version')) is not int or declared.get("schema_version") != COMPANION_SCHEMA_VERSION:
         raise CandidateBuildError("companion binding schema is unsupported")
     if declared.get("source") != COMPANION_SOURCE_REL.as_posix():
         raise CandidateBuildError("companion binding source is not the frozen instruction bundle")
@@ -375,8 +375,9 @@ def verify_prepared_source(source_root: Path, prepared: dict, candidate: dict,
     """Reconstruct the actual prepare transformation, not a declared readback."""
     proof = git_source_identity(source_root, prepared.get('source_head'),
                                 prepared.get('source_parent'), prepared.get('source_ref'))
-    if prepared.get('source_identity') != proof:
+    if json.dumps(prepared.get('source_identity'), sort_keys=True) != json.dumps(proof, sort_keys=True):
         raise CandidateBuildError('prepared immutable source proof mismatch')
+    verify_companion_binding(source_root, prepared.get('companion_bundle'))
     accepted, accepted_raw = load_json_bytes(source_root / 'config/paseo-candidate.json')
     if prepared.get('accepted_candidate_id') != accepted.get('candidate_id'):
         raise CandidateBuildError('prepared accepted source candidate mismatch')
@@ -624,15 +625,34 @@ def verify_build_record_configuration(record: dict, prepared: dict, source_root:
             or (config['metadata_file'] is not None and not isinstance(config['metadata_file'], str))):
         raise CandidateBuildError('build configuration is malformed or lacks required smoke')
     builder = record.get('builder')
-    if not isinstance(builder, dict) or not isinstance(builder.get('name'), str):
-        raise CandidateBuildError('actual builder configuration missing')
+    if (not isinstance(builder, dict) or set(builder) != {'name','driver','reused','state_dir'}
+            or not isinstance(builder.get('name'), str) or builder.get('driver') != 'docker-container'
+            or type(builder.get('reused')) is not bool or not isinstance(builder.get('state_dir'), str)):
+        raise CandidateBuildError('actual builder configuration schema/type missing')
+    for name in ('tag', 'context', 'started_at', 'finished_at'):
+        if not isinstance(record.get(name), str) or not record[name]:
+            raise CandidateBuildError('build record string configuration malformed')
+    image = record.get('image')
+    if (not isinstance(image, dict) or set(image) != {'id','digests','candidate_label'}
+            or not isinstance(image.get('id'), str) or not SHA256.fullmatch(image['id'])
+            or not isinstance(image.get('candidate_label'), str)
+            or not isinstance(image.get('digests'), list)
+            or not all(isinstance(v, str) for v in image['digests'])):
+        raise CandidateBuildError('build image schema/type malformed')
+    candidate_record = record.get('candidate')
+    if (not isinstance(candidate_record, dict) or set(candidate_record) != {'path','candidate_id'}
+            or not isinstance(candidate_record.get('path'), str)
+            or candidate_record.get('candidate_id') != prepared.get('candidate_id')
+            or image['candidate_label'] != prepared.get('candidate_id')):
+        raise CandidateBuildError('build candidate schema/type/binding malformed')
     buildx = load_buildx(source_root)
     buildx.validate_builder_name(builder['name'])
     argv = ['docker', 'buildx', 'build', '--builder', builder['name'], '--load',
             '--progress', config['progress'], '-t', record.get('tag')]
     cache = record.get('cache')
-    if not isinstance(cache, dict):
-        raise CandidateBuildError('cache configuration missing')
+    if (not isinstance(cache, dict) or set(cache) != {'local_dir'}
+            or (cache['local_dir'] is not None and not isinstance(cache['local_dir'], str))):
+        raise CandidateBuildError('cache configuration schema/type missing')
     if cache.get('local_dir'):
         if not isinstance(cache['local_dir'], str):
             raise CandidateBuildError('cache configuration has incorrect type')
@@ -764,7 +784,7 @@ def _require_companion_linkage(
     source/candidate/handoff provenance, and the invoking source head.
     Returns the declared companion for retention in the package evidence.
     """
-    if build_input.get("schema_version") != SCHEMA_VERSION:
+    if type(build_input.get('schema_version')) is not int or build_input.get("schema_version") != SCHEMA_VERSION:
         raise CandidateBuildError("build-input record uses an unsupported schema")
     if build_input.get("status") != "prepared":
         raise CandidateBuildError("build-input record is not a prepared binding")
@@ -773,7 +793,7 @@ def _require_companion_linkage(
     companion = build_input.get("companion_bundle")
     if not isinstance(companion, dict):
         raise CandidateBuildError("build-input record lacks companion bundle declaration")
-    if companion.get("schema_version") != COMPANION_SCHEMA_VERSION:
+    if type(companion.get('schema_version')) is not int or companion.get("schema_version") != COMPANION_SCHEMA_VERSION:
         raise CandidateBuildError("build-input companion declaration schema is unsupported")
     if companion.get("source") != COMPANION_SOURCE_REL.as_posix():
         raise CandidateBuildError(
