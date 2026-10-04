@@ -108,11 +108,21 @@ def check_candidate_identity(root: Path) -> tuple[dict, list[str]]:
 
 
 def parse_compose_shape(text: str) -> dict:
-    targets = re.findall(r"(?m)^\s+target: (\S+)\s*$", text)
+    all_targets = re.findall(r"(?m)^\s+target: (\S+)\s*$", text)
+    targets = [target for target in all_targets if target.startswith("/")]
+    secret_targets = [target for target in all_targets if not target.startswith("/")]
+    dedicated_secret = (
+        secret_targets == ["pi-unraid-codex-lb"]
+        and "source: codex_lb_client" in text
+        and 'file: "${PI_CODEX_LB_SECRET_SOURCE:-/mnt/user/appdata/pi-unraid/secrets/codex-lb.env}"' in text
+        and "PI_CODEX_LB_SECRET_FILE: /run/secrets/pi-unraid-codex-lb" in text
+    )
     return {
         "paseo_service": re.search(r"(?m)^  paseo:\s*$", text) is not None,
         "legacy_pi_service": re.search(r"(?m)^  pi:\s*$", text) is not None,
         "targets": targets,
+        "secret_targets": secret_targets,
+        "dedicated_codex_lb_secret": dedicated_secret,
         "create_host_path_false": text.count("create_host_path: false"),
         "user": 'user: "${PASEO_UID:-99}:${PASEO_GID:-100}"' in text,
         "shm_1gb": 'shm_size: "1gb"' in text,
@@ -154,8 +164,10 @@ def check_compose_shape(shape: dict) -> list[str]:
         violations.append("bounded log rotation missing")
     if shape["forbidden_present"]:
         violations.append(f"forbidden runtime keys: {shape['forbidden_present']}")
-    if shape["ports_block"] or shape["entrypoint_override"] or shape["secrets_block"]:
-        violations.append("ports/entrypoint/secrets override present")
+    if shape["ports_block"] or shape["entrypoint_override"]:
+        violations.append("ports/entrypoint override present")
+    if shape["secrets_block"] and not shape["dedicated_codex_lb_secret"]:
+        violations.append("only the dedicated Codex-LB file-backed secret is permitted")
     if shape["rpc_wiring"]:
         violations.append("permanent RPC wiring must not exist in compose")
     return violations
@@ -266,9 +278,11 @@ def build_readback(root: Path) -> dict:
             "shm_1gb": shape["shm_1gb"],
             "no_cpu_ram_caps": not shape["forbidden_present"],
             "bounded_logs": shape["log_max_size"] and shape["log_max_file"],
-            "no_ports_entrypoint_secrets": not (
-                shape["ports_block"] or shape["entrypoint_override"] or shape["secrets_block"]
+            "no_ports_entrypoint_or_unapproved_secrets": not (
+                shape["ports_block"] or shape["entrypoint_override"]
+                or (shape["secrets_block"] and not shape["dedicated_codex_lb_secret"])
             ),
+            "dedicated_codex_lb_secret": shape["dedicated_codex_lb_secret"],
         },
         "instruction_plane": instruction,
         "rpc": rpc,

@@ -46,3 +46,7 @@ scripts/verify-pi-instruction-plane.sh uses only a temporary HOME. It proves:
 - two fresh Pi v0.87.1 RPC processes in separate disposable containers start successfully against the same persisted HOME;
 - the managed instruction tree remains byte-identical across that recreation boundary;
 - cleanup removes the temporary HOME and leaves production/Tower untouched.
+
+## Managed executable tools
+
+Files under `config/pi-agent/bin/` are executable instruction-plane tools and are deployed as mode `0755`; all other managed instruction/policy files are deployed as `0644`. The installer validates mode as part of `status`, so an accidentally non-executable launcher is treated as drift and repaired on the next bounded `apply`. This rule is path-based rather than inferred from checkout filesystem permissions because Unraid share mounts may normalize host-side mode bits.

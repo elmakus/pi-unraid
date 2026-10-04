@@ -85,6 +85,12 @@ class PaseoChildImageContractTests(unittest.TestCase):
         self.assertIsNone(re.search(r"(?m)^\s*CMD\s+", DOCKERFILE))
         self.assertIn("WORKDIR /workspace", DOCKERFILE)
 
+    def test_paseo_entrypoint_secret_bridge_preserves_upstream_entrypoint_identity(self):
+        self.assertIn("scripts/paseo-codex-lb-entrypoint.sh", DOCKERFILE)
+        self.assertIn("/usr/local/libexec/pi-unraid/paseo-docker-entrypoint.upstream", DOCKERFILE)
+        self.assertIn("ln -s /usr/local/bin/pi-unraid-paseo-entrypoint /usr/local/bin/paseo-docker-entrypoint", DOCKERFILE)
+        self.assertIsNone(re.search(r"(?m)^\s*ENTRYPOINT\s+", DOCKERFILE))
+
     def test_candidate_has_no_compatibility_exception(self):
         self.assertEqual(CANDIDATE["policy"]["compatibility_exceptions"], [])
         self.assertTrue(CANDIDATE["policy"]["build_must_not_reresolve"])
