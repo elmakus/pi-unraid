@@ -3,7 +3,7 @@ source_scope_subject = "paseo-update-distribution@11"
 revision = "R2"
 state = "green"
 completeness_audit = "green"
-premium_a = "due"
+premium_a = "satisfied"
 decisions = [
   { class = "authority", path = "decisions/ADR_PUD_001_DISTRIBUTION_AND_CUTOVER.md" },
   { class = "authority", path = "decisions/ADR_PUD_002_MANAGED_COMPONENT_LIFECYCLE.md" },
