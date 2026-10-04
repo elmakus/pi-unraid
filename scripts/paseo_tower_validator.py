@@ -519,6 +519,15 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             raise ValidationBlocked(
                 "real validation requires candidate + handoff + build-input + "
                 "tested-image + build record + publication records")
+        frozen_record_bytes = {}
+        for path, record in ((candidate_file, cand), (handoff_file, handoff),
+                             (build_input_file, build_input), (tested_image_file, tested),
+                             (build_record, build_rec), (publication_file, publication)):
+            if isinstance(path, (str, Path)) and record is not None:
+                raw = Path(path).read_bytes()
+                if json.loads(raw) != record:
+                    raise ValidationError('frozen artifact record changed during acquisition')
+                frozen_record_bytes[Path(path)] = raw
         if real_mode and companion_bundle is None:
             if not isinstance(build_input, dict) or not isinstance(build_input.get("companion_bundle"), dict):
                 raise ValidationBlocked("frozen companion declaration required")
@@ -527,9 +536,12 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         candidate_raw = None
         handoff_raw = None
         build_rec_raw = None
+        archive_configuration = None
         if cand is not None:
             if not isinstance(cand, dict):
                 raise ValidationError("candidate file must be an object")
+            if type(cand.get('schema_version')) is not int or cand.get('schema_version') != 1:
+                raise ValidationError('candidate schema/type is unsupported')
             candidate_id = cand.get("candidate_id")
             if not isinstance(candidate_id, str) or not DIGEST.fullmatch(candidate_id):
                 raise ValidationError("candidate file candidate_id is not an immutable sha256 identity")
@@ -595,6 +607,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError("publication candidate_id mismatch vs candidate file")
             if publication.get("immutable_ref") != ref:
                 raise ValidationError("publication immutable_ref mismatch vs validated reference")
+            if publication.get('candidate_ref') != f"{repository.strip().lower()}:candidate-{candidate_id.removeprefix('sha256:')}":
+                raise ValidationError('publication candidate_ref is not the producer-derived candidate alias')
             result["subject"]["publication_image_id"] = publication.get("image_id")
             # Publication byte claims are verified against actual record bytes:
             # forged hashes fail closed even when linkage fields match.
@@ -623,7 +637,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError("handoff evidence must be an object")
             if candidate_id is not None and handoff.get("candidate_id") != candidate_id:
                 raise ValidationError("handoff candidate_id mismatch vs candidate file")
-            if handoff.get("schema_version") != 1 or handoff.get("status") != "update":
+            if type(handoff.get('schema_version')) is not int or handoff.get("schema_version") != 1 or handoff.get("status") != "update":
                 raise ValidationError("handoff evidence is not a material-change record")
             if not handoff.get("source_sha") or not handoff.get("source_ref"):
                 raise ValidationError("handoff evidence lacks discovery source provenance")
@@ -660,7 +674,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         or cdp.get("files") != companion_bundle.get("files")):
                     raise ValidationError(f"{what} companion conflicts with declared binding")
         if build_input is not None:
-            if build_input.get("schema_version") != 1 or build_input.get("status") != "prepared":
+            if type(build_input.get('schema_version')) is not int or build_input.get("schema_version") != 1 or build_input.get("status") != "prepared":
                 raise ValidationError("build-input record is not a prepared binding")
             if not isinstance(build_input.get("companion_bundle"), dict):
                 raise ValidationError("build-input record lacks the companion bundle declaration")
@@ -684,7 +698,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         or _bcd.get("modes") != companion_bundle.get("modes")):
                     raise ValidationError("build-input companion conflicts with declared binding")
         if tested is not None:
-            if tested.get("schema_version") != 1:
+            if type(tested.get('schema_version')) is not int or tested.get("schema_version") != 1:
                 raise ValidationError("tested-image record uses an unsupported schema")
             if tested.get("status") != "tested_image_preserved":
                 raise ValidationError("tested-image record is not a preserved tested image")
@@ -706,7 +720,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         if build_rec is not None:
             if not isinstance(build_rec, dict):
                 raise ValidationError("build record must be an object")
-            if build_rec.get("schema_version") != 1:
+            if type(build_rec.get('schema_version')) is not int or build_rec.get("schema_version") != 1:
                 raise ValidationError("build record uses an unsupported schema")
             rec_cand = (build_rec.get("candidate") or {})
             if candidate_id is not None and rec_cand.get("candidate_id") != candidate_id:
@@ -730,6 +744,35 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     raise ValidationError(f"{what} complete companion declaration mismatch")
         if build_rec is not None and build_rec.get("command") != "build":
             raise ValidationError("build record is not a build command result")
+        if build_input is not None and build_input.get('source_identity') is not None:
+            if source_root is None or build_rec is None or tested is None or publication is None:
+                raise ValidationBlocked('complete immutable source/build/archive proof required')
+            import importlib.util as _source_ilu
+            _spec = _source_ilu.spec_from_file_location('candidate_source_proof',
+                Path(__file__).resolve().parent / 'paseo_candidate_build.py')
+            _source = _source_ilu.module_from_spec(_spec); _spec.loader.exec_module(_source)
+            try:
+                _source.verify_prepared_source(Path(source_root), build_input, cand)
+                _source.verify_build_record_configuration(build_rec, build_input, Path(source_root))
+                if build_rec.get('prepared_source') != build_input:
+                    raise ValidationError('build record did not use the prepared source/configuration')
+                if tested.get('image_archive_format') != 'docker-save':
+                    raise ValidationError('tested archive format is not docker-save')
+                archive = Path(tested_image_file).parent / 'image.tar'
+                actual_archive_hash = _source.sha256_file(archive)
+                if (tested.get('image_archive_sha256') != actual_archive_hash
+                        or publication.get('image_archive_sha256') != actual_archive_hash):
+                    raise ValidationError('actual archive-byte/publication link mismatch')
+                archive_configuration = _source.verify_docker_save(archive, tested.get('image_id'), build_rec.get('tag'))
+                # Read back the programs actually executing this invocation too.
+                for rel in _source.VALIDATION_SOURCE_FILES + ('scripts/paseo_buildx.py', 'scripts/paseo_candidate_publish.py'):
+                    if _source.sha256_file(Path(__file__).resolve().parents[1] / rel) != _source.sha256_file(Path(source_root) / rel):
+                        raise ValidationError('executing validation/build configuration is not the frozen source')
+            except _source.CandidateBuildError as exc:
+                raise ValidationError('immutable source/configuration/archive proof rejected') from exc
+            result['checks']['immutable_source_configuration'] = 'PASS'
+        elif real_mode:
+            raise ValidationBlocked('real validation requires immutable Git source/configuration proof')
         result["checks"]["frozen_chain"] = "PASS" if cand is not None else "SKIP"
         # --- Registry + local image (distinct, mapped) ---
         readback = run(["docker", "buildx", "imagetools", "inspect", ref]).stdout
@@ -766,6 +809,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 cfg_doc = json.loads((cfg_out.stdout or "").strip())
             except (json.JSONDecodeError, ValueError) as exc:
                 raise ValidationError("pulled image config unreadable") from exc
+            if archive_configuration is not None and cfg_doc != archive_configuration:
+                raise ValidationError('pulled runtime configuration differs from actual preserved image bytes')
             cfg_env = cfg_doc.get("Env") or []
             if f"PI_UNRAID_PI_VERSION={expected_pi}" not in cfg_env:
                 raise ValidationError("pulled image config lacks the frozen Pi version")
@@ -1340,6 +1385,16 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError(_sanitize(str(exc), 200)) from exc
             if current_daemon != daemon_ref:
                 raise ValidationError("candidate daemon changed before guarded dispatch")
+            if any(path.read_bytes() != raw for path, raw in frozen_record_bytes.items()):
+                raise ValidationError('frozen artifact records changed before inference-capable dispatch')
+            if build_input is not None and build_input.get('source_identity') is not None:
+                try:
+                    _source.verify_prepared_source(Path(source_root), build_input, cand)
+                    _source.verify_companion_binding(Path(source_root), companion_bundle)
+                    if _source.sha256_file(archive) != actual_archive_hash:
+                        raise ValidationError('preserved archive changed before guarded dispatch')
+                except _source.CandidateBuildError as exc:
+                    raise ValidationError('used source/configuration changed before guarded dispatch') from exc
             try:
                 runtime = adap.dispatch_owned_runtime(
                     _candidate_exec, daemon=daemon_ref, pi=pi_ref, test_id=test_id,

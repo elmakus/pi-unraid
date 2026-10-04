@@ -351,7 +351,19 @@ def transmitted_env_names(marker_path: Path) -> list:
     return names
 
 
-def build_artifact_chain(td: Path, *, image_id="sha256:" + "b" * 64):
+from tests.m07_t05_producer_fixture import IMAGE_ID, produce, source_root as producer_source_root
+
+
+def fixture_source(td):
+    source = producer_source_root(td)
+    return source if source.exists() else ROOT
+
+
+def build_artifact_chain(td: Path, *, image_id=IMAGE_ID):
+    return produce(td, repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST)
+
+
+def legacy_artifact_chain(td: Path, *, image_id="sha256:" + "b" * 64):
     """Real-schema fixture chain: candidate + handoff + build-input + build record
     + tested-image + publication, bound to the actual candidate bytes.
 
@@ -427,6 +439,14 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                      paseo_effort="max", witness_terminal="done",
                      break_guard=False, break_image=False):
     """Strict fake Docker where exec runs ACTUAL staged logic locally."""
+    image_id = IMAGE_ID
+    # Resolver freeze adds stable-line facts; use the actual produced identity
+    # observed by this external fake, not the older integrated baseline label.
+    from tests.m07_t05_producer_fixture import load as _load_fixture
+    _resolver = _load_fixture('external_candidate_metadata', 'scripts/resolve-paseo-candidate.py')
+    state.setdefault('candidate_id', _resolver.facts_to_candidate(
+        {'components': REAL_CANDIDATE['components']},
+        json.loads((ROOT / 'config/environment-capabilities.json').read_bytes()))['candidate_id'])
     def fake(argv, timeout=300, check=True):
         calls.append(argv)
         if argv[:4] == ["docker", "buildx", "imagetools", "inspect"]:
@@ -444,9 +464,9 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 return mock.Mock(returncode=0, stdout=json.dumps(
                     {"Env": ["PATH=/usr/local/bin:/usr/bin:/bin",
                              f"PI_UNRAID_PI_VERSION={REAL_PI}",
-                             "PI_UNRAID_CANDIDATE_ID=" + REAL_CANDIDATE_ID],
+                             "PI_UNRAID_CANDIDATE_ID=" + state.get('candidate_id', REAL_CANDIDATE_ID)],
                      "Labels": {"io.pi-unraid.pi-version": REAL_PI,
-                                "io.pi-unraid.candidate-id": REAL_CANDIDATE_ID}}), stderr="")
+                                "io.pi-unraid.candidate-id": state.get('candidate_id', REAL_CANDIDATE_ID)}}), stderr="")
             return mock.Mock(returncode=0, stdout=image_id + "\n", stderr="")
         if argv[:3] == ["docker", "image", "pull"]:
             return mock.Mock(returncode=0, stdout="", stderr="")
@@ -835,7 +855,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                                      output=td / "out.json", state_root=td / "state",
                                      codex_secret=codex_sec, codex_base_url=srv.base,
                                      codex_model="fixture-model", execution_class="fixture",
-                                     source_root=ROOT,
+                                     source_root=fixture_source(td),
                                      companion_bundle=_companion_arg(),
                                      candidate_file=cand_file, handoff_file=handoff_file,
                                      build_input_file=build_input_file,
@@ -910,7 +930,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                                      output=td / "out.json", state_root=td / "state",
                                      codex_secret=codex_sec, codex_base_url=srv.base,
                                      codex_model="m", execution_class="real",
-                                     source_root=ROOT,
+                                     source_root=fixture_source(td),
                                      companion_bundle=_companion_arg(),
                                      candidate_file=cand_file, handoff_file=handoff_file,
                                      build_input_file=build_input_file,
@@ -947,7 +967,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                                      output=td / "o.json", state_root=td / "st",
                                      codex_secret=codex_sec, codex_base_url=srv.base,
                                      codex_model="m", execution_class="fixture",
-                                     source_root=ROOT,
+                                     source_root=fixture_source(td),
                                      companion_bundle=_companion_arg(),
                                      candidate_file=cand_file, muse_secret=muse_sec)
             self.assertEqual(res["status"], "FAIL")
@@ -995,7 +1015,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                 argv = ["paseo_tower_validator", "--digest", REAL_OCI_DIGEST,
                         "--output", str(td / "cli.json"), "--state-root", str(td / "st"),
                         "--codex-secret", str(codex_sec), "--codex-base-url", srv.base,
-                        "--codex-model", "m", "--source-root", str(ROOT),
+                        "--codex-model", "m", "--source-root", str(fixture_source(td)),
                         "--candidate-file", str(cand_file), "--handoff-file", str(handoff_file),
                         "--build-input-file", str(build_input_file),
                         "--tested-image-file", str(tested_file),

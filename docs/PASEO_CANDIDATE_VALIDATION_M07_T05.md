@@ -123,7 +123,14 @@ is not overwritten by settlement. Arbitrary done/success labels are not qualifie
 completion. Candidate-path events additionally bind every row to actual Pi PID,
 agent ID, API-observed workspace ID and connected server ID. The immutable private
 binding includes its acquired inode; an identical-byte replacement is rejected
-by the observer before transport. Only one provider exchange is admitted because
+by the observer before transport. Requested workspaces use the pinned protocol's
+`wks_` plus 16 lowercase hex format, independently from UUID agent/request/message
+IDs. The external fixture executes the actual pinned DaemonClient, CreationClient
+and inbound/outbound protocol parsers; only its request transport is fake. Actual
+client selectors reject unrelated receipt requestIds. Synthetic snapshot neutral
+fields do not qualify inference: model/thinking/streaming come from the separately
+selected Pi process, while the shipped observer's single correlated completed
+exchange remains mandatory. Only one provider exchange is admitted because
 the pinned hooks expose no universal request ID. API workspace/agent creation
 request IDs, idempotency keys and the supported messageId are retained separately
 from that single-exchange process binding, never misrepresented as provider IDs.
@@ -145,10 +152,36 @@ files as `validation_sources`; verification compares them to the executing
 validator/helper sources, not hashes first manufactured after staging. Staging
 requires the exact declaration file set and actual file modes. Candidate readback
 compares every declared file's hash and actual mode, not only guard/policy fields.
-**Remaining binding gap:** complete producer/source/configuration linkage and
-positive artifact chains from actual producers are not yet qualified. The legacy
-hand-authored chain is not full evidence. Fresh downstream artifacts remain
-required; changed delivery cannot bless an old digest.
+The prepared envelope now additionally records the immutable Git commit/tree
+and every source file's content/executable-mode identity, plus the exact staged
+transformation (only Dockerfile/candidate replacement). Preparation verifies HEAD,
+its single discovery parent and ancestor relationship to the declared discovery
+branch using read-only Git with replacement objects/ambient Git selectors disabled.
+Untracked/ignored extra inputs, symlinks, missing files and changed configuration
+are rejected. Buildx verifies the actual staged file set before external build
+and retains the prepared snapshot and executed command configuration. Tower
+reconstructs prepare/readback and Buildx argv/phase/smoke aggregation, verifies the
+executing validation programs, then rereads source/evidence/archive before guarded
+dispatch. Non-Git compatibility fixtures remain explicitly unbound and cannot
+satisfy the real source gate.
+
+Tower hashes the actual preserved `image.tar` beside the tested evidence, checks
+both tested/publication byte links, and inspects docker-save without extracting.
+The single manifest must link the tested tag, regular config/layer members and a
+configuration whose actual bytes hash to the distinct local image ID. Pulled
+runtime Config must equal that preserved configuration. Publication candidate_ref
+must be the publisher-derived `repository:candidate-<full candidate hash>`, never
+an arbitrary alias. Real mode requires this proof; omitted archive/source/config
+is not success. Fresh downstream artifacts remain required; changed delivery
+cannot bless an old digest.
+
+`tests/m07_t05_producer_fixture.py` now reaches actual resolver facts freeze,
+handoff.prepare, prepare/readback, Buildx parser/cmd_build/internal smoke dispatch
+and aggregation, package hash/format verification, and publisher. Only process,
+Docker and registry effects are fake; image save creates synthetic config/layer
+bytes for genuine hashing. The resulting unchanged files feed actual Tower
+validation and its shipped candidate programs. Negative controls deliberately
+mutate and relink evidence to challenge the substantive proofs, not only hashes.
 
 ## Codex-LB: non-inference only
 
@@ -198,7 +231,9 @@ programs; use a disposable `PYTHONPYCACHEPREFIX` for explicit py_compile. Strong
 acceptance coverage must execute exact shipped argv/internal plumbing with only
 candidate namespace paths translated, use actual producers with external effects
 faked, and use a separate fake daemon selecting/spawning actual fake Pi. The current runtime fixture replaces the old full-validator runtime success path;
-legacy hand-authored producer inputs still do not satisfy producer provenance.
+the current full-validator producer inputs come from the actual producer fixture.
+Legacy hand-authored inputs, where retained as low-level negative data, do not
+satisfy the real source gate.
 No synthetic success is evidence of real fixed-max availability. Do not equate
 passing unit counts or a fake-tested real branch with full Card acceptance.
 

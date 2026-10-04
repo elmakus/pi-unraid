@@ -120,7 +120,7 @@ def _run_validate(td: Path, *, server_base, image_id="sha256:" + "b" * 64,
                   output=td / "o.json", state_root=td / "st",
                   codex_secret=codex, codex_base_url=server_base,
                   codex_model="m", execution_class=execution_class,
-                  source_root=ROOT, companion_bundle=_companion_arg(),
+                  source_root=T.fixture_source(td), companion_bundle=_companion_arg(),
                   candidate_file=cand_file, handoff_file=handoff_file,
                   build_input_file=build_input_file, tested_image_file=tested_file,
                   build_record=build_record_file, publication_file=publication_file,
@@ -719,7 +719,7 @@ class ProbeRegressionTests(unittest.TestCase):
                                               execution_class="real")
             self.assertEqual(res["status"], "PASS")
             self.assertTrue(res["real_validation_satisfied"])
-            self.assertEqual(res["subject"]["candidate_id"], REAL_CANDIDATE_ID)
+            self.assertEqual(res["subject"]["candidate_id"], json.loads((T.fixture_source(td) / 'candidates/paseo-update/candidate.json').read_bytes())['candidate_id'])
             self.assertEqual(res["digest"], REAL_OCI_DIGEST)
             self.assertNotEqual(REAL_CANDIDATE_ID, REAL_OCI_DIGEST)
         # 1b. Publication digest mismatch fails before Docker run/exec.

@@ -172,6 +172,9 @@ def verify_prepared_companion(
     try:
         builder = _load_candidate_builder()
         builder.verify_companion_binding(context_dir, companion)
+        if build_input.get('source_identity') is not None:
+            builder.verify_tree_bytes(context_dir, build_input.get('staged_files'),
+                generated=('.pi-unraid-candidate-build-input.json',))
     except BuildxError:
         raise
     except Exception as exc:
@@ -562,6 +565,8 @@ def cmd_build(args: argparse.Namespace) -> int:
     cache_info: dict = {"local_dir": str(cache_dir) if cache_dir else None}
     readback: dict = {}
     companion_record: dict | None = None
+    prepared_source: dict | None = None
+    build_configuration: dict | None = None
     exit_code = 0
 
     def finish() -> int:
@@ -572,6 +577,8 @@ def cmd_build(args: argparse.Namespace) -> int:
             "candidate": {"path": str(candidate_path), "candidate_id": candidate_id},
             "context": str(context_dir),
             "companion_bundle": companion_record,
+            "prepared_source": prepared_source,
+            "build_configuration": build_configuration,
             "tag": tag,
             "image": image,
             "cache": cache_info,
@@ -595,9 +602,12 @@ def cmd_build(args: argparse.Namespace) -> int:
             # verified BEFORE builder/external actions; the declaration is
             # retained in the record for the package gate. Omission leaves an
             # explicitly unbound legacy record that package rejects.
+            prepared_source = json.loads(Path(args.build_input).read_bytes())
             companion_record = verify_prepared_companion(
                 context_dir, Path(args.build_input), candidate_id
             )
+            if json.loads(Path(args.build_input).read_bytes()) != prepared_source:
+                raise BuildxError('prepared input changed during verification')
             readback_detail = {
                 **readback,
                 "candidate_path": str(candidate_path),
@@ -672,6 +682,10 @@ def cmd_build(args: argparse.Namespace) -> int:
         metadata_file.parent.mkdir(parents=True, exist_ok=True)
         build_argv += ["--metadata-file", str(metadata_file)]
     build_argv.append(str(context_dir))
+    build_configuration = {'argv': list(build_argv), 'progress': args.progress,
+        'labels': list(args.build_label or []),
+        'metadata_file': str(metadata_file) if metadata_file else None,
+        'with_smoke': args.with_smoke, 'smoke_profile': args.smoke_profile}
     try:
         proc = run_fn(build_argv, env, args.build_timeout)
         print_build_output(proc)

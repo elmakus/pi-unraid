@@ -7,6 +7,8 @@ import {pathToFileURL} from 'node:url';
 import readline from 'node:readline';
 import {buildPiLaunch} from '/usr/local/lib/node_modules/@getpaseo/server/dist/server/server/agent/providers/pi/runtime.js';
 import {PersistedConfigSchema} from '/usr/local/lib/node_modules/@getpaseo/server/dist/server/server/persisted-config.js';
+import {DaemonClient} from '/usr/local/lib/node_modules/@getpaseo/client/dist/daemon-client.js';
+import {SessionInboundMessageSchema, SessionOutboundMessageSchema, WorkspaceCreateRequestSchema} from '/usr/local/lib/node_modules/@getpaseo/protocol/dist/messages.js';
 const home = process.env.HOME;
 const statusFile = `${home}/.paseo/fake-status.json`;
 const faultFile = `${home}/fake-fault.json`;
@@ -26,12 +28,39 @@ export async function connectToDaemon(options) {
   });
   socket.on('close',()=>{for(const p of pending.values())p.reject(new Error('synthetic closed'));pending.clear();});
   const call=(method,arg)=>new Promise((resolve,reject)=>{const id=++next;pending.set(id,{resolve,reject});socket.write(JSON.stringify({id,method,arg})+'\n');});
-  return {getLastServerInfoMessage:()=>({serverId:fault.wrong_server?'other':status.serverId,version:'0.9.2',
-      features:{creationLifecycle:!fault.unsupported_creation}}),
-    createWorkspace:arg=>call('workspace',arg),createAgent:arg=>call('create',arg),fetchAgent:arg=>call('inspect',arg),
-    sendMessage:(agent,text,options)=>call('prompt',{agent,text,messageId:options.messageId}),
-    waitForFinish:agent=>call('wait',{agent}),
-    close:async()=>socket.destroy()};
+  // Execute pinned DaemonClient + CreationClient + protocol serialization.
+  // Only sendRequest (external transport) is fake; selection/correlation and
+  // config normalization remain the actual supported client implementation.
+  const client = new DaemonClient({url:'ws://127.0.0.1:1',clientId:crypto.randomUUID()});
+  client.lastServerInfoMessage={serverId:fault.wrong_server?'other':status.serverId,version:'0.9.2',
+    features:{creationLifecycle:!fault.unsupported_creation}};
+  client.sendRequest=async ({message,select})=>{
+    const wire=SessionInboundMessageSchema.parse(message);
+    let value, type;
+    if(wire.type==='workspace.create.request') {
+      value={...await call('workspace',wire),setupTerminalId:null,error:null};type='workspace.create.response';
+    } else if(wire.type==='agent.create.request') {
+      value={agent:await call('create',{...wire,...wire.config}),error:null};type='agent.create.response';
+    } else if(wire.type==='fetch_agent_request') {
+      value={...await call('inspect',wire),error:null};type='fetch_agent_response';
+    } else if(wire.type==='send_agent_message_request') {
+      await call('prompt',{agent:wire.agentId,text:wire.text,messageId:wire.messageId});
+      value={accepted:true,agentId:wire.agentId,error:null};type='send_agent_message_response';
+    } else if(wire.type==='wait_for_finish_request') {
+      value={...await call('wait',{agent:wire.agentId}),error:null,lastMessage:null};type='wait_for_finish_response';
+    } else throw new Error('unexpected supported request');
+    const response=SessionOutboundMessageSchema.parse({type,payload:{...value,requestId:wire.requestId}});
+    // Actual client selectors must reject unrelated receipts, not merely echo
+    // a fake agent/workspace. No prompt or credential data is recorded.
+    if(select({...response,payload:{...response.payload,requestId:'foreign'}})!==null)
+      throw new Error('uncorrelated receipt admitted');
+    const selected=select(response);
+    if(selected===null)throw new Error('supported receipt was not admitted');
+    return selected;
+  };
+  const close=client.close.bind(client);
+  client.close=async()=>{socket.destroy();await close();};
+  return client;
 }
 async function daemon() {
   const config=PersistedConfigSchema.parse(JSON.parse(fs.readFileSync(`${home}/.paseo/config.json`)));
@@ -43,6 +72,8 @@ async function daemon() {
     if(agentId)env.PASEO_AGENT_ID=fault.wrong_agent_env?'other':agentId;
     if(agentId && fault.auth)delete env.META_API_KEY;
     if(agentId && fault.selector)env.PASEO_WORKSPACE_ID='foreign';
+    if(agentId && fault.pi_ambient)Object.assign(env,fault.pi_ambient);
+    if(agentId && fault.pi_env_omit)for(const key of fault.pi_env_omit)delete env[key];
     const child=spawn(launch.argv[0],launch.argv.slice(1),{cwd:launch.cwd,env,stdio:['pipe','pipe','ignore']});
     const pending=new Map(); let n=0;
     readline.createInterface({input:child.stdout}).on('line',line=>{const row=JSON.parse(line);const p=pending.get(row.id);if(p){pending.delete(row.id);p.resolve(row.data);}});
@@ -51,10 +82,17 @@ async function daemon() {
   }
   async function snapshot(a) {
     const state=await a.rpc.call('get_state');
-    return {id:fault.wrong_agent?'other':a.id,workspaceId:fault.workspace?'other':workspace.id,
+    const result = {id:fault.wrong_agent?'other':a.id,workspaceId:fault.workspace?'other':workspace.id,
       cwd: a.cwd,provider:'pi',model:state.model.provider+'/'+state.model.id,
-      runtimeInfo:fault.missing_effective_model?undefined:{model:state.model.provider+'/'+state.model.id},
-      effectiveThinkingOptionId:state.thinkingLevel,status:'idle',labels:{}};
+      runtimeInfo:fault.missing_effective_model?undefined:{provider:'pi',sessionId:null,model:state.model.provider+'/'+state.model.id},
+      effectiveThinkingOptionId:state.thinkingLevel,status:state.isStreaming?'running':'idle',labels:{},
+      createdAt:a.createdAt,updatedAt:new Date().toISOString(),lastUserMessageAt:null,
+      capabilities:{supportsStreaming:true,supportsSessionPersistence:false,supportsDynamicModes:false,
+        supportsMcpServers:false,supportsReasoningStream:true,supportsToolInvocations:false},
+      currentModeId:null,availableModes:[],pendingPermissions:[],persistence:null,title:null};
+    if(fault.snapshot_omit)for(const key of fault.snapshot_omit)delete result[key];
+    if(fault.snapshot_patch)Object.assign(result,fault.snapshot_patch);
+    return result;
   }
   const server=net.createServer(socket=>{
     readline.createInterface({input:socket}).on('line',async line=>{
@@ -65,7 +103,11 @@ async function daemon() {
           const rpc=await pi({cwd:home},null);
           value=await rpc.call('get_available_models');rpc.child.kill();
         } else if(row.method==='workspace') {
-          workspace={id:row.arg.workspaceId,workspaceDirectory:row.arg.source.path};
+          WorkspaceCreateRequestSchema.parse(row.arg);
+          workspace={id:row.arg.workspaceId,workspaceDirectory:row.arg.source.path,
+            projectId:crypto.randomUUID(),projectDisplayName:'synthetic directory',projectRootPath:row.arg.source.path,
+            projectKind:'directory',workspaceKind:'directory',name:'synthetic directory',
+            status:'needs_input',activityAt:null};
           if(fault.workspace_uncertain)throw new Error();value={workspace};
         } else if(row.method==='create') {
           record('create-env', {names:Object.keys(row.arg.env??{}).sort(),
@@ -77,7 +119,7 @@ async function daemon() {
             fs.writeFileSync(file,'private unrelated acquisition',{mode:0o600,flag:'wx'});
           }
           const rpc=await pi({cwd:row.arg.cwd,model:row.arg.model,thinkingOptionId:row.arg.thinkingOptionId,env:row.arg.env},id);
-          const agent={id,rpc,cwd:row.arg.cwd}; agents.set(id,agent);
+          const agent={id,rpc,cwd:row.arg.cwd,createdAt:new Date().toISOString()}; agents.set(id,agent);
           await rpc.call('get_state');
           if(fault.config_replacement) {
             const file=`${home}/.paseo/config.json`;fs.renameSync(file,`${file}.old`);
@@ -97,14 +139,17 @@ async function daemon() {
           if(fault.create_pending)return; // No response: async occurrence remains uncertain.
           if(fault.create_uncertain)throw new Error();value=await snapshot(agent);
         } else if(row.method==='inspect') {
-          if(fault.inspection)throw new Error();value={agent:await snapshot(agents.get(row.arg.agentId))};
+          const acquired=agents.get(row.arg.agentId);
+          if(fault.inspection || (fault.inspection_after_prompt && acquired.promptCount))throw new Error();
+          value={agent:await snapshot(acquired)};
         } else if(row.method==='prompt') {
           record('prompt-envelope',{agent_id:row.arg.agent,message_id:row.arg.messageId});
           if(fault.binding_replacement) {
             const file=`${home}/.m07-t05/binding.json`;fs.renameSync(file,`${file}.old`);
             fs.copyFileSync(`${file}.old`,file);fs.chmodSync(file,0o600);
           }
-          value=await agents.get(row.arg.agent).rpc.call('prompt');
+          const acquired=agents.get(row.arg.agent);acquired.promptCount=(acquired.promptCount??0)+1;
+          value=await acquired.rpc.call('prompt');
           if(fault.prompt_uncertain)throw new Error(); // Effect occurred, receipt lost.
         } else if(row.method==='wait') {
           value={status:fault.completion?'timeout':'idle',final:await snapshot(agents.get(row.arg.agent))};
@@ -131,11 +176,13 @@ export async function runFakePi() {
   const model={provider:fault.profile?'codex-lb':(selected?.[0]??'meta'),
     id:selected?.[1]??'muse-spark-1.3-contributor'};
   const thinking=fault.thinking?'xhigh':(args.includes('--thinking')?level:'max');
+  let isStreaming=false;
   readline.createInterface({input:process.stdin}).on('line',async line=>{
     const row=JSON.parse(line); record('pi:'+row.type);let data;
-    if(row.type==='get_state')data={model,thinkingLevel:thinking};
+    if(row.type==='get_state')data={model,thinkingLevel:thinking,isStreaming};
     else if(row.type==='get_available_models')data=[{id:fixed,thinkingOptionIds:['max']}];
     else if(row.type==='prompt') {
+      isStreaming=true;
       const controller=new AbortController();
       const ctx={model:fault.request_profile?{...model,provider:'codex-lb'}:model,
         thinkingLevel:thinking,signal:controller.signal,abort:()=>controller.abort()};
@@ -147,7 +194,7 @@ export async function runFakePi() {
           if(!fault.omit_settled)handlers.agent_settled();
         }
       }
-      data={};
+      isStreaming=false;data={};
     } else process.exit(42);
     console.log(JSON.stringify({id:row.id,data}));
   });

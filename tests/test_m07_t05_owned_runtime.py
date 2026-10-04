@@ -195,7 +195,7 @@ class OwnedRuntimeTests(unittest.TestCase):
                         self.assertEqual((f.home / '.m07-t05/processes' /
                             (refs['requested_agent_id'] + '.json')).read_text(), 'private unrelated acquisition')
                     self.assertRegex(refs['requested_agent_id'], r'^[0-9a-f-]{36}$')
-                    self.assertRegex(refs['requested_workspace_id'], r'^[0-9a-f-]{36}$')
+                    self.assertRegex(refs['requested_workspace_id'], r'^wks_[a-f0-9]{16}$')
                     if fault not in ('wrong_server','workspace_uncertain','unsupported_creation'):
                         self.assertIsNotNone(refs['workspace_id'])
                 finally:
@@ -237,6 +237,67 @@ class OwnedRuntimeTests(unittest.TestCase):
                     self.assertFalse(refs['replay'])
                 finally:
                     f.close()
+
+    def test_pinned_protocol_snapshot_omissions_types_and_binding_fail_before_prompt(self):
+        faults = [{'snapshot_omit': [key]} for key in
+                  ('id', 'workspaceId', 'cwd', 'provider', 'runtimeInfo', 'effectiveThinkingOptionId')]
+        faults += [{'snapshot_patch': {key: value}} for key, value in
+                   (('id', 7), ('workspaceId', False), ('cwd', '/foreign'),
+                    ('provider', 'codex'), ('runtimeInfo', {'provider':'pi','sessionId':None,'model':None}),
+                    ('effectiveThinkingOptionId', None), ('effectiveThinkingOptionId', 'xhigh'),
+                    ('labels', {'paseo.parent-agent-id':'foreign-parent'}))]
+        for fault in faults:
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory(prefix='pud-supported-snapshot-') as td:
+                fixture = OwnedRuntimeFixture(td, fault)
+                try:
+                    with self.assertRaises(A.AdapterBlocked):
+                        fixture.run()
+                    self.assertNotIn('prompt', fixture.calls())
+                    self.assertNotIn('fake-transport', fixture.calls())
+                    reference = json.loads((fixture.home / '.m07-t05/owned.json').read_text())
+                    self.assertRegex(reference['requested_workspace_id'], r'^wks_[a-f0-9]{16}$')
+                    self.assertRegex(reference['requested_agent_id'], r'^[0-9a-f-]{36}$')
+                    self.assertFalse(reference['replay'])
+                finally:
+                    fixture.close()
+
+    def test_actual_pi_boundary_rejects_ambient_selectors_and_missing_acquisition_env(self):
+        faults = [{'pi_ambient': {key: value}} for key, value in
+                  (('PASEO_WORKSPACE_ID','foreign'), ('PASEO_HOST','foreign'), ('PASEO_SERVER','foreign'),
+                   ('PASEO_PASSWORD','synthetic-unused'), ('NODE_OPTIONS','--no-warnings'),
+                   ('PI_CODING_AGENT_DIR','/nonexistent-fixture'), ('PI_AGENT_DIR','/nonexistent-fixture'))]
+        faults += [{'pi_env_omit':[key]} for key in
+                   ('META_API_KEY', 'PASEO_AGENT_ID', 'M07_T05_TEST_ID', 'M07_T05_PROCESS_DIR')]
+        for fault in faults:
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory(prefix='pud-supported-env-') as td:
+                fixture = OwnedRuntimeFixture(td, fault)
+                try:
+                    with self.assertRaises(A.AdapterBlocked):
+                        fixture.run()
+                    self.assertNotIn('prompt', fixture.calls())
+                    self.assertNotIn('fake-transport', fixture.calls())
+                    reference = json.loads((fixture.home / '.m07-t05/owned.json').read_text())
+                    self.assertFalse(reference['replay'])
+                finally:
+                    fixture.close()
+
+    def test_genuine_validator_post_effect_inspection_uncertainty_retains_one_exchange(self):
+        with tempfile.TemporaryDirectory(prefix='pud-owned-post-effect-') as td, T.LocalCodexServer() as server:
+            result, calls, state = H._run_validate(Path(td), server_base=server.base,
+                extra_state={'runtime_fault':{'inspection_after_prompt':True}})
+            runtime = state['_owned_runtime']
+            try:
+                self.assertEqual(result['status'], 'UNKNOWN', result)
+                self.assertFalse(result['real_validation_satisfied'])
+                self.assertEqual(runtime.calls().count('prompt'), 1)
+                self.assertEqual(runtime.calls().count('fake-transport'), 1)
+                self.assertFalse(any(call[:2] == ['docker','rm'] for call in calls))
+                reference = json.loads((Path(state['work']) / 'home/.m07-t05/owned.json').read_text())
+                self.assertIsNotNone(reference['agent_id'])
+                self.assertIsNotNone(reference['workspace_id'])
+                self.assertFalse(reference['replay'])
+            finally:
+                runtime.close()
 
     def test_reference_collision_cannot_acquire_or_mutate(self):
         with tempfile.TemporaryDirectory(prefix='pud-owned-') as td:

@@ -46,7 +46,7 @@ export async function runOwnedTest(config, connect) {
     .map(key => [key, config.daemon?.[key]]));
   let state = {schema_version: 1, test_id: config.test_id, daemon: safeDaemon,
     workspace_id: null, agent_id: null,
-    requested_workspace_id: crypto.randomUUID(), requested_agent_id: crypto.randomUUID(),
+    requested_workspace_id: `wks_${crypto.randomBytes(8).toString('hex')}`, requested_agent_id: crypto.randomUUID(),
     workspace_request_id: crypto.randomUUID(), agent_request_id: crypto.randomUUID(),
     message_id: crypto.randomUUID(), dispatch: 'not_started', replay: false};
   let client, persist, effect = false;

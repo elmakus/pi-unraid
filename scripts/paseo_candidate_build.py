@@ -6,10 +6,13 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
+import tarfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,7 +30,10 @@ def sha256_bytes(raw: bytes) -> str:
 
 def sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
-    with path.open("rb") as handle:
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+    with os.fdopen(fd, 'rb') as handle:
+        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+            raise CandidateBuildError('hash input is not a regular file')
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             digest.update(chunk)
     return "sha256:" + digest.hexdigest()
@@ -286,6 +292,120 @@ def render_dockerfile(text: str, accepted: dict, candidate: dict) -> str:
     return text
 
 
+def git_source_identity(source_root: Path, source_head: str, source_parent: str,
+                        source_ref: str) -> dict:
+    """Read the immutable Git subject AND every used checkout byte/mode.
+
+    No fetch, checkout or mutation. Git's object database proves the commit/tree;
+    a clean-looking index or a caller's nine-file map is not the proof. Ignored
+    and untracked build inputs are rejected too. Only Git administration and
+    Python interpreter caches (not copied into the stage) are excluded.
+    """
+    git_env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    git_env.update(GIT_CONFIG_GLOBAL='/dev/null', GIT_CONFIG_SYSTEM='/dev/null')
+    def git(*args):
+        p = subprocess.run(['git', '--no-replace-objects', '-C', str(source_root), *args],
+                           env=git_env, capture_output=True, timeout=30)
+        if p.returncode:
+            raise CandidateBuildError('immutable Git source is unavailable')
+        return p.stdout
+    if not all(re.fullmatch(r'[0-9a-f]{40}', v or '') for v in (source_head, source_parent)):
+        raise CandidateBuildError('exact Git head/parent required')
+    if not re.fullmatch(r'refs/heads/[A-Za-z0-9._/-]+', source_ref or ''):
+        raise CandidateBuildError('discovery branch ref required')
+    if git('rev-parse', 'HEAD').decode().strip() != source_head:
+        raise CandidateBuildError('used checkout is not the declared source head')
+    commit = git('cat-file', 'commit', source_head)
+    headers = commit.split(b'\n\n', 1)[0].splitlines()
+    parents = [v[7:].decode() for v in headers if v.startswith(b'parent ')]
+    if parents != [source_parent]:
+        raise CandidateBuildError('source commit does not have the exact single discovery parent')
+    tree = next(v[5:].decode() for v in headers if v.startswith(b'tree '))
+    # Discovery may race forward; it must still contain the frozen parent.
+    ref = source_ref
+    if subprocess.run(['git', '--no-replace-objects', '-C', str(source_root),
+                       'show-ref', '--verify', '--quiet', ref], env=git_env, capture_output=True).returncode:
+        ref = 'refs/remotes/origin/' + source_ref.removeprefix('refs/heads/')
+    git('merge-base', '--is-ancestor', source_parent, ref)
+    files = {}
+    for row in git('ls-tree', '-rz', '--full-tree', source_head).split(b'\0'):
+        if not row:
+            continue
+        header, raw_path = row.split(b'\t', 1)
+        mode, kind, oid = header.decode().split()
+        rel = raw_path.decode()
+        if kind != 'blob' or mode not in ('100644', '100755'):
+            raise CandidateBuildError('unsupported source tree member')
+        raw = git('cat-file', 'blob', oid)
+        files[rel] = {'mode': mode, 'sha256': sha256_bytes(raw)}
+    verify_tree_bytes(source_root, files)
+    return {'schema_version': 1, 'commit_sha256': sha256_bytes(commit),
+            'tree': tree, 'files': files}
+
+
+def verify_tree_bytes(root: Path, files: dict, *, generated=()) -> None:
+    """Exact file-set/content/executable proof, including ignored inputs."""
+    if not isinstance(files, dict) or not files:
+        raise CandidateBuildError('source tree file map is absent')
+    actual = set()
+    for p in root.rglob('*'):
+        rel = p.relative_to(root)
+        if '.git' in rel.parts or '__pycache__' in rel.parts or p.name.endswith('.pyc'):
+            continue
+        if p.is_symlink():
+            raise CandidateBuildError('source/stage symlink is not a frozen regular file')
+        if p.is_dir():
+            continue
+        name = rel.as_posix()
+        if name in generated:
+            continue
+        actual.add(name)
+        value = files.get(name)
+        if (not isinstance(value, dict) or set(value) != {'mode', 'sha256'}
+                or value['mode'] not in ('100644', '100755')
+                or value['sha256'] != sha256_file(p)
+                or bool(p.stat().st_mode & 0o111) != (value['mode'] == '100755')):
+            raise CandidateBuildError('source/stage bytes or executable configuration changed')
+    if actual != set(files):
+        raise CandidateBuildError('source/stage file set changed')
+
+
+def verify_prepared_source(source_root: Path, prepared: dict, candidate: dict,
+                           *, stage_root: Path | None = None) -> dict:
+    """Reconstruct the actual prepare transformation, not a declared readback."""
+    proof = git_source_identity(source_root, prepared.get('source_head'),
+                                prepared.get('source_parent'), prepared.get('source_ref'))
+    if prepared.get('source_identity') != proof:
+        raise CandidateBuildError('prepared immutable source proof mismatch')
+    accepted, accepted_raw = load_json_bytes(source_root / 'config/paseo-candidate.json')
+    if prepared.get('accepted_candidate_id') != accepted.get('candidate_id'):
+        raise CandidateBuildError('prepared accepted source candidate mismatch')
+    original = (source_root / 'Dockerfile').read_text()
+    rendered = render_dockerfile(original, accepted, candidate)
+    expected_files = dict(proof['files'])
+    expected_files['Dockerfile'] = {**expected_files['Dockerfile'],
+                                  'sha256': sha256_bytes(rendered.encode())}
+    # The candidate byte link is distinct from its resolution identity.
+    expected_files['config/paseo-candidate.json'] = {
+        **expected_files['config/paseo-candidate.json'],
+        'sha256': prepared.get('candidate_file_sha256')}
+    if prepared.get('staged_files') != expected_files:
+        raise CandidateBuildError('prepared transformation file map mismatch')
+    candidate_raw = (stage_root / 'config/paseo-candidate.json').read_bytes() if stage_root else None
+    if candidate_raw is not None:
+        if sha256_bytes(candidate_raw) != prepared.get('candidate_file_sha256'):
+            raise CandidateBuildError('staged candidate bytes changed')
+        expected_files['config/paseo-candidate.json'] = {
+            **expected_files['config/paseo-candidate.json'], 'sha256': sha256_bytes(candidate_raw)}
+        verify_tree_bytes(stage_root, expected_files,
+                          generated=('.pi-unraid-candidate-build-input.json',))
+    buildx = load_buildx(source_root)
+    readback = buildx.verify_build_inputs(candidate, rendered, stage_root or source_root)
+    if prepared.get('build_readback') != readback:
+        raise CandidateBuildError('prepared build configuration readback mismatch')
+    return proof
+
+
 def prepare_context(
     *,
     candidate_path: Path,
@@ -315,6 +435,10 @@ def prepare_context(
     except OSError as exc:
         raise CandidateBuildError(f"source Dockerfile is unreadable: {dockerfile_path}") from exc
 
+    # Non-Git compatibility fixtures retain explicit unbound provenance; they
+    # cannot pass the real Tower source gate. Real checkouts prove every input.
+    source_identity = (git_source_identity(source_root, source_head, source_parent, expected_source_ref)
+                       if (source_root / '.git').exists() else None)
     rendered = render_dockerfile(original_dockerfile, accepted, candidate)
     shutil.copytree(
         source_root,
@@ -348,8 +472,17 @@ def prepare_context(
         "source_ref": evidence["source_ref"],
         "stage_dir": str(stage_dir),
         "build_readback": readback,
+        "source_identity": source_identity,
         "companion_bundle": companion,
     }
+    if source_identity is not None:
+        staged_files = dict(source_identity['files'])
+        staged_files['Dockerfile'] = {**staged_files['Dockerfile'],
+                                     'sha256': sha256_bytes(rendered.encode())}
+        staged_files['config/paseo-candidate.json'] = {
+            **staged_files['config/paseo-candidate.json'], 'sha256': sha256_bytes(candidate_raw)}
+        verify_tree_bytes(stage_dir, staged_files)
+        result['staged_files'] = staged_files
     (stage_dir / ".pi-unraid-candidate-build-input.json").write_text(
         json.dumps(result, sort_keys=True, indent=2) + "\n",
         encoding="utf-8",
@@ -416,6 +549,8 @@ def package_tested_image(
     if record_companion != companion_declared:
         raise CandidateBuildError("build-record/prepared companion binding mismatch")
 
+    if build_input.get('source_identity') is not None and record.get('prepared_source') != build_input:
+        raise CandidateBuildError('built/prepared source configuration mismatch')
     tag = str(record.get("tag") or "")
     image_id = str((record.get("image") or {}).get("id") or "")
     if not tag or not SHA256.fullmatch(image_id):
@@ -450,6 +585,8 @@ def package_tested_image(
     after = run_checked(["docker", "image", "inspect", tag, "--format", "{{.Id}}"]).stdout.strip()
     if after != image_id:
         raise CandidateBuildError("local image identity changed while preserving tested artifact")
+    if build_input.get('source_identity') is not None:
+        verify_docker_save(archive_path, image_id, tag)
 
     result = {
         "schema_version": SCHEMA_VERSION,
@@ -470,6 +607,115 @@ def package_tested_image(
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
     evidence_path.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return result
+
+
+def verify_build_record_configuration(record: dict, prepared: dict, source_root: Path) -> None:
+    """Reconstruct the producer's actual Buildx command and internal smoke detail."""
+    if record.get('prepared_source') != prepared:
+        raise CandidateBuildError('build did not retain exact prepared inputs')
+    config = record.get('build_configuration')
+    if (not isinstance(config, dict) or set(config) !=
+            {'argv', 'progress', 'labels', 'metadata_file', 'with_smoke', 'smoke_profile'}
+            or config['with_smoke'] is not True
+            or config['smoke_profile'] not in ('core', 'full')
+            or config['progress'] not in ('plain', 'auto', 'tty')
+            or not isinstance(config['labels'], list)
+            or not all(isinstance(v, str) and '=' in v for v in config['labels'])
+            or (config['metadata_file'] is not None and not isinstance(config['metadata_file'], str))):
+        raise CandidateBuildError('build configuration is malformed or lacks required smoke')
+    builder = record.get('builder')
+    if not isinstance(builder, dict) or not isinstance(builder.get('name'), str):
+        raise CandidateBuildError('actual builder configuration missing')
+    buildx = load_buildx(source_root)
+    buildx.validate_builder_name(builder['name'])
+    argv = ['docker', 'buildx', 'build', '--builder', builder['name'], '--load',
+            '--progress', config['progress'], '-t', record.get('tag')]
+    cache = record.get('cache')
+    if not isinstance(cache, dict):
+        raise CandidateBuildError('cache configuration missing')
+    if cache.get('local_dir'):
+        if not isinstance(cache['local_dir'], str):
+            raise CandidateBuildError('cache configuration has incorrect type')
+        argv += ['--cache-from', 'type=local,src=' + cache['local_dir'],
+                 '--cache-to', 'type=local,mode=max,dest=' + cache['local_dir']]
+    for label in config['labels']:
+        argv += ['--label', label]
+    if config['metadata_file']:
+        argv += ['--metadata-file', config['metadata_file']]
+    argv += [record.get('context')]
+    if config['argv'] != argv or record.get('context') != prepared.get('stage_dir'):
+        raise CandidateBuildError('actual Buildx command/context reconstruction mismatch')
+    phases = record.get('phases')
+    if not isinstance(phases, dict):
+        raise CandidateBuildError('build phases missing')
+    for name in ('resolution_readback', 'builder_ensure', 'build', 'test'):
+        phase = phases.get(name)
+        if (not isinstance(phase, dict) or phase.get('status') != 'ok'
+                or type(phase.get('duration_ms')) is not int or phase['duration_ms'] < 0
+                or not isinstance(phase.get('detail'), dict)):
+            raise CandidateBuildError('required build phase schema/type/status rejected')
+    readback = phases['resolution_readback']['detail']
+    expected = {**prepared['build_readback'],
+                'candidate_path': record['candidate']['path'],
+                'companion_bundle': prepared['companion_bundle']}
+    if readback != expected:
+        raise CandidateBuildError('build resolution readback reconstruction mismatch')
+    if phases['builder_ensure']['detail'] != {k: v for k, v in builder.items() if k != 'state_dir'}:
+        raise CandidateBuildError('builder phase/readback mismatch')
+    detail = phases['build']['detail']
+    if detail.get('tag') != record.get('tag') or detail.get('image_id') != record['image']['id']:
+        raise CandidateBuildError('built image/readback mismatch')
+    test = phases['test']['detail']
+    expected_names = [name for name, _ in buildx.smoke_suite(record['tag'],
+        record['candidate']['path'], Path(record['context']), config['smoke_profile'])]
+    smokes = test.get('smokes')
+    if (test.get('profile') != config['smoke_profile'] or not isinstance(smokes, list)
+            or [v.get('name') for v in smokes if isinstance(v, dict)] != expected_names
+            or any(not isinstance(v, dict) or v.get('status') != 'ok'
+                or type(v.get('duration_ms')) is not int or v['duration_ms'] < 0 for v in smokes)):
+        raise CandidateBuildError('actual smoke dispatch/aggregation mismatch')
+
+
+def verify_docker_save(archive: Path, image_id: str, tag: str) -> dict:
+    """Hash the actual preserved config, inspect format links without extracting."""
+    try:
+        with tarfile.open(archive, 'r:') as bundle:
+            members = bundle.getmembers()
+            names = [m.name for m in members]
+            if len(names) != len(set(names)):
+                raise CandidateBuildError('docker-save duplicate member')
+            for m in members:
+                rel = Path(m.name)
+                if rel.is_absolute() or '..' in rel.parts or not (m.isfile() or m.isdir()):
+                    raise CandidateBuildError('docker-save unsafe member')
+            manifest_member = bundle.getmember('manifest.json')
+            if manifest_member.size > 65536:
+                raise CandidateBuildError('docker-save manifest exceeds bound')
+            manifest = json.load(bundle.extractfile(manifest_member))
+            if (not isinstance(manifest, list) or len(manifest) != 1
+                    or not isinstance(manifest[0], dict)):
+                raise CandidateBuildError('docker-save must contain one tested image')
+            item = manifest[0]
+            if (not isinstance(item.get('Config'), str)
+                    or item.get('RepoTags') != [tag]
+                    or not isinstance(item.get('Layers'), list)
+                    or not all(isinstance(v, str) for v in item['Layers'])):
+                raise CandidateBuildError('docker-save image/tag/format link mismatch')
+            config_member = bundle.getmember(item['Config'])
+            if not config_member.isfile() or config_member.size > 1048576:
+                raise CandidateBuildError('docker-save image configuration exceeds bound')
+            config = bundle.extractfile(config_member).read()
+            config_document = json.loads(config)
+            if sha256_bytes(config) != image_id or not isinstance(config_document, dict):
+                raise CandidateBuildError('docker-save config does not hash to tested local image ID')
+            for layer in item['Layers']:
+                if not bundle.getmember(layer).isfile():
+                    raise CandidateBuildError('docker-save layer missing')
+            if not isinstance(config_document.get('config'), dict):
+                raise CandidateBuildError('docker-save runtime configuration is absent')
+            return config_document['config']
+    except (OSError, tarfile.TarError, KeyError, ValueError, TypeError) as exc:
+        raise CandidateBuildError('docker-save archive is malformed') from exc
 
 
 def _require_build_input_record(build_input_path: Path) -> dict:
