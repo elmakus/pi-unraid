@@ -39,3 +39,26 @@ The target `contracts/PASEO_CODEX_LB_RUNTIME_ENV.md` includes secret propagation
 Keep the same active Card and restrictions. Commit bounded corrections and updated implementation evidence, retaining the initial bytes in Git history. Record the exact corrected implementation subject and precise test/readback scope. No push, inference, credential admission, installed runtime/HOME/host/production mutation, Board/Card/result/review/plan finalization or further delegation. Remove only verified generated Python cache artifacts, or prevent their regeneration; do not clean unknown/untracked source files indiscriminately.
 
 Main will revalidate the corrected contribution before accepting one semantic result. A future REQUIRED review uses a fresh independent context that did not implement or repair the resulting subject. The current initial return has no semantic result or review-attempt acceptance.
+
+## Second contribution validation — remaining incomplete boundaries
+
+Inspected corrected implementation: `elmakus/pi-unraid@38d704ac78c40e88dbc4d81851d3bdad4b2337bf`.
+Corrected report: `elmakus/pi-unraid@9c3141601b3dc80ef37165f0c809b1b344bb98ac:implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T04-baseline-implementation-2026-10-04.md@69c4655c1693cbf5228ed3835adc080579ebd73a`.
+
+The contribution now invokes the actual launcher in synthetic negative fixtures, executes a provenance-gated pure upstream clamp readback and includes a reconciled target contract. Those are real improvements; source/state remain bounded. Main has not rerun the reported 44/549 counts or accepted a semantic result. The stable Card remains valid and `in_progress`; no review attempt exists.
+
+### A. Reachable build/package enforcement is still missing
+
+A production callsite search finds `verify_companion_binding` only as its definition and test calls. `prepare_context` declares the identity from `source_root` after copying, but never verifies the staged copy against that declaration. `paseo_buildx.verify_build_inputs`, `cmd_build` and `package_tested_image` do not consume the companion declaration. The build record/package output lacks companion identity and does not compare it with the prepared source/candidate/handoff binding. Therefore changed/missing/different staged companions can pass the actual existing build/package path; helper-only rejection tests do not demonstrate that path's enforcement.
+
+Complete this already-requested narrow baseline binding in the existing preparation, build-input readback/record and package path. Verify the actual staged payload; retain and check its declared identity/provenance through the package evidence, failing before external actions when malformed/missing/mismatched. Add integration fixtures against those real entrypoints, not just direct helper tests: positive declared bundle, source/stage divergence, post-prepare content/file-set mutation, missing/malformed declaration, inconsistent source/candidate/handoff identity and build/package mismatch. Use only mocked/fake Docker and disposable filesystem roots. Do not broaden into final validator/promotion gates, trigger builds, alter topology or mutate production.
+
+### B. Dispatch assertions occur after fixture deletion
+
+Both corrected launcher-test helpers return a marker Path from inside `TemporaryDirectory`, then callers evaluate `marker.exists()` after the context manager deleted the directory. These assertions are always false, even if a dispatch occurred. Snapshot and return the marker existence/content/count before cleanup, and include a positive control proving that a valid fake dispatch is observed. For unavailable execution, do not depend on there never being a real Paseo binary in `/usr/bin` or `/bin`: guarantee a fake-only dispatch path or isolate executable resolution so this test cannot accidentally cause real inference on another host. Keep actual launcher behavior, fixed identity and no-fallback semantics unchanged.
+
+### C. Remaining contradictory rollout wording
+
+The reconciled product contract still says real acceptance is performed "if performed" and that "Failure after cutover restores" without the immediate transaction window. R2/P4 requires the bounded real gate before exposure; it is not optional. PUD-REQ-028 ends automatic rollback authority at immediate GREEN, so a later unrelated fault cannot trigger restoration. Qualify the preserved rollout paragraph with the actual guard/exposure/user-trigger/immediate-acceptance sequence and the bounded pre-GREEN rollback authority. This is documentation alignment to existing approved authority, not a new decision or change to frozen requirements/planning. Preserve the non-conflicting secret/upstream/catalog text.
+
+These are incomplete implementation/evidence boundaries under common Execution, not a Research/profile-input/user blocker or independent RED verdict. Correct them within the unchanged Card, update exact implementation/evidence and honest test/readback accounting, then return to Main without finalizing state or pushing.
