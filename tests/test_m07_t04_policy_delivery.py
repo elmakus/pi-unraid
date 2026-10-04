@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 import json
 import re
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -16,20 +20,23 @@ SOURCE = ROOT / "config" / "pi-agent"
 DOCKERFILE = (ROOT / "Dockerfile").read_text()
 COMPOSE = (ROOT / "compose.yaml").read_text()
 CANDIDATE = json.loads((ROOT / "config" / "paseo-candidate.json").read_text())
-INSTALLED_META = Path(
-    "/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/node_modules"
-    "/@earendil-works/pi-ai/dist/providers/data/meta.json"
+FIXTURE = json.loads(
+    (ROOT / "tests" / "fixtures" / "m07t04" / "pi-ai-0.87.1-meta-contributor.json").read_text()
 )
+PI_AI_ROOT = Path(
+    "/usr/local/lib/node_modules/@earendil-works/pi-coding-agent/node_modules"
+    "/@earendil-works/pi-ai"
+)
+INSTALLED_META = PI_AI_ROOT / "dist" / "providers" / "data" / "meta.json"
+INSTALLED_MODELS_JS = PI_AI_ROOT / "dist" / "models.js"
+PINNED_PI_VERSION = "0.87.1"
 
-
-def clamp(level: str, level_map: dict) -> str:
-    """Mirror dist/models.js clampThinkingLevel downward scan for the test fixture."""
-    order = ["off", "minimal", "low", "medium", "high", "xhigh", "max"]
-    idx = order.index(level)
-    for cand in reversed(order[: idx + 1]):
-        if level_map.get(cand) is not None:
-            return cand
-    raise AssertionError("no supported level")
+_spec = importlib.util.spec_from_file_location(
+    "paseo_candidate_build_m07t04", ROOT / "scripts" / "paseo_candidate_build.py"
+)
+assert _spec and _spec.loader
+BUILD = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(BUILD)
 
 
 class M07T04PolicyDeliveryTests(unittest.TestCase):
@@ -49,33 +56,124 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
         self.assertIn('--native-create-agent-args', runner)
         self.assertIn('pi/$provider/$model', runner)
 
-    def test_unmodified_bundled_contributor_max_is_null_and_clamps_to_xhigh(self) -> None:
-        # Official upstream source fact (no inference): bundled direct-Meta data
-        # marks contributor max unsupported. Without a repo-managed override,
-        # a fixed max request would execute at xhigh — a fake-max hazard.
-        # This test proves the hazard is explicit; it never claims effective max.
-        if not INSTALLED_META.is_file():
-            self.skipTest("installed pi-ai bundle unavailable for provenance readback")
-        data = json.loads(INSTALLED_META.read_text())
-        inner = data.get("openai-responses", data)
-        contributor = inner.get("muse-spark-1.3-contributor")
-        self.assertIsNotNone(contributor)
-        level_map = contributor.get("thinkingLevelMap", {})
-        self.assertIsNone(level_map.get("max"))
-        self.assertEqual(clamp("max", level_map), "xhigh")
-        supported = [k for k, v in level_map.items() if v is not None]
-        self.assertNotIn("max", supported)
-        self.assertIn("xhigh", supported)
+    def test_pinned_fixture_records_contributor_max_null_as_metadata_only(self) -> None:
+        # Pinned-source catalog metadata (always executes; no inference): the
+        # upstream bundle marks contributor max unsupported on the direct-Meta
+        # path. Metadata alone proves nothing about wire behavior; effective
+        # max acceptance stays deferred to M08-T01 after M07-T05 machinery.
+        provenance = FIXTURE["_provenance"]
+        self.assertEqual(provenance["package"], "@earendil-works/pi-ai")
+        self.assertEqual(provenance["version"], PINNED_PI_VERSION)
+        model = FIXTURE["model"]
+        self.assertEqual(model["id"], "muse-spark-1.3-contributor")
+        level_map = model["thinkingLevelMap"]
+        self.assertIsNone(level_map["max"])
+        self.assertEqual(level_map["xhigh"], "xhigh")
 
-    def test_unsupported_or_downgraded_profile_cannot_report_acceptance(self) -> None:
-        # Any of these bindings must fail closed and cannot satisfy final gates.
-        for bad in ("xhigh", "high", "low", "unsupported-profile", ""):
-            with self.subTest(bad=bad):
-                self.assertNotEqual(bad, "max")
-        policy = json.loads(POLICY_PATH.read_text())["real_llm_tests"]
-        self.assertEqual(policy["thinking"], "max")
-        # Wrong bundle / unverifiable binding is likewise not acceptance;
-        # the companion bundle digest is recorded in evidence, not asserted here.
+    def installed_contributor_entry(self):
+        # Provenance-gated upstream readback: trust the installed bundle only
+        # when its package version matches the frozen Dockerfile/candidate pin.
+        # Returns the contributor model object, or skips honestly with reason.
+        pkg = PI_AI_ROOT / "package.json"
+        if not pkg.is_file():
+            self.skipTest("installed pi-ai package unavailable; fixture test above still executed")
+        version = json.loads(pkg.read_text()).get("version")
+        if version != PINNED_PI_VERSION:
+            self.skipTest(
+                f"installed pi-ai is {version}, not the pinned {PINNED_PI_VERSION}; "
+                "fixture test above still executed"
+            )
+        if not INSTALLED_META.is_file() or not INSTALLED_MODELS_JS.is_file():
+            self.skipTest("installed pi-ai bundle files unavailable; fixture test above still executed")
+        data = json.loads(INSTALLED_META.read_text())
+        entry = data.get("openai-responses", data).get("muse-spark-1.3-contributor")
+        self.assertIsNotNone(entry)
+        return entry
+
+    def test_pinned_fixture_matches_installed_bundle_metadata(self) -> None:
+        entry = self.installed_contributor_entry()
+        self.assertEqual(entry["thinkingLevelMap"], FIXTURE["model"]["thinkingLevelMap"])
+
+    def test_upstream_selection_function_clamps_max_to_xhigh(self) -> None:
+        # Executes Pi's ACTUAL bundled selection function (pure, non-inference
+        # source readback) against the installed contributor entry: unmodified
+        # pinned data excludes max and clamps a max request to xhigh. This is
+        # the explicit fake-max hazard, not an acceptance claim; proving the
+        # effective profile on-wire remains M07-T05/M08-T01 scope (deferred).
+        entry = self.installed_contributor_entry()
+        model = {
+            "id": entry["id"],
+            "provider": entry.get("provider"),
+            "reasoning": entry.get("reasoning"),
+            "thinkingLevelMap": entry.get("thinkingLevelMap"),
+        }
+        code = (
+            "import {getSupportedThinkingLevels, clampThinkingLevel} "
+            f"from '{INSTALLED_MODELS_JS.as_uri()}';\n"
+            "const model = JSON.parse(process.argv[1]);\n"
+            "console.log(JSON.stringify({supported: getSupportedThinkingLevels(model), "
+            "clamped: clampThinkingLevel(model, 'max')}));\n"
+        )
+        if shutil.which("node") is None:
+            self.skipTest("node unavailable for upstream-function readback")
+        proc = subprocess.run(
+            ["node", "--input-type=module", "-e", code, json.dumps(model)],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        out = json.loads(proc.stdout)
+        self.assertNotIn("max", out["supported"])
+        self.assertIn("xhigh", out["supported"])
+        self.assertEqual(out["clamped"], "xhigh")
+
+    def _run_delivered_launcher(self, policy, argv):
+        # Behavioral guard proof on the actual delivered launcher bytes: copy
+        # the real launcher into a disposable symlink-free agent root and run
+        # it against a fake Paseo executable (no inference possible).
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            agent = root / "agent"
+            (agent / "bin").mkdir(parents=True)
+            (agent / "policies").mkdir(parents=True)
+            launcher = agent / "bin" / "run-llm-test.sh"
+            launcher.write_bytes(RUNNER.read_bytes())
+            launcher.chmod(0o755)
+            (agent / "policies" / "llm-test-policy.json").write_text(json.dumps(policy))
+            fakebin = root / "fakebin"
+            fakebin.mkdir()
+            marker = root / "dispatched.txt"
+            fake = fakebin / "paseo"
+            fake.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$DISPATCH_MARKER"\n')
+            fake.chmod(0o755)
+            env = {"PATH": f"{fakebin}:/usr/bin:/bin", "DISPATCH_MARKER": str(marker)}
+            proc = subprocess.run(
+                [str(launcher)] + argv, env=env,
+                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
+            )
+            return proc, marker
+
+    def test_downgraded_or_native_shape_profile_cannot_become_acceptance(self) -> None:
+        # A downgraded effective level must fail closed in both invocation
+        # shapes: prompt dispatch never runs, and the native-args shape emits
+        # no fixed-shape payload. Neither observation satisfies final gates.
+        for thinking in ("xhigh", "high"):
+            with self.subTest(thinking=thinking):
+                policy = {
+                    "schema": 1,
+                    "real_llm_tests": {
+                        "provider": "meta",
+                        "model": "muse-spark-1.3-contributor",
+                        "thinking": thinking,
+                        "forbidden_models": ["gpt-6-astra"],
+                        "fallback_allowed": False,
+                    },
+                }
+                proc, marker = self._run_delivered_launcher(policy, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
+                self.assertEqual(proc.returncode, 3, proc.stderr)
+                self.assertFalse(marker.exists())
+                proc, marker = self._run_delivered_launcher(policy, ["--native-create-agent-args"])
+                self.assertEqual(proc.returncode, 3, proc.stderr)
+                self.assertFalse(marker.exists())
 
     def test_no_fallback_or_arbitrary_model_path_in_canonical_launcher(self) -> None:
         runner = RUNNER.read_text()
@@ -90,7 +188,14 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
         # Historical evidence and fixture model IDs are preserved elsewhere;
         # product authority (config/docs/scripts/contracts) must not retain
         # the superseded test-only Luna/low real-test profile.
-        for path in list((ROOT / "config").rglob("*")) + list((ROOT / "docs").glob("*.md")):
+        product = (
+            list((ROOT / "config").rglob("*"))
+            + list((ROOT / "docs").glob("*.md"))
+            + list((ROOT / "contracts").rglob("*"))
+            + list((ROOT / "scripts").glob("*.py"))
+            + list((ROOT / "scripts").glob("*.sh"))
+        )
+        for path in product:
             if path.is_file():
                 text = path.read_text(errors="replace")
                 self.assertNotIn("gpt-6-luna", text, str(path))
@@ -108,6 +213,20 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
         self.assertTrue((ROOT / "scripts" / "reconcile-codex-lb-auth-shadow.py").is_file())
         self.assertTrue((ROOT / "scripts" / "reconcile-codex-lb-provider-config.py").is_file())
         self.assertTrue((ROOT / "config" / "pi-agent" / "extensions" / "codex-lb-dynamic-model-catalog.ts").is_file())
+        # Reconciled product contract preserves non-conflicting target intent
+        # with only the superseded test/rollout provisions R2-qualified.
+        contract = ROOT / "contracts" / "PASEO_CODEX_LB_RUNTIME_ENV.md"
+        self.assertTrue(contract.is_file())
+        contract_text = contract.read_text()
+        self.assertIn("muse-spark-1.3-contributor", contract_text)
+        self.assertNotIn("gpt-6-luna", contract_text)
+        for kept in (
+            "PI_CODEX_LB_SECRET_FILE",
+            "immutable path",
+            "supported_reasoning_levels",
+            "M08-T01",
+        ):
+            self.assertIn(kept, contract_text)
         # Update-system authority remains intact.
         self.assertTrue((ROOT / "scripts" / "managed_component_lifecycle.py").is_file())
         self.assertTrue((ROOT / "scripts" / "paseo_candidate_build.py").is_file())
@@ -145,14 +264,21 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
         self.assertIn("ghcr.io/getpaseo/paseo@sha256:", DOCKERFILE)
         self.assertIn(CANDIDATE["components"]["paseo"]["artifact"]["digest"], DOCKERFILE)
 
-    def test_candidate_build_context_binds_companion_bundle(self) -> None:
-        # The existing build path stages the whole source root, so the new
-        # instruction bundle participates in eligibility identity. Old digests
-        # are not made eligible by this change.
-        build_py = (ROOT / "scripts" / "paseo_candidate_build.py").read_text()
-        self.assertIn("shutil.copytree", build_py)
-        self.assertIn('ignore=shutil.ignore_patterns(".git"', build_py)
-        self.assertIn('staged_candidate = stage_dir / "config" / "paseo-candidate.json"', build_py)
+    def test_prepare_declares_actual_companion_bundle_identity(self) -> None:
+        # The existing prepare path must declare the REAL frozen companion
+        # identity (files + modes + digest from the installer-owned source),
+        # not merely copy bytes. Old digests gain no eligibility from this.
+        identity = BUILD.companion_bundle_identity(ROOT)
+        self.assertEqual(identity["source"], "config/pi-agent")
+        self.assertIn("AGENTS.md", identity["files"])
+        self.assertIn("bin/run-llm-test.sh", identity["files"])
+        self.assertIn("policies/llm-test-policy.json", identity["files"])
+        self.assertEqual(identity["modes"]["bin/run-llm-test.sh"], "0755")
+        self.assertEqual(identity["modes"]["AGENTS.md"], "0644")
+        self.assertTrue(identity["source_digest"].startswith("sha256:"))
+        bound = BUILD.verify_companion_binding(ROOT, identity)
+        self.assertEqual(bound["status"], "bound")
+        self.assertEqual(bound["source_digest"], identity["source_digest"])
 
 
 if __name__ == "__main__":

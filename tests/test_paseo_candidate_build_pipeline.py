@@ -153,6 +153,8 @@ class CandidateBuildHandoffTests(unittest.TestCase):
             source = root / "source"
             (source / "config").mkdir(parents=True)
             (source / "scripts").mkdir()
+            (source / "config" / "pi-agent").mkdir(parents=True)
+            (source / "config" / "pi-agent" / "AGENTS.md").write_text("# fixture companion\n")
             (source / "Dockerfile").write_text(DOCKERFILE)
             (source / "config" / "paseo-candidate.json").write_text(
                 json.dumps(ACCEPTED, sort_keys=True, indent=2) + "\n"
@@ -179,6 +181,10 @@ class CandidateBuildHandoffTests(unittest.TestCase):
                 ACCEPTED["candidate_id"],
             )
             self.assertEqual(result["status"], "prepared")
+            self.assertEqual(result["companion_bundle"]["source"], "config/pi-agent")
+            self.assertEqual(result["companion_bundle"]["files"], ["AGENTS.md"])
+            self.assertEqual(result["companion_bundle"]["modes"], {"AGENTS.md": "0644"})
+            self.assertTrue(result["companion_bundle"]["source_digest"].startswith("sha256:"))
             fake_buildx.verify_build_inputs.assert_called_once()
 
 

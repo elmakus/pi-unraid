@@ -54,6 +54,97 @@ def load_buildx(root: Path):
     return module
 
 
+COMPANION_SOURCE_REL = Path("config/pi-agent")
+COMPANION_SCHEMA_VERSION = 1
+
+
+def load_instruction_plane():
+    # Installer rules come from this builder's own tooling (not from the
+    # candidate source under inspection) so the declared identity is exactly
+    # what ``apply`` enforces.
+    path = Path(__file__).resolve().parent / "pi_instruction_plane.py"
+    spec = importlib.util.spec_from_file_location("pi_instruction_plane_companion_stage", path)
+    if spec is None or spec.loader is None:
+        raise CandidateBuildError(f"cannot load instruction-plane installer: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def companion_bundle_identity(source_root: Path) -> dict:
+    """Declare the frozen companion policy/provider/instruction bundle.
+
+    The identity (file set, per-path modes, content digest) is computed with
+    the installer's own ``safe_files``/``managed_mode``/``digest_source`` so
+    the declared binding is exactly what ``apply`` enforces: ``bin/*`` tools
+    deploy as ``0755``, every other instruction file as ``0644``. The payload
+    itself is delivered by the instruction plane from this frozen source, not
+    by the image; this record binds the image inputs and the companion to one
+    source state for eligibility. Secret-free: paths, modes and digests only.
+    """
+    try:
+        installer = load_instruction_plane()
+        source = source_root / COMPANION_SOURCE_REL
+        files = installer.safe_files(source)
+        modes = {rel.as_posix(): f"{installer.managed_mode(rel):04o}" for rel in files}
+        digest = installer.digest_source(source, files)
+    except CandidateBuildError:
+        raise
+    except (SystemExit, Exception) as exc:
+        # Installer refuses unsafe/missing sources via SystemExit; either way
+        # the bundle is unverifiable and must fail closed, never bind.
+        raise CandidateBuildError(f"companion bundle is unverifiable: {exc}") from exc
+    return {
+        "schema_version": COMPANION_SCHEMA_VERSION,
+        "source": COMPANION_SOURCE_REL.as_posix(),
+        "files": [rel.as_posix() for rel in files],
+        "modes": modes,
+        "source_digest": digest,
+    }
+
+
+def verify_companion_binding(source_root: Path, declared: dict) -> dict:
+    """Fail closed unless the source tree matches the declared binding.
+
+    Changed content, added/removed files, wrong modes, wrong digest, missing
+    source or malformed declarations never preserve the same binding: each
+    raises ``CandidateBuildError`` instead of reporting bound state.
+    """
+    if not isinstance(declared, dict):
+        raise CandidateBuildError("companion binding declaration must be an object")
+    if declared.get("schema_version") != COMPANION_SCHEMA_VERSION:
+        raise CandidateBuildError("companion binding schema is unsupported")
+    if declared.get("source") != COMPANION_SOURCE_REL.as_posix():
+        raise CandidateBuildError("companion binding source is not the frozen instruction bundle")
+    declared_files = declared.get("files")
+    declared_modes = declared.get("modes")
+    declared_digest = declared.get("source_digest")
+    if not isinstance(declared_files, list) or not all(isinstance(item, str) for item in declared_files):
+        raise CandidateBuildError("companion binding files must be a list of paths")
+    if not isinstance(declared_modes, dict) or not isinstance(declared_digest, str):
+        raise CandidateBuildError("companion binding modes/digest are malformed")
+    actual = companion_bundle_identity(source_root)
+    if actual["files"] != declared_files:
+        missing = sorted(set(declared_files) - set(actual["files"]))
+        added = sorted(set(actual["files"]) - set(declared_files))
+        raise CandidateBuildError(
+            f"companion bundle file set changed (missing={missing} added={added})"
+        )
+    mismatched = sorted(
+        rel for rel in declared_files if actual["modes"].get(rel) != declared_modes.get(rel)
+    )
+    if mismatched:
+        raise CandidateBuildError(f"companion bundle modes changed: {mismatched}")
+    if actual["source_digest"] != declared_digest:
+        raise CandidateBuildError("companion bundle digest mismatch")
+    return {
+        "status": "bound",
+        "source": actual["source"],
+        "source_digest": actual["source_digest"],
+        "files": len(actual["files"]),
+    }
+
+
 def verify_handoff(
     candidate_path: Path,
     evidence_path: Path,
@@ -224,6 +315,7 @@ def prepare_context(
     except Exception as exc:
         raise CandidateBuildError(f"rendered context failed exact build-input verification: {exc}") from exc
 
+    companion = companion_bundle_identity(source_root)
     result = {
         "schema_version": SCHEMA_VERSION,
         "status": "prepared",
@@ -236,6 +328,7 @@ def prepare_context(
         "source_ref": evidence["source_ref"],
         "stage_dir": str(stage_dir),
         "build_readback": readback,
+        "companion_bundle": companion,
     }
     (stage_dir / ".pi-unraid-candidate-build-input.json").write_text(
         json.dumps(result, sort_keys=True, indent=2) + "\n",
