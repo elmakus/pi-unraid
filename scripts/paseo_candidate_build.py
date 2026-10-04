@@ -708,9 +708,25 @@ def verify_docker_save(archive: Path, image_id: str, tag: str) -> dict:
             config_document = json.loads(config)
             if sha256_bytes(config) != image_id or not isinstance(config_document, dict):
                 raise CandidateBuildError('docker-save config does not hash to tested local image ID')
-            for layer in item['Layers']:
+            rootfs = config_document.get('rootfs')
+            if (not isinstance(rootfs, dict) or rootfs.get('type') != 'layers'
+                    or not isinstance(rootfs.get('diff_ids'), list)
+                    or len(rootfs['diff_ids']) != len(item['Layers'])
+                    or not all(isinstance(v, str) and SHA256.fullmatch(v) for v in rootfs['diff_ids'])):
+                raise CandidateBuildError('docker-save rootfs/layer identity links are malformed')
+            for layer, diff_id in zip(item['Layers'], rootfs['diff_ids']):
                 if not bundle.getmember(layer).isfile():
                     raise CandidateBuildError('docker-save layer missing')
+                layer_hash = hashlib.sha256()
+                with bundle.extractfile(layer) as stream:
+                    for chunk in iter(lambda: stream.read(1048576), b''):
+                        layer_hash.update(chunk)
+                if 'sha256:' + layer_hash.hexdigest() != diff_id:
+                    raise CandidateBuildError('docker-save layer bytes do not match configuration diff-ID')
+                # Inspect structure only; never extract candidate filesystem bytes.
+                with bundle.extractfile(layer) as stream, tarfile.open(fileobj=stream, mode='r:') as layer_tar:
+                    for _ in layer_tar:
+                        pass
             if not isinstance(config_document.get('config'), dict):
                 raise CandidateBuildError('docker-save runtime configuration is absent')
             return config_document['config']

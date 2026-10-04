@@ -168,8 +168,10 @@ satisfy the real source gate.
 Tower hashes the actual preserved `image.tar` beside the tested evidence, checks
 both tested/publication byte links, and inspects docker-save without extracting.
 The single manifest must link the tested tag, regular config/layer members and a
-configuration whose actual bytes hash to the distinct local image ID. Pulled
-runtime Config must equal that preserved configuration. Publication candidate_ref
+configuration whose actual bytes hash to the distinct local image ID. Each actual
+uncompressed layer tar must be structurally readable and hash to its linked
+rootfs diff-ID. No archive filesystem content is extracted. Pulled runtime Config
+must equal that preserved configuration. Publication candidate_ref
 must be the publisher-derived `repository:candidate-<full candidate hash>`, never
 an arbitrary alias. Real mode requires this proof; omitted archive/source/config
 is not success. Fresh downstream artifacts remain required; changed delivery

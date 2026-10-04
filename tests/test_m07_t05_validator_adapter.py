@@ -1034,7 +1034,7 @@ class FourthReturnRegressionTests(unittest.TestCase):
                 res = V.validate(
                     repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                     output=td / "o.json", state_root=td / "st", execution_class="real",
-                    source_root=ROOT, candidate_file=cand_file, handoff_file=handoff_file,
+                    source_root=T.fixture_source(td), candidate_file=cand_file, handoff_file=handoff_file,
                     build_input_file=build_input_file, tested_image_file=tested_file,
                     build_record=build_record_file, publication_file=publication_file,
                     muse_secret=muse)
@@ -1138,7 +1138,7 @@ class FourthReturnRegressionTests(unittest.TestCase):
                     res = V.validate(
                         repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                         output=td / "o.json", state_root=td / "st", execution_class="real",
-                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        source_root=T.fixture_source(td), companion_bundle=_companion_arg(),
                         candidate_file=cand_file, handoff_file=handoff_file,
                         build_input_file=build_input_file, tested_image_file=tested_file,
                         build_record=build_record_file, publication_file=publication_file,
@@ -1177,7 +1177,7 @@ class FourthReturnRegressionTests(unittest.TestCase):
                     res = V.validate(
                         repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                         output=td / "o.json", state_root=td / "st", execution_class="real",
-                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        source_root=T.fixture_source(td), companion_bundle=_companion_arg(),
                         candidate_file=cand_file, handoff_file=handoff_file,
                         build_input_file=build_input_file, tested_image_file=tested_file,
                         build_record=build_record_file, publication_file=publication_file,
@@ -1224,7 +1224,7 @@ class FourthReturnRegressionTests(unittest.TestCase):
                     res = V.validate(
                         repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                         output=td / "o.json", state_root=td / "st", execution_class="real",
-                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        source_root=T.fixture_source(td), companion_bundle=_companion_arg(),
                         candidate_file=cand_file, handoff_file=handoff_file,
                         build_input_file=build_input_file, tested_image_file=tested_file,
                         build_record=build_record_file, publication_file=publication_file,
@@ -1256,7 +1256,7 @@ class FourthReturnRegressionTests(unittest.TestCase):
                     res = V.validate(
                         repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
                         output=td / "o.json", state_root=td / "st", execution_class="real",
-                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        source_root=T.fixture_source(td), companion_bundle=_companion_arg(),
                         candidate_file=cand_file, handoff_file=handoff_file,
                         build_input_file=build_input_file, tested_image_file=tested_file,
                         build_record=build_record_file, publication_file=publication_file,

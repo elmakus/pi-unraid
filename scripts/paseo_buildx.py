@@ -716,9 +716,17 @@ def cmd_build(args: argparse.Namespace) -> int:
     if args.with_smoke:
         begin = time.monotonic()
         try:
+            if prepared_source is not None:
+                verify_prepared_companion(context_dir, Path(args.build_input), candidate_id)
+                if json.loads(Path(args.build_input).read_bytes()) != prepared_source:
+                    raise BuildxError('prepared configuration changed before smoke dispatch')
             detail = run_smoke_suite(
                 tag, str(candidate_path), args.smoke_timeout, context_dir, args.smoke_profile
             )
+            if prepared_source is not None:
+                verify_prepared_companion(context_dir, Path(args.build_input), candidate_id)
+                if json.loads(Path(args.build_input).read_bytes()) != prepared_source:
+                    raise BuildxError('prepared configuration changed during smoke dispatch')
             recorder.record("test", "ok", int((time.monotonic() - begin) * 1000), detail)
         except (BuildxError, subprocess.TimeoutExpired) as exc:
             recorder.record("test", "failed", int((time.monotonic() - begin) * 1000),

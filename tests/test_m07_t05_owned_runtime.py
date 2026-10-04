@@ -124,6 +124,22 @@ class OwnedRuntimeFixture:
 
 
 class OwnedRuntimeTests(unittest.TestCase):
+    def test_actual_pinned_workspace_schema_rejects_uuid_without_transport(self):
+        script = """
+import {WorkspaceCreateRequestSchema} from '/usr/local/lib/node_modules/@getpaseo/protocol/dist/messages.js';
+const base={type:'workspace.create.request',requestId:'synthetic-request',source:{kind:'directory',path:'/synthetic'}};
+console.log(JSON.stringify([
+ WorkspaceCreateRequestSchema.safeParse({...base,workspaceId:'2b30e061-0c31-4e63-90cd-69eb0c8aa318'}).success,
+ WorkspaceCreateRequestSchema.safeParse({...base,workspaceId:'wks_0123456789abcdef'}).success,
+ WorkspaceCreateRequestSchema.safeParse({...base,workspaceId:'wks_0123456789abcdeF'}).success]));
+"""
+        with tempfile.TemporaryDirectory(prefix='pud-pinned-schema-') as td:
+            proc = subprocess.run([T._find_node(), '--input-type=module', '-e', script],
+                cwd=td, env={'HOME':td,'PATH':'/usr/bin:/bin'},
+                text=True, capture_output=True, timeout=15)
+            self.assertEqual(proc.returncode, 0, proc.stderr)
+            self.assertEqual(json.loads(proc.stdout), [False, True, False])
+
     def test_genuine_validator_reaches_same_private_guard_and_process_path(self):
         with tempfile.TemporaryDirectory(prefix='pud-owned-validator-') as td, T.LocalCodexServer() as server:
             result, calls, state = H._run_validate(Path(td), server_base=server.base, execution_class='fixture')

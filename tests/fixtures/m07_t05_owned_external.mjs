@@ -14,6 +14,7 @@ const statusFile = `${home}/.paseo/fake-status.json`;
 const faultFile = `${home}/fake-fault.json`;
 const fault = fs.existsSync(faultFile) ? JSON.parse(fs.readFileSync(faultFile)) : {};
 const fixed = 'meta/muse-spark-1.3-contributor';
+const pinnedVersion = JSON.parse(fs.readFileSync('/usr/local/lib/node_modules/@getpaseo/server/package.json')).version;
 function record(method, facts={}) { fs.appendFileSync(`${home}/fake-calls.jsonl`, JSON.stringify({method,pid:process.pid,...facts})+'\n'); }
 export async function connectToDaemon(options) {
   if(options?.target?.kind!=='instance' || options.target.home!==`${home}/.paseo`)
@@ -31,8 +32,8 @@ export async function connectToDaemon(options) {
   // Execute pinned DaemonClient + CreationClient + protocol serialization.
   // Only sendRequest (external transport) is fake; selection/correlation and
   // config normalization remain the actual supported client implementation.
-  const client = new DaemonClient({url:'ws://127.0.0.1:1',clientId:crypto.randomUUID()});
-  client.lastServerInfoMessage={serverId:fault.wrong_server?'other':status.serverId,version:'0.9.2',
+  const client = new DaemonClient({url:'ws://127.0.0.1:1',clientId:crypto.randomUUID(),reconnect:{enabled:false}});
+  client.lastServerInfoMessage={serverId:fault.wrong_server?'other':status.serverId,version:pinnedVersion,
     features:{creationLifecycle:!fault.unsupported_creation}};
   client.sendRequest=async ({message,select})=>{
     const wire=SessionInboundMessageSchema.parse(message);
@@ -210,7 +211,7 @@ async function cli() {
   } else if(args[0]==='status') {
     const status=JSON.parse(fs.readFileSync(statusFile));
     console.log(JSON.stringify({home:`${home}/.paseo`,pid:status.pid,workerPid:fault.process?status.pid+1:status.pid,
-      listen:`127.0.0.1:${status.port}`,daemonVersion:'0.9.2',localDaemon:'running',connectedDaemon:'reachable',
+      listen:`127.0.0.1:${status.port}`,daemonVersion:pinnedVersion,localDaemon:'running',connectedDaemon:'reachable',
       serverId:status.serverId,daemonNode:process.execPath,providers:[{provider:'pi',available:true}]}));
   } else if(args[0]==='provider') {
     const client=await connectToDaemon({target:{kind:'instance',home:`${home}/.paseo`}});

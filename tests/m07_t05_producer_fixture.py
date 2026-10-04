@@ -38,7 +38,13 @@ def _synthetic_config():
 
 
 IMAGE_CONFIG = _synthetic_config()
-CONFIG_BYTES = (json.dumps({'architecture':'amd64','os':'linux','config':IMAGE_CONFIG},
+_layer_buffer = io.BytesIO()
+with tarfile.open(fileobj=_layer_buffer, mode='w') as _layer:
+    _info = tarfile.TarInfo('synthetic-file'); _info.size = len(b'synthetic-layer')
+    _layer.addfile(_info, io.BytesIO(b'synthetic-layer'))
+LAYER_BYTES = _layer_buffer.getvalue()
+CONFIG_BYTES = (json.dumps({'architecture':'amd64','os':'linux','config':IMAGE_CONFIG,
+                          'rootfs':{'type':'layers','diff_ids':['sha256:' + hashlib.sha256(LAYER_BYTES).hexdigest()]}},
                           sort_keys=True) + '\n').encode()
 IMAGE_ID = 'sha256:' + hashlib.sha256(CONFIG_BYTES).hexdigest()
 
@@ -51,7 +57,7 @@ def docker_save(path, tag):
     config_name = IMAGE_ID[7:] + '.json'
     manifest = json.dumps([{'Config': config_name, 'RepoTags': [tag], 'Layers': ['layer/layer.tar']}]).encode()
     with tarfile.open(path, 'w') as archive:
-        for name, raw in [('manifest.json', manifest), (config_name, CONFIG_BYTES), ('layer/layer.tar', b'synthetic-layer')]:
+        for name, raw in [('manifest.json', manifest), (config_name, CONFIG_BYTES), ('layer/layer.tar', LAYER_BYTES)]:
             info = tarfile.TarInfo(name); info.size = len(raw)
             archive.addfile(info, io.BytesIO(raw))
 

@@ -645,6 +645,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError("handoff source_sha is not an exact Git SHA")
             if not str(handoff.get("source_ref") or "").startswith(("refs/heads/", "refs/tags/")):
                 raise ValidationError("handoff source_ref is not an approved ref")
+            if handoff.get('accepted_candidate_id') == candidate_id:
+                raise ValidationError('material-change handoff equals accepted candidate')
             if not handoff.get("accepted_candidate_id") or not DIGEST.fullmatch(str(handoff.get("accepted_candidate_id"))):
                 raise ValidationError("handoff accepted-candidate identity is invalid")
             if real_mode and not handoff.get("candidate_file_sha256"):
@@ -770,6 +772,21 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         raise ValidationError('executing validation/build configuration is not the frozen source')
             except _source.CandidateBuildError as exc:
                 raise ValidationError('immutable source/configuration/archive proof rejected') from exc
+            result['subject']['source_binding'] = {
+                'kind': 'git_commit', 'head': build_input['source_head'],
+                'parent': build_input['source_parent'], 'ref': build_input['source_ref'],
+                'tree': build_input['source_identity']['tree'],
+                'commit_sha256': build_input['source_identity']['commit_sha256'],
+                'files': len(build_input['source_identity']['files'])}
+            result['subject']['build_configuration'] = {'kind': 'buildx_command',
+                'sha256': _source.sha256_bytes(json.dumps(build_rec['build_configuration'],
+                    sort_keys=True, separators=(',', ':')).encode())}
+            result['subject']['archive_binding'] = {'kind': 'docker_save',
+                'sha256': actual_archive_hash, 'local_image_id': tested['image_id']}
+            result['subject']['artifact_bytes'] = {role: _source.sha256_bytes(frozen_record_bytes[Path(path)])
+                for role, path in (('candidate', candidate_file), ('handoff', handoff_file),
+                    ('prepared', build_input_file), ('build', build_record),
+                    ('tested', tested_image_file), ('publication', publication_file))}
             result['checks']['immutable_source_configuration'] = 'PASS'
         elif real_mode:
             raise ValidationBlocked('real validation requires immutable Git source/configuration proof')

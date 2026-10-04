@@ -38,6 +38,27 @@ class ProducerProofTests(unittest.TestCase):
             self.assertEqual(state['runtime_calls_before_cleanup'].count('prompt'), 1)
             self.assertEqual(state['runtime_calls_before_cleanup'].count('fake-transport'), 1)
 
+    def test_changed_configuration_after_acquisition_is_rejected_before_prompt(self):
+        original = T.make_fake_docker
+        with tempfile.TemporaryDirectory() as td, T.LocalCodexServer() as server:
+            root = Path(td)
+            def boundary(*args, **kwargs):
+                external = original(*args, **kwargs)
+                def run(argv, **options):
+                    outcome = external(argv, **options)
+                    if argv[:2] == ['docker', 'exec'] and 'models' in argv and 'provider' in argv:
+                        config = T.fixture_source(root) / '.github/workflows/paseo-candidate-build.yml'
+                        config.write_text(config.read_text() + '\n# synthetic post-acquisition configuration drift\n')
+                    return outcome
+                return run
+            with mock.patch.object(T, 'make_fake_docker', side_effect=boundary):
+                result, calls, state = H._run_validate(root, server_base=server.base)
+            self.assertEqual(result['status'], 'FAIL', result)
+            self.assertFalse(result['real_validation_satisfied'])
+            self.assertNotIn('prompt', state['runtime_calls_before_cleanup'])
+            self.assertNotIn('fake-transport', state['runtime_calls_before_cleanup'])
+            self.assertFalse(any('guarded-dispatch' in str(call) for call in calls))
+
     def test_source_commit_ref_parent_config_and_archive_mutations_before_effects(self):
         original = T.build_artifact_chain
         for defect in ('head', 'parent', 'ref', 'commit-proof', 'file-map', 'source-bytes',
