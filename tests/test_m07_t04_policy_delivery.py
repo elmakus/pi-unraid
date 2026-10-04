@@ -128,8 +128,10 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
 
     def _run_delivered_launcher(self, policy, argv):
         # Behavioral guard proof on the actual delivered launcher bytes: copy
-        # the real launcher into a disposable symlink-free agent root and run
-        # it against a fake Paseo executable (no inference possible).
+        # the real launcher into a disposable symlink-free agent root and
+        # resolve executables ONLY through a test-owned bindir (symlinks to the
+        # real jq/bash plus a fake paseo), so no ambient host binary can leak
+        # in. Snapshot dispatch state BEFORE the temp dir is cleaned.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             agent = root / "agent"
@@ -139,18 +141,29 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
             launcher.write_bytes(RUNNER.read_bytes())
             launcher.chmod(0o755)
             (agent / "policies" / "llm-test-policy.json").write_text(json.dumps(policy))
-            fakebin = root / "fakebin"
-            fakebin.mkdir()
+            bindir = root / "bindir"
+            bindir.mkdir()
+            # Only the tools the delivered launcher invokes (dirname/jq) plus
+            # the interpreter: nothing else on the host can leak into resolution.
+            for tool in ("dirname", "jq", "bash"):
+                target = shutil.which(tool)
+                self.assertIsNotNone(target, f"synthetic fixture requires {tool}")
+                Path(bindir / tool).symlink_to(target)
             marker = root / "dispatched.txt"
-            fake = fakebin / "paseo"
+            fake = bindir / "paseo"
             fake.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$DISPATCH_MARKER"\n')
             fake.chmod(0o755)
-            env = {"PATH": f"{fakebin}:/usr/bin:/bin", "DISPATCH_MARKER": str(marker)}
+            env = {"PATH": str(bindir), "DISPATCH_MARKER": str(marker)}
             proc = subprocess.run(
                 [str(launcher)] + argv, env=env,
                 text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False,
             )
-            return proc, marker
+            snapshot = {
+                "returncode": proc.returncode,
+                "stderr": proc.stderr,
+                "dispatched": marker.is_file(),
+            }
+        return snapshot
 
     def test_downgraded_or_native_shape_profile_cannot_become_acceptance(self) -> None:
         # A downgraded effective level must fail closed in both invocation
@@ -168,12 +181,12 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
                         "fallback_allowed": False,
                     },
                 }
-                proc, marker = self._run_delivered_launcher(policy, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
-                self.assertEqual(proc.returncode, 3, proc.stderr)
-                self.assertFalse(marker.exists())
-                proc, marker = self._run_delivered_launcher(policy, ["--native-create-agent-args"])
-                self.assertEqual(proc.returncode, 3, proc.stderr)
-                self.assertFalse(marker.exists())
+                snap = self._run_delivered_launcher(policy, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
+                self.assertEqual(snap["returncode"], 3, snap["stderr"])
+                self.assertFalse(snap["dispatched"])
+                snap = self._run_delivered_launcher(policy, ["--native-create-agent-args"])
+                self.assertEqual(snap["returncode"], 3, snap["stderr"])
+                self.assertFalse(snap["dispatched"])
 
     def test_no_fallback_or_arbitrary_model_path_in_canonical_launcher(self) -> None:
         runner = RUNNER.read_text()
@@ -225,8 +238,12 @@ class M07T04PolicyDeliveryTests(unittest.TestCase):
             "immutable path",
             "supported_reasoning_levels",
             "M08-T01",
+            "before any accepted-channel exposure",
+            "ends automatic rollback authority",
         ):
             self.assertIn(kept, contract_text)
+        for contradicted in ("if performed", "Failure after cutover restores"):
+            self.assertNotIn(contradicted, contract_text)
         # Update-system authority remains intact.
         self.assertTrue((ROOT / "scripts" / "managed_component_lifecycle.py").is_file())
         self.assertTrue((ROOT / "scripts" / "paseo_candidate_build.py").is_file())

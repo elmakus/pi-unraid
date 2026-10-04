@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -38,28 +39,19 @@ class LlmTestPolicyContractTests(unittest.TestCase):
         self.assertNotIn("codex-lb/gpt-6-luna", GLOBAL_DOC)
 
     def test_canonical_runner_emits_only_fixed_profile_without_fallback(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            fake = Path(tmp) / "paseo"
-            capture = Path(tmp) / "args.txt"
-            fake.write_text("#!/bin/sh\nprintf '%s\\n' \"$@\" > \"$CAPTURE\"\n")
-            fake.chmod(0o755)
-            env = os.environ.copy()
-            env["PATH"] = f"{tmp}:{env['PATH']}"
-            env["CAPTURE"] = str(capture)
-            result = subprocess.run(
-                [str(RUNNER), "TEST_MARKER", str(ROOT)],
-                env=env,
-                text=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                check=False,
-            )
-            self.assertEqual(result.returncode, 0, result.stderr)
-            args = capture.read_text().splitlines()
-            self.assertIn("meta/muse-spark-1.3-contributor", args)
-            self.assertIn("max", args)
-            self.assertNotIn("gpt-6-astra", args)
-            self.assertNotIn("gpt-6-luna", args)
+        # Positive control: with the fixed R2 policy and a fake-only Paseo, the
+        # delivered launcher exits 0 and a dispatch IS observed carrying exactly
+        # the fixed profile. This proves the snapshot mechanism observes real
+        # dispatches (negative assertions below are therefore meaningful).
+        snap = self._run_delivered_launcher(
+            self.fixed_policy(), ["TEST_MARKER", str(ROOT)]
+        )
+        self.assertEqual(snap["returncode"], 0, snap["stderr"])
+        self.assertTrue(snap["dispatched"], "valid policy must dispatch to fake Paseo")
+        self.assertIn("meta/muse-spark-1.3-contributor", snap["dispatch_lines"])
+        self.assertIn("max", snap["dispatch_lines"])
+        self.assertNotIn("gpt-6-astra", snap["dispatch_lines"])
+        self.assertNotIn("gpt-6-luna", snap["dispatch_lines"])
 
     def test_native_create_agent_args_emits_fixed_shape_without_inference(self) -> None:
         # Validates policy without inference and emits caller-scoped create_agent fields.
@@ -78,8 +70,12 @@ class LlmTestPolicyContractTests(unittest.TestCase):
 
     def _run_delivered_launcher(self, policy, argv, with_paseo=True):
         # Exercise the actual repo-delivered guard bytes: copy the real launcher
-        # into a disposable symlink-free agent root; no symlinks, no inference.
-        # Returns (completed_process, dispatch_marker_path).
+        # into a disposable symlink-free agent root and resolve executables ONLY
+        # through a test-owned bindir (symlinks to the real jq/bash plus an
+        # optional fake paseo). No ambient PATH entry is visible, so a real
+        # Paseo binary elsewhere on any host can never be reached: dispatch is
+        # fake-only by construction, and absence of paseo is truly unavailable.
+        # Returns a snapshot dict captured BEFORE the temp dir is cleaned.
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             agent = root / "agent"
@@ -92,16 +88,22 @@ class LlmTestPolicyContractTests(unittest.TestCase):
                 (agent / "policies" / "llm-test-policy.json").write_text(
                     json.dumps(policy)
                 )
-            fakebin = root / "fakebin"
-            fakebin.mkdir()
+            bindir = root / "bindir"
+            bindir.mkdir()
+            # Only the tools the delivered launcher invokes (dirname/jq) plus
+            # the interpreter: nothing else on the host can leak into resolution.
+            for tool in ("dirname", "jq", "bash"):
+                target = shutil.which(tool)
+                self.assertIsNotNone(target, f"synthetic fixture requires {tool}")
+                os.symlink(target, bindir / tool)
             marker = root / "dispatched.txt"
             if with_paseo:
-                fake = fakebin / "paseo"
+                fake = bindir / "paseo"
                 fake.write_text(
                     '#!/bin/sh\nprintf "%s\\n" "$@" > "$DISPATCH_MARKER"\n'
                 )
                 fake.chmod(0o755)
-            env = {"PATH": f"{fakebin}:/usr/bin:/bin", "DISPATCH_MARKER": str(marker)}
+            env = {"PATH": str(bindir), "DISPATCH_MARKER": str(marker)}
             proc = subprocess.run(
                 [str(launcher)] + argv,
                 env=env,
@@ -110,7 +112,16 @@ class LlmTestPolicyContractTests(unittest.TestCase):
                 stderr=subprocess.PIPE,
                 check=False,
             )
-            return proc, marker
+            snapshot = {
+                "returncode": proc.returncode,
+                "stderr": proc.stderr,
+                "stdout": proc.stdout,
+                "dispatched": marker.is_file(),
+                "dispatch_lines": (
+                    marker.read_text().splitlines() if marker.is_file() else []
+                ),
+            }
+        return snapshot
 
     def fixed_policy(self):
         return {
@@ -144,38 +155,37 @@ class LlmTestPolicyContractTests(unittest.TestCase):
                 profile["model"] = model
                 profile["thinking"] = thinking
                 profile["fallback_allowed"] = fallback
-                proc, marker = self._run_delivered_launcher(
-                    policy, ["SYNTHETIC_PROMPT_NO_INFERENCE"]
-                )
-                self.assertEqual(proc.returncode, 3, proc.stderr)
-                self.assertFalse(marker.exists(), "rejected profile must not dispatch")
+                snap = self._run_delivered_launcher(policy, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
+                self.assertEqual(snap["returncode"], 3, snap["stderr"])
+                self.assertFalse(snap["dispatched"], "rejected profile must not dispatch")
 
     def test_delivered_launcher_rejects_missing_forbidden_entry_and_missing_policy(self) -> None:
         policy = self.fixed_policy()
         policy["real_llm_tests"]["forbidden_models"] = []
-        proc, marker = self._run_delivered_launcher(policy, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
-        self.assertEqual(proc.returncode, 3, proc.stderr)
-        self.assertFalse(marker.exists())
-        proc, marker = self._run_delivered_launcher(None, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
-        self.assertNotEqual(proc.returncode, 0, proc.stderr)
-        self.assertFalse(marker.exists())
+        snap = self._run_delivered_launcher(policy, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
+        self.assertEqual(snap["returncode"], 3, snap["stderr"])
+        self.assertFalse(snap["dispatched"])
+        snap = self._run_delivered_launcher(None, ["SYNTHETIC_PROMPT_NO_INFERENCE"])
+        self.assertNotEqual(snap["returncode"], 0, snap["stderr"])
+        self.assertFalse(snap["dispatched"])
 
     def test_delivered_launcher_native_args_rejects_bad_profile_without_inference(self) -> None:
         policy = self.fixed_policy()
         policy["real_llm_tests"]["thinking"] = "xhigh"
-        proc, marker = self._run_delivered_launcher(policy, ["--native-create-agent-args"])
-        self.assertEqual(proc.returncode, 3, proc.stderr)
-        self.assertFalse(marker.exists())
+        snap = self._run_delivered_launcher(policy, ["--native-create-agent-args"])
+        self.assertEqual(snap["returncode"], 3, snap["stderr"])
+        self.assertFalse(snap["dispatched"])
 
     def test_delivered_launcher_fails_closed_when_execution_is_unavailable(self) -> None:
-        # Valid policy but no executable on PATH: the guard validates, then the
-        # missing binary fails nonzero with no dispatch. PATH keeps only system
-        # dirs (jq/bash) and excludes /usr/local/bin where real paseo lives.
-        proc, marker = self._run_delivered_launcher(
+        # Valid policy but no Paseo in the isolated bindir: the guard validates,
+        # then the unresolvable binary fails nonzero with no dispatch. Because
+        # PATH contains only the test-owned bindir, unavailability holds on any
+        # host regardless of ambient binaries.
+        snap = self._run_delivered_launcher(
             self.fixed_policy(), ["SYNTHETIC_PROMPT_NO_INFERENCE"], with_paseo=False
         )
-        self.assertNotEqual(proc.returncode, 0, proc.stderr)
-        self.assertFalse(marker.exists())
+        self.assertNotEqual(snap["returncode"], 0, snap["stderr"])
+        self.assertFalse(snap["dispatched"])
 
 
 if __name__ == "__main__":

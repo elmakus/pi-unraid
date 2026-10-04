@@ -316,6 +316,9 @@ def prepare_context(
         raise CandidateBuildError(f"rendered context failed exact build-input verification: {exc}") from exc
 
     companion = companion_bundle_identity(source_root)
+    # Enforce the declared binding against the actual staged payload before
+    # any record is written: a divergent staged copy fails here, not downstream.
+    verify_companion_binding(stage_dir, companion)
     result = {
         "schema_version": SCHEMA_VERSION,
         "status": "prepared",
@@ -358,6 +361,7 @@ def package_tested_image(
     archive_path: Path,
     evidence_path: Path,
     source_head: str,
+    build_input_path: Path | None = None,
 ) -> dict:
     candidate, candidate_raw = load_json_bytes(candidate_path)
     handoff, handoff_raw = load_json_bytes(handoff_evidence_path)
@@ -381,6 +385,31 @@ def package_tested_image(
     image_id = str((record.get("image") or {}).get("id") or "")
     if not tag or not SHA256.fullmatch(image_id):
         raise CandidateBuildError("build record lacks exact tested image identity")
+
+    companion_declared = None
+    if build_input_path is not None:
+        # Retain and check the prepared companion declaration through the
+        # package evidence before any external action: a missing/malformed
+        # declaration or an inconsistent candidate linkage fails here, before
+        # any docker invocation. Omitted input preserves the prior behavior.
+        try:
+            build_input = json.loads(Path(build_input_path).read_bytes())
+        except (OSError, json.JSONDecodeError) as exc:
+            raise CandidateBuildError(f"build-input record is unreadable: {exc}") from exc
+        if not isinstance(build_input, dict):
+            raise CandidateBuildError("build-input record must be an object")
+        if build_input.get("candidate_id") != candidate_id:
+            raise CandidateBuildError("build-input record candidate mismatch")
+        companion_declared = build_input.get("companion_bundle")
+        if not isinstance(companion_declared, dict):
+            raise CandidateBuildError("build-input record lacks companion bundle declaration")
+        if companion_declared.get("schema_version") != COMPANION_SCHEMA_VERSION:
+            raise CandidateBuildError("build-input companion declaration schema is unsupported")
+        for key in ("source", "files", "modes", "source_digest"):
+            if key not in companion_declared:
+                raise CandidateBuildError(
+                    f"build-input companion declaration lacks {key}"
+                )
 
     before = run_checked(["docker", "image", "inspect", tag, "--format", "{{.Id}}"]).stdout.strip()
     if before != image_id:
@@ -408,6 +437,8 @@ def package_tested_image(
         "discovery_source_sha": handoff.get("source_sha"),
         "discovery_source_ref": handoff.get("source_ref"),
     }
+    if companion_declared is not None:
+        result["companion_bundle"] = companion_declared
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
     evidence_path.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return result
@@ -434,6 +465,12 @@ def main() -> int:
     package.add_argument("--archive", type=Path, required=True)
     package.add_argument("--evidence", type=Path, required=True)
     package.add_argument("--source-head", required=True)
+    package.add_argument(
+        "--build-input",
+        type=Path,
+        default=None,
+        help="optional prepare-stage build-input record carrying the companion bundle declaration",
+    )
 
     args = parser.parse_args()
     try:
@@ -456,6 +493,7 @@ def main() -> int:
                 archive_path=args.archive,
                 evidence_path=args.evidence,
                 source_head=args.source_head,
+                build_input_path=args.build_input,
             )
         print(json.dumps(result, sort_keys=True))
         return 0
