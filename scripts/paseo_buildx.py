@@ -82,6 +82,10 @@ LEGACY_TOKENS = (
 )
 TAG_RE = re.compile(r"^[a-z0-9]+(?:[._-][a-z0-9]+)*:[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$")
 CANDIDATE_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+BUILD_INPUT_FILENAME = ".pi-unraid-candidate-build-input.json"
+COMPANION_SCHEMA_VERSION = 1
+COMPANION_SOURCE_REL = "config/pi-agent"
 FROM_RE = re.compile(r"^FROM\s+(.*)$", re.IGNORECASE)
 RESERVED_BUILDER_NAMES = frozenset({"default"})
 EXIT_VALIDATION = 2
@@ -100,6 +104,79 @@ def _load_resolver():
     assert spec.loader is not None
     spec.loader.exec_module(module)
     return module
+
+
+def _load_candidate_builder():
+    # Lazy (function-scoped) so the companion verifier is loaded only when
+    # an R2 build-input record is actually supplied; no module-level coupling
+    # between the build and candidate-build entrypoints.
+    path = ROOT / "scripts" / "paseo_candidate_build.py"
+    spec = importlib.util.spec_from_file_location(
+        "paseo_candidate_build_companion_stage", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def verify_prepared_companion(
+    context_dir: Path, build_input_path: Path, candidate_id: str
+) -> dict:
+    """Fail closed unless the staged context matches its prepared binding.
+
+    Loads the prepare-stage build-input record, checks its linkage to this
+    exact candidate (schema/status/candidate/file-shape/digest-format), then
+    verifies the ACTUAL staged payload under ``context_dir`` against the
+    declared companion via the candidate builder's verifier. Pure apart from
+    filesystem reads: no network or Docker calls. Returns the declared
+    companion for retention in the build record.
+    """
+    try:
+        raw = Path(build_input_path).read_bytes()
+    except OSError as exc:
+        raise BuildxError(f"build-input record is missing or unreadable: {exc}") from exc
+    try:
+        build_input = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise BuildxError(f"build-input record is not valid JSON: {exc}") from exc
+    if not isinstance(build_input, dict):
+        raise BuildxError("build-input record must be a JSON object")
+    if build_input.get("schema_version") != RECORD_SCHEMA_VERSION:
+        raise BuildxError("build-input record uses an unsupported schema")
+    if build_input.get("status") != "prepared":
+        raise BuildxError("build-input record is not a prepared binding")
+    declared_input_id = build_input.get("candidate_id")
+    if not SHA256_RE.fullmatch(str(declared_input_id or "")):
+        raise BuildxError("build-input record candidate identity is invalid")
+    if declared_input_id != candidate_id:
+        raise BuildxError("build-input record candidate mismatch")
+    companion = build_input.get("companion_bundle")
+    if not isinstance(companion, dict):
+        raise BuildxError("build-input record lacks companion bundle declaration")
+    if companion.get("schema_version") != COMPANION_SCHEMA_VERSION:
+        raise BuildxError("build-input companion declaration schema is unsupported")
+    if companion.get("source") != COMPANION_SOURCE_REL:
+        raise BuildxError("build-input companion declaration source is not the frozen bundle")
+    files = companion.get("files")
+    modes = companion.get("modes")
+    digest = companion.get("source_digest")
+    if not isinstance(files, list) or not files or not all(
+        isinstance(item, str) and item for item in files
+    ):
+        raise BuildxError("build-input companion declaration files are malformed")
+    if not isinstance(modes, dict) or set(modes) != set(files):
+        raise BuildxError("build-input companion declaration modes are malformed")
+    if not SHA256_RE.fullmatch(str(digest or "")):
+        raise BuildxError("build-input companion declaration digest is malformed")
+    try:
+        builder = _load_candidate_builder()
+        builder.verify_companion_binding(context_dir, companion)
+    except BuildxError:
+        raise
+    except Exception as exc:
+        raise BuildxError(f"staged companion payload failed binding: {exc}") from exc
+    return companion
 
 
 def validate_builder_name(builder: str) -> str:
@@ -484,6 +561,7 @@ def cmd_build(args: argparse.Namespace) -> int:
     builder_info: dict = {"name": builder, "driver": "docker-container", "reused": None}
     cache_info: dict = {"local_dir": str(cache_dir) if cache_dir else None}
     readback: dict = {}
+    companion_record: dict | None = None
     exit_code = 0
 
     def finish() -> int:
@@ -493,6 +571,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             "builder": {**builder_info, "state_dir": str(state_dir)},
             "candidate": {"path": str(candidate_path), "candidate_id": candidate_id},
             "context": str(context_dir),
+            "companion_bundle": companion_record,
             "tag": tag,
             "image": image,
             "cache": cache_info,
@@ -511,6 +590,29 @@ def cmd_build(args: argparse.Namespace) -> int:
         dockerfile_text = (context_dir / "Dockerfile").read_text()
         readback = verify_build_inputs(candidate, dockerfile_text, context_dir)
         candidate_id = readback["candidate_id"]
+        if args.build_input is not None:
+            # R2 path: the prepared inputs and the actual staged bundle are
+            # verified BEFORE builder/external actions; the declaration is
+            # retained in the record for the package gate. Omission leaves an
+            # explicitly unbound legacy record that package rejects.
+            companion_record = verify_prepared_companion(
+                context_dir, Path(args.build_input), candidate_id
+            )
+            readback_detail = {
+                **readback,
+                "candidate_path": str(candidate_path),
+                "companion_bundle": companion_record,
+            }
+        else:
+            readback_detail = {
+                **readback,
+                "candidate_path": str(candidate_path),
+                "companion_bundle": None,
+                "companion_status": (
+                    "unbound-legacy: no build-input supplied; "
+                    "this record is not R2-eligible and package rejects it"
+                ),
+            }
         if not tag:
             tag = image_tag(candidate_id)
         elif not TAG_RE.fullmatch(tag):
@@ -521,7 +623,7 @@ def cmd_build(args: argparse.Namespace) -> int:
             "resolution_readback",
             "ok",
             int((time.monotonic() - begin) * 1000),
-            {**readback, "candidate_path": str(candidate_path)},
+            readback_detail,
         )
     except (BuildxError, OSError) as exc:
         recorder.record("resolution_readback", "failed", int((time.monotonic() - begin) * 1000),
@@ -752,6 +854,13 @@ def build_parser() -> argparse.ArgumentParser:
     build.add_argument("--candidate", default=str(DEFAULT_CANDIDATE),
                        help="frozen accepted or explicitly staged candidate JSON")
     build.add_argument("--context", default=str(ROOT), help="build context directory")
+    build.add_argument("--build-input", default=None,
+                       help="prepare-stage build-input record carrying the frozen "
+                       "companion bundle declaration (required on the R2 path: "
+                       "the staged payload is verified against it before any "
+                       "builder/external action and the declaration is retained "
+                       "in the build record; omission leaves an explicitly "
+                       "unbound legacy record that package rejects)")
     build.add_argument("--tag", default=None, help="override the derived immutable tag")
     build.add_argument("--record", default="paseo-buildx-record.json",
                        help="machine-readable identity/provenance/timings record to write")

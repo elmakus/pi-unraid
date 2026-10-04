@@ -4,6 +4,7 @@ import copy
 import hashlib
 import importlib.util
 import json
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -23,6 +24,38 @@ SPEC.loader.exec_module(BUILD)
 
 def digest(raw: bytes) -> str:
     return "sha256:" + hashlib.sha256(raw).hexdigest()
+
+
+def fixture_companion(root: Path):
+    """Build a small deterministic companion source and return its identity."""
+    source = root / "companion-source"
+    agent = source / "config" / "pi-agent"
+    (agent / "bin").mkdir(parents=True)
+    (agent / "AGENTS.md").write_text("# fixture companion\n")
+    tool = agent / "bin" / "tool.sh"
+    tool.write_text("#!/bin/sh\nexit 0\n")
+    tool.chmod(0o755)
+    return BUILD.companion_bundle_identity(source)
+
+
+def write_build_input(root: Path, name: str, target: dict, candidate_raw: bytes,
+                      handoff_raw: bytes, handoff: dict, companion: dict) -> Path:
+    """Write a fully linked prepare-stage build-input record."""
+    path = root / name
+    path.write_text(json.dumps({
+        "schema_version": 1,
+        "status": "prepared",
+        "candidate_id": target["candidate_id"],
+        "candidate_file_sha256": digest(candidate_raw),
+        "handoff_evidence_sha256": digest(handoff_raw),
+        "source_head": "4" * 40,
+        "source_parent": handoff["source_sha"],
+        "source_ref": handoff["source_ref"],
+        "stage_dir": str(root / "stage"),
+        "build_readback": {"candidate_id": target["candidate_id"]},
+        "companion_bundle": companion,
+    }, sort_keys=True) + "\n")
+    return path
 
 
 def target_candidate() -> dict:
@@ -196,18 +229,26 @@ class CandidateBuildPackagingTests(unittest.TestCase):
             candidate = root / "candidate.json"
             candidate_raw = (json.dumps(target, sort_keys=True) + "\n").encode()
             candidate.write_bytes(candidate_raw)
-            handoff = root / "handoff.json"
-            handoff.write_text(json.dumps({
+            handoff_doc = {
                 "candidate_id": target["candidate_id"],
                 "accepted_candidate_id": ACCEPTED["candidate_id"],
                 "candidate_file_sha256": digest(candidate_raw),
                 "source_sha": "1" * 40,
                 "source_ref": "refs/heads/main",
-            }))
+            }
+            handoff = root / "handoff.json"
+            handoff_raw = (json.dumps(handoff_doc, sort_keys=True) + "\n").encode()
+            handoff.write_bytes(handoff_raw)
             image_id = "sha256:" + "e" * 64
+            companion = fixture_companion(root)
+            build_input = write_build_input(
+                root, "build-input.json", target, candidate_raw, handoff_raw,
+                handoff_doc, companion,
+            )
             record = root / "record.json"
             record.write_text(json.dumps({
                 "candidate": {"candidate_id": target["candidate_id"]},
+                "companion_bundle": companion,
                 "tag": "pi-unraid:paseo-test",
                 "image": {"id": image_id},
                 "phases": {
@@ -234,10 +275,44 @@ class CandidateBuildPackagingTests(unittest.TestCase):
                     archive_path=archive,
                     evidence_path=evidence,
                     source_head="4" * 40,
+                    build_input_path=build_input,
                 )
             self.assertEqual(result["image_id"], image_id)
             self.assertEqual(result["image_archive_sha256"], digest(b"exact-tested-image"))
             self.assertEqual(json.loads(evidence.read_text())["status"], "tested_image_preserved")
+            self.assertEqual(result["companion_bundle"], companion)
+
+    def test_package_rejects_omitted_build_input_without_bypass(self):
+        # The R2 path has no silent default: omitting the build-input record
+        # is a call-level failure (required argument) and the CLI parser
+        # rejects the flag omission before any file is touched.
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            target = target_candidate()
+            candidate = root / "candidate.json"
+            candidate.write_bytes((json.dumps(target, sort_keys=True) + "\n").encode())
+            with self.assertRaises(TypeError):
+                BUILD.package_tested_image(
+                    candidate_path=candidate,
+                    handoff_evidence_path=root / "absent.json",
+                    build_record_path=root / "absent.json",
+                    archive_path=root / "image.tar",
+                    evidence_path=root / "evidence.json",
+                    source_head="4" * 40,
+                )
+            argv = [
+                "paseo_candidate_build.py", "package",
+                "--candidate", str(candidate),
+                "--handoff-evidence", str(root / "absent.json"),
+                "--build-record", str(root / "absent.json"),
+                "--archive", str(root / "image.tar"),
+                "--evidence", str(root / "evidence.json"),
+                "--source-head", "4" * 40,
+            ]
+            with mock.patch.object(sys, "argv", argv):
+                with self.assertRaises(SystemExit) as ctx:
+                    BUILD.main()
+            self.assertEqual(ctx.exception.code, 2)
 
     def test_package_refuses_unverified_test_phase(self):
         with tempfile.TemporaryDirectory() as td:
@@ -246,14 +321,24 @@ class CandidateBuildPackagingTests(unittest.TestCase):
             candidate = root / "candidate.json"
             candidate_raw = (json.dumps(target) + "\n").encode()
             candidate.write_bytes(candidate_raw)
-            handoff = root / "handoff.json"
-            handoff.write_text(json.dumps({
+            handoff_doc = {
                 "candidate_id": target["candidate_id"],
                 "candidate_file_sha256": digest(candidate_raw),
-            }))
+                "source_sha": "1" * 40,
+                "source_ref": "refs/heads/main",
+            }
+            handoff = root / "handoff.json"
+            handoff_raw = (json.dumps(handoff_doc, sort_keys=True) + "\n").encode()
+            handoff.write_bytes(handoff_raw)
+            companion = fixture_companion(root)
+            build_input = write_build_input(
+                root, "build-input.json", target, candidate_raw, handoff_raw,
+                handoff_doc, companion,
+            )
             record = root / "record.json"
             record.write_text(json.dumps({
                 "candidate": {"candidate_id": target["candidate_id"]},
+                "companion_bundle": companion,
                 "tag": "pi-unraid:paseo-test",
                 "image": {"id": "sha256:" + "e" * 64},
                 "phases": {
@@ -263,15 +348,19 @@ class CandidateBuildPackagingTests(unittest.TestCase):
                     "test": {"status": "failed"},
                 },
             }))
-            with self.assertRaises(BUILD.CandidateBuildError):
-                BUILD.package_tested_image(
-                    candidate_path=candidate,
-                    handoff_evidence_path=handoff,
-                    build_record_path=record,
-                    archive_path=root / "image.tar",
-                    evidence_path=root / "evidence.json",
-                    source_head="4" * 40,
-                )
+            docker = mock.Mock()
+            with mock.patch.object(BUILD, "run_checked", docker):
+                with self.assertRaises(BUILD.CandidateBuildError):
+                    BUILD.package_tested_image(
+                        candidate_path=candidate,
+                        handoff_evidence_path=handoff,
+                        build_record_path=record,
+                        archive_path=root / "image.tar",
+                        evidence_path=root / "evidence.json",
+                        source_head="4" * 40,
+                        build_input_path=build_input,
+                    )
+            docker.assert_not_called()
 
 
 class CandidateBuildWorkflowTests(unittest.TestCase):
@@ -295,6 +384,10 @@ class CandidateBuildWorkflowTests(unittest.TestCase):
         self.assertIn("git merge-base --is-ancestor", text)
         self.assertIn("git diff --name-only HEAD^ HEAD", text)
         self.assertIn("paseo_candidate_build.py package", text)
+        # R2 binding is wired through the actual pipeline steps: the staged
+        # build-input record feeds both the build readback and packaging.
+        self.assertEqual(text.count("--build-input"), 2)
+        self.assertEqual(text.count(".pi-unraid-candidate-build-input.json"), 2)
         self.assertIn("image.tar", text)
         self.assertIn("actions/upload-artifact@v4", text)
         self.assertNotIn("resolve-paseo-candidate.py", text)

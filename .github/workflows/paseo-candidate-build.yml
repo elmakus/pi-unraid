@@ -60,6 +60,7 @@ jobs:
           python3 scripts/paseo_buildx.py build \
             --candidate "$RUNNER_TEMP/paseo-candidate-context/config/paseo-candidate.json" \
             --context "$RUNNER_TEMP/paseo-candidate-context" \
+            --build-input "$RUNNER_TEMP/paseo-candidate-context/.pi-unraid-candidate-build-input.json" \
             --record "$RUNNER_TEMP/paseo-tested-image/build-record.json" \
             --metadata "$RUNNER_TEMP/paseo-tested-image/build-metadata.json" \
             --builder pi-unraid-paseo-ci \
@@ -73,6 +74,7 @@ jobs:
             --candidate "$RUNNER_TEMP/paseo-candidate-context/config/paseo-candidate.json" \
             --handoff-evidence candidates/paseo-update/evidence.json \
             --build-record "$RUNNER_TEMP/paseo-tested-image/build-record.json" \
+            --build-input "$RUNNER_TEMP/paseo-candidate-context/.pi-unraid-candidate-build-input.json" \
             --archive "$RUNNER_TEMP/paseo-tested-image/image.tar" \
             --evidence "$RUNNER_TEMP/paseo-tested-image/tested-image-evidence.json" \
             --source-head "$CANDIDATE_HEAD"

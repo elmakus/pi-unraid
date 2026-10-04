@@ -361,7 +361,7 @@ def package_tested_image(
     archive_path: Path,
     evidence_path: Path,
     source_head: str,
-    build_input_path: Path | None = None,
+    build_input_path: Path,
 ) -> dict:
     candidate, candidate_raw = load_json_bytes(candidate_path)
     handoff, handoff_raw = load_json_bytes(handoff_evidence_path)
@@ -380,6 +380,24 @@ def package_tested_image(
     for phase in ("resolution_readback", "builder_ensure", "build", "test"):
         if (phases.get(phase) or {}).get("status") != "ok":
             raise CandidateBuildError(f"build record phase is not GREEN: {phase}")
+
+    # R2 companion gate: the prepared declaration and its full
+    # source/candidate/handoff/prepared/build linkage are checked here,
+    # BEFORE any docker invocation. Omission is not a silent bypass: the
+    # build-input record is required, legacy unbound build records are
+    # rejected, and any divergence fails closed with zero external calls.
+    build_input = _require_build_input_record(build_input_path)
+    companion_declared = _require_companion_linkage(
+        build_input, candidate_id, candidate_raw, handoff, handoff_raw, source_head
+    )
+    record_companion = record.get("companion_bundle")
+    if not isinstance(record_companion, dict):
+        raise CandidateBuildError(
+            "build record lacks the bound companion bundle: "
+            "unbound legacy records are not R2-eligible"
+        )
+    if record_companion != companion_declared:
+        raise CandidateBuildError("build-record/prepared companion binding mismatch")
 
     tag = str(record.get("tag") or "")
     image_id = str((record.get("image") or {}).get("id") or "")
@@ -405,12 +423,6 @@ def package_tested_image(
             raise CandidateBuildError("build-input record lacks companion bundle declaration")
         if companion_declared.get("schema_version") != COMPANION_SCHEMA_VERSION:
             raise CandidateBuildError("build-input companion declaration schema is unsupported")
-        for key in ("source", "files", "modes", "source_digest"):
-            if key not in companion_declared:
-                raise CandidateBuildError(
-                    f"build-input companion declaration lacks {key}"
-                )
-
     before = run_checked(["docker", "image", "inspect", tag, "--format", "{{.Id}}"]).stdout.strip()
     if before != image_id:
         raise CandidateBuildError("local tested image no longer matches build record")
@@ -437,11 +449,81 @@ def package_tested_image(
         "discovery_source_sha": handoff.get("source_sha"),
         "discovery_source_ref": handoff.get("source_ref"),
     }
-    if companion_declared is not None:
-        result["companion_bundle"] = companion_declared
+    result["companion_bundle"] = companion_declared
     evidence_path.parent.mkdir(parents=True, exist_ok=True)
     evidence_path.write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")
     return result
+
+
+def _require_build_input_record(build_input_path: Path) -> dict:
+    """Load the prepare-stage build-input record, failing closed on omission."""
+    if build_input_path is None:
+        raise CandidateBuildError(
+            "build-input record is required: omission preserves no R2 binding"
+        )
+    try:
+        build_input = json.loads(Path(build_input_path).read_bytes())
+    except (OSError, json.JSONDecodeError) as exc:
+        raise CandidateBuildError(f"build-input record is unreadable: {exc}") from exc
+    if not isinstance(build_input, dict):
+        raise CandidateBuildError("build-input record must be an object")
+    return build_input
+
+
+def _require_companion_linkage(
+    build_input: dict,
+    candidate_id: str,
+    candidate_raw: bytes,
+    handoff: dict,
+    handoff_raw: bytes,
+    source_head: str,
+) -> dict:
+    """Check the full prepared identity linkage before any external action.
+
+    Verifies declaration types/digest/modes, the prepared byte digests
+    against the actual candidate/handoff inputs, the prepared
+    source/candidate/handoff provenance, and the invoking source head.
+    Returns the declared companion for retention in the package evidence.
+    """
+    if build_input.get("schema_version") != SCHEMA_VERSION:
+        raise CandidateBuildError("build-input record uses an unsupported schema")
+    if build_input.get("status") != "prepared":
+        raise CandidateBuildError("build-input record is not a prepared binding")
+    if build_input.get("candidate_id") != candidate_id:
+        raise CandidateBuildError("build-input record candidate mismatch")
+    companion = build_input.get("companion_bundle")
+    if not isinstance(companion, dict):
+        raise CandidateBuildError("build-input record lacks companion bundle declaration")
+    if companion.get("schema_version") != COMPANION_SCHEMA_VERSION:
+        raise CandidateBuildError("build-input companion declaration schema is unsupported")
+    if companion.get("source") != COMPANION_SOURCE_REL.as_posix():
+        raise CandidateBuildError(
+            "build-input companion declaration source is not the frozen bundle"
+        )
+    files = companion.get("files")
+    modes = companion.get("modes")
+    digest = companion.get("source_digest")
+    if (
+        not isinstance(files, list)
+        or not files
+        or not all(isinstance(item, str) and item for item in files)
+    ):
+        raise CandidateBuildError("build-input companion declaration files are malformed")
+    if not isinstance(modes, dict) or set(modes) != set(files):
+        raise CandidateBuildError("build-input companion declaration modes are malformed")
+    if not SHA256.fullmatch(str(digest or "")):
+        raise CandidateBuildError("build-input companion declaration digest is malformed")
+    if build_input.get("candidate_file_sha256") != sha256_bytes(candidate_raw):
+        raise CandidateBuildError("build-input prepared candidate digest mismatch")
+    if build_input.get("handoff_evidence_sha256") != sha256_bytes(handoff_raw):
+        raise CandidateBuildError("build-input prepared handoff digest mismatch")
+    if build_input.get("source_parent") != handoff.get("source_sha"):
+        raise CandidateBuildError("build-input prepared source-parent mismatch")
+    if build_input.get("source_ref") != handoff.get("source_ref"):
+        raise CandidateBuildError("build-input prepared source-ref mismatch")
+    if build_input.get("source_head") != source_head:
+        raise CandidateBuildError("build-input prepared source-head mismatch")
+    return companion
 
 
 def main() -> int:
@@ -468,8 +550,9 @@ def main() -> int:
     package.add_argument(
         "--build-input",
         type=Path,
-        default=None,
-        help="optional prepare-stage build-input record carrying the companion bundle declaration",
+        required=True,
+        help="required prepare-stage build-input record carrying the frozen "
+        "companion bundle declaration (omission rejects: no silent bypass)",
     )
 
     args = parser.parse_args()
