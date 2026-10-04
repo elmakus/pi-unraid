@@ -31,7 +31,7 @@
   (Paseo 0.9.2); `config/paseo-candidate.json` records `pi: "0.87.1"` (version string; npm
   artifacts carry no OCI digest) alongside the paseo digest.
 - npm registry (official distribution): `@earendil-works/pi-coding-agent@0.87.1`
-  (`dist.integrity sha512-m8ArJUtVcQMSe1lLE/Ei7vX/JV7O39sWmWBsXV2NOU70F0qCp8GubA24pT3LnwTmM6LL2xV80/h6sQg85n69ew`),
+  (`dist.integrity sha512-m8ArJUtVcQMSe1lLE/Ei7vX/JV7O39sWmWBsXV2NOU70F0qCp8GubA24pT3LnwTmM6LL2xV80/h6sQg85n69ew==`, re-read from official registry metadata 2026-10-04),
   bundling `@earendil-works/pi-ai@0.87.1`
   (`dist.integrity sha512-X/3PfQBnnoeVdO9Cv8zHghUMglzlgNZYGNzoPnbRoGnHl3Rw3TlA2UKSUB7BRHUOxMryHXYa8dnjWZlbRheDZA==`;
   confirmed in the installed `npm-shrinkwrap.json`).
@@ -61,10 +61,17 @@
   `meta/muse-spark-1.3-contributor` to `thinkingLevelMap.max = "max"` (and likewise non-contributor
   `1.3`). So one pinned artifact advertises `max` as supported over OpenRouter while marking it
   unsupported on the direct-Meta path for the identical model id.
-- Upstream maintainer position on exactly this split (`earendil-works/pi#9658`, comment by
-  `davidbrai` 2026-09-18): OpenRouter's API lists `max` in `reasoning.supported_efforts` for this
-  model, but direct Meta rejects it — "misconfigured on openrouter's side". The direct-Meta `null`
-  is therefore the deliberate upstream-consistent position, not an omission.
+- Tracker separation for `earendil-works/pi#9658` (issue + both comments re-read 2026-10-04): the
+  reporter tested **via the OpenRouter provider path** (`provider: openrouter`, model
+  `meta/muse-spark-1.3-contributor`, thinking `max`) and received a 400 whose embedded metadata names
+  `provider_name: "Meta"`. That attribution is OpenRouter's downstream error metadata, not a
+  reporter-run direct-Meta endpoint test; `high` worked on the same path. The maintainer comment
+  (`davidbrai`, 2026-09-18) addresses **OpenRouter's metadata only** — quoting OpenRouter's
+  `/api/v1/models` `reasoning.supported_efforts` (which lists `max`), calling it "misconfigured on
+  openrouter's side" and recommending asking OpenRouter to fix it. It reports no direct-Meta endpoint
+  test. No verified direct-Meta endpoint acceptance or rejection exists in this obligation's evidence.
+  The direct-Meta `null` in bundled data + `pi.dev` therefore stands as *catalog metadata* (primary
+  source), not as an endpoint verdict.
 
 ### F4 — Harness semantics: unsupported max is silently clamped; wire passes forced values through (official/upstream source)
 
@@ -116,8 +123,9 @@
   `settings.thinkingOptionId: max`, `notifyOnFinish: true`.
 - R2 (`requirements/PASEO_UPDATE_DISTRIBUTION.md`) and `ADR-PUD-004` restate the same fixed profile and
   require proof of *effective* profile plus exact disposable-candidate binding — a label plus launcher
-  exit code is insufficient. The policy files deliver the *request*; nothing in the reproducible chain
-  delivers the *capability* (F2 vs F5/F6).
+  exit code is insufficient. The policy files deliver the *request*; effective capability on the
+  direct-Meta path is unverified (F2 catalog metadata marks it unsupported; the F5/F6 local
+  advertisement rests on the unmanaged override and proves no wire behavior).
 
 ### F8 — Supported dedicated credential shapes are established as metadata only (official/upstream)
 
@@ -152,16 +160,21 @@ never opened; only `diagnostic` "found" presence and file metadata were observed
   LACKS `max`, non-contributor 1.3 HAS it. Reconciliation by weight: the local advertisement is fully
   explained by the unmanaged `models.json` override (F6); it is environment observation, not capability
   proof. Effective wire acceptance of `effort: "max"` for contributor on the direct-Meta path remains
-  **unproven** (no inference permitted in this obligation) and counter-indicated by C2.
+  **unproven** (no inference permitted in this obligation). The only endpoint observation on record is
+  the downstream-OpenRouter 400 in #9658 (C2), which is not a direct-Meta test and is not treated
+  as one.
 - **C2 (unresolved): same artifact, two answers.** Bundled `openrouter.json` (`max → "max"`) vs bundled
-  `meta.json` (`max → null`) for `meta/muse-spark-1.3-contributor`. Maintainer (#9658) attributes the
-  `max`-advertisement to the OpenRouter side and reports direct-Meta 400 rejection. `max` support is
-  therefore provider-path-dependent; the mandatory test profile uses the direct-Meta path, where primary
-  sources say unsupported.
+  `meta.json` (`max → null`) for `meta/muse-spark-1.3-contributor`. Reporter observation (#9658) is a
+  downstream-OpenRouter 400 at `max` (`high` works); the embedded `provider_name: "Meta"` is
+  OpenRouter's attribution, not a direct-Meta test. The maintainer comment addresses OpenRouter's
+  `supported_efforts` metadata only ("misconfigured on openrouter's side") and reports no direct-Meta
+  endpoint result. Catalog metadata therefore differs by provider path; no endpoint verdict exists for
+  the direct-Meta path in either direction. The mandatory test profile uses the direct-Meta path, where
+  primary catalog sources say unsupported.
 - **C3 (unresolved): practitioner claims both directions.** #10155 reporter: `max` works via opencode
   relay (relay may translate effort values; issue auto-closed by bot, never merit-reviewed; maintainer
-  redirects to `anomalyco/models.dev` opencode data). #9658 reporter: `max` → Meta 400,
-  `high` works. Different paths; neither transfers to the direct-Meta path. Popularity/claims do not
+  redirects to `anomalyco/models.dev` opencode data). #9658 reporter: downstream-OpenRouter 400 at
+  `max`, `high` works. Different paths; neither transfers to the direct-Meta path. Popularity/claims do not
   override primary source semantics.
 - **C4 (unknown): cache flip.** `models-store.json` shows non-contributor 1.3 `max → null`, contradicting
   bundled `meta.json` (`max → "max"`). Refresh provenance untraced; no conclusion drawn.
@@ -183,21 +196,41 @@ never opened; only `diagnostic` "found" presence and file metadata were observed
 6. The Sep-28 origin (author/tooling) of the local `models.json` override was not traced; only its
    content, effect, and absence from repo delivery are established.
 
-## Precise remaining gap (for Main-owned Execution Prep reconciliation, not a decision)
+## Remaining issue classification (facts separated from inference; for Main-owned Execution Prep, not a decision)
 
-No supported reproducible delivery of **effective** `meta/muse-spark-1.3-contributor` + `max` on the
-direct-Meta path exists in the current chain:
+**Established facts.** Pinned artifact identities + integrity hashes (F1); fixed launcher/policy request
+shape (F7); dedicated credential *shapes* as public metadata with values untouched (F8); bundled +
+pi.dev catalog metadata marking contributor/`max` unsupported on the direct-Meta path (F2); an unmanaged
+HOME-only override as the sole local source of the contrary advertisement (F6); silent max→xhigh clamp
+semantics without the override and verbatim wire pass-through of a forced value (F4); no direct-Meta
+endpoint observation in either direction (F3/C2).
 
-- (a) pinned and latest upstream metadata mark the combination unsupported (F2, stable across 0.87.1→1.0.2);
-- (b) the only element making it *appear* supported locally is an unmanaged, non-repo-delivered HOME
-  override (F6), which P4 M07-T04 provenance requirements do not cover;
-- (c) without that override the harness silently executes `max` as `xhigh` (F4), so `max` evidence could
-  be recorded without `max` execution;
-- (d) with the override the wire would send `effort: "max"`, whose Meta-side acceptance is unproven and
-  counter-indicated on the sibling path (C2).
+**Supported mechanism vs provenance fact.** `modelOverrides` is a documented, supported pi configuration
+mechanism (F6, `docs/models.md`) — employing it is not inherently unsupported. What is factual is
+narrower: the *current* override lives only in unmanaged HOME state with no frozen candidate provenance,
+so it cannot satisfy P4 M07-T04's "frozen, reproducible source/provenance" requirement as observed.
+Whether repo-delivered (frozen, reviewed) override content resolves the provenance leg is implementation
+work for Execution Prep/Execution to establish with evidence — absent repo delivery is the expected
+pre-prep state (the implementation's intended work), not proof that supported reproducible delivery is
+inherently impossible. No finding here decides that outcome.
 
-Established without gap: pinned artifact identities + integrity hashes (F1); fixed launcher/policy
-request shape (F7); dedicated credential *shapes* as public metadata with values untouched (F8).
-Missing-blocker status of profile availability vs credential availability is left to Main: what is
-established is that the profile leg currently rests on (b), and the credential leg is unprovisioned by
-design until M08.
+**Runtime observation, not validation.** This Research obligation itself is being executed by a worker
+created under the normal-workflow native creation shape carrying the fixed profile
+(`pi/meta/muse-spark-1.3-contributor`, `thinkingOptionId max`), and that creation was accepted by the
+local Paseo/pi stack sufficiently to produce this return. That is recorded strictly as runtime
+observation: it is not a real validation test, not exact-candidate acceptance, not proof of on-wire
+`reasoning.effort`, and not independent evidence of effective profile — per R2/ADR-PUD-004 only
+candidate-bound inference with verified daemon/Pi/profile provenance plus required non-inference checks
+can satisfy a gate. No new inference was run to investigate it, and none is claimed.
+
+**Precise classification of what remains.**
+- (i) *Unverified/unsupported profile input (primary-source weight):* bundled + pi.dev catalog metadata
+  mark contributor/`max` unsupported on the direct-Meta path; effective behavior is unverified and the
+  fail-closed boundary holds — unproven profile binding blocks acceptance (R2/ADR-PUD-004).
+- (ii) *Resolvable provenance implementation detail:* moving any override content into frozen,
+  repo-managed, reviewed delivery with exact provenance is ordinary M07-T04 implementation scope; its
+  feasibility and acceptance belong to Prep/Execution evidence and independent review, not to this report.
+- (iii) *No further agent-findable facts outstanding in this obligation* beyond what is recorded above:
+  endpoint acceptance/rejection would require inference (forbidden here; owned by M08-T01), and credential
+  availability is operator input by design (expected M08). Uncertainty is preserved rather than resolved
+  by substitution: no fallback profile, no replacement mechanism, and no product policy is chosen here.
