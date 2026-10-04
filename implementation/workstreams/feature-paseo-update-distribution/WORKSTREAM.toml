@@ -36,6 +36,10 @@ path = "implementation/workstreams/feature-paseo-update-distribution/DEFINITION.
 class = "planning"
 path = "implementation/workstreams/feature-paseo-update-distribution/PLANNING.toml"
 
+[plan_review]
+class = "plan_review"
+path = "implementation/workstreams/feature-paseo-update-distribution/PLAN_REVIEW.toml"
+
 [task_board]
 class = "task_board"
 path = "implementation/workstreams/feature-paseo-update-distribution/TASK_BOARD.toml"
