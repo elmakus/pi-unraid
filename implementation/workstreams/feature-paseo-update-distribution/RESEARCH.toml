@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-state = "complete"
+state = "consumed"
 origin_role = "execution_prep"
 origin_subject = "M07-T04"
 return_target = "execution_prep:M07-T04"

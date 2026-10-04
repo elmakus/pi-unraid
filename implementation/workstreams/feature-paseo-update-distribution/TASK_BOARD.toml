@@ -1,12 +1,8 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 112
+revision = 113
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
-
-[research_obligation]
-class = "research"
-path = "implementation/workstreams/feature-paseo-update-distribution/RESEARCH.toml"
 
 [[cards]]
 id = "M01-T01"
