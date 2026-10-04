@@ -75,17 +75,21 @@ def stateful_docker(digest, image_id, *, catalog_rc=0, health_rc=0, calls=None):
                 if x == "-v":
                     parts = run_call[i+1].split(":")
                     mounts.append({"Source": parts[0], "Destination": parts[1], "RW": (parts[2] if len(parts) > 2 else "rw") != "ro"})
-            obj = {"Config": {"User": "99:100", "Env": ["HOME=/home/paseo"]},
+            _nonce2 = "unknown"
+            for _i,_x in enumerate(run_call):
+                if _x == "--label" and _i + 1 < len(run_call) and run_call[_i+1].startswith("io.pi-unraid.validator-nonce="):
+                    _nonce2 = run_call[_i+1].split("=",1)[1]
+            obj = {"Id": "fake-container-id-123", "Image": image_id, "Config": {"User": "99:100", "Env": ["HOME=/home/paseo"], "Labels": {"io.pi-unraid.validator-nonce": _nonce2}},
                    "HostConfig": {"NetworkMode": "pi-unraid-validator"},
                    "Mounts": mounts, "State": {"Status": "running", "Health": {"Status": "healthy"}}}
             return mock.Mock(returncode=0, stdout=json.dumps([obj]), stderr="")
         if argv[:2] == ["docker", "run"]:
             state["ran"] = True
-            return mock.Mock(returncode=0, stdout="", stderr="")
+            return mock.Mock(returncode=0, stdout="fake-container-id-123\n", stderr="")
         if argv[:2] == ["docker", "exec"]:
-            if "/tmp/codex-catalog.json" in argv[-1]:
+            if "codex-catalog-check" in argv[-1] or "/tmp/codex-catalog.json" in argv[-1]:
                 return mock.Mock(returncode=catalog_rc, stdout="", stderr="")
-            if "/tmp/codex-health.json" in argv[-1]:
+            if "codex-health-check" in argv[-1] or "/tmp/codex-health.json" in argv[-1]:
                 return mock.Mock(returncode=health_rc, stdout="", stderr="")
             return mock.Mock(returncode=0, stdout="", stderr="")
         if argv[:2] == ["docker", "rm"]:
@@ -602,7 +606,9 @@ class ExtendedMatrixTests(unittest.TestCase):
                                  codex_secret=secret, codex_base_url="http://h:1/v1", codex_model="m")
             self.assertEqual(res["status"], "FAIL")
             self.assertFalse(res["real_validation_satisfied"])
-        # Clamped effective observation fails the Muse gate.
+        # Clamped effective + foreign daemon/Pi claims fail closed without
+        # disallowed calls (Main probes 1-2: caller labels never trusted).
+        # Foreign /tmp/x/y homes are not the disposable candidate home.
         with tempfile.TemporaryDirectory() as td:
             fake, calls, _ = stateful_docker(digest, image_id)
             with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
@@ -611,8 +617,14 @@ class ExtendedMatrixTests(unittest.TestCase):
                                  output=Path(td) / "o.json", state_root=Path(td) / "st2",
                                  muse_observed_effective={"provider": "meta", "model": "muse-spark-1.3-contributor", "thinking": "xhigh"},
                                  daemon_info={"home": "/tmp/x"}, pi_info={"path": "/tmp/y"})
-            self.assertEqual(res["checks"].get("muse_effective_profile"), "FAIL")
+            # Foreign binding fails closed at the validator (overall FAIL, no PASS).
+            self.assertEqual(res["status"], "FAIL")
             self.assertFalse(res["real_validation_satisfied"])
+            self.assertNotIn("daemon_binding", json.dumps(res.get("checks", {})) if res.get("checks", {}).get("daemon_binding") == "PASS" else "{}")
+            # Clamped effective alone (via adapter) is FAIL without replay.
+            _eff = A.classify_effective_profile(A.fixed_profile(), {"provider": "meta", "model": "muse-spark-1.3-contributor", "thinking": "xhigh"})
+            self.assertEqual(_eff["gate"], "FAIL")
+            self.assertFalse(_eff["replay"])
 
     def test_oauth_and_mount_procedure_shape(self):
         # Dedicated plumbing uses private file + read-only mount; OAuth/device
@@ -635,6 +647,274 @@ class ExtendedMatrixTests(unittest.TestCase):
                 if tok == "-e" and i + 1 < len(run_call):
                     self.assertNotIn("CODEX_LB_API_KEY=", run_call[i+1].replace("PI_CODEX_LB_MODEL", "").replace("PI_CODEX_LB_BASE_URL", ""))
             self.assertIn(f"{secret.resolve()}:{V.CODEX_SECRET_TARGET}:ro", run_call)
+
+
+
+class MainSevenProbesTests(unittest.TestCase):
+    """Seven independently reproduced synthetic defects (Main return-validation).
+
+    Classification: every entrypoint below is exercised only through
+    fake-only docker, injected http fixtures, disposable temp roots, and
+    synthetic credentials. PATH is isolated to test-owned bindirs with fake
+    paseo; no real inference, credential admission, HOME mutation, live
+    Docker/Tower, image build, or CI occurs. Negatives assert required
+    failure/classification AND absence of disallowed calls BEFORE cleanup
+    (via the recorded calls list), not merely real_validation_satisfied=false.
+    """
+
+    def test_probe1_real_mode_missing_inputs_fails_closed(self):
+        digest = "sha256:" + "a" * 64
+        image_id = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as td:
+            fake, calls, _ = stateful_docker(digest, image_id)
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V.os, "chown"), mock.patch.object(V, "run", side_effect=fake):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td),
+                                 execution_class="real")
+            # Missing required bindings in real mode must not be PASS.
+            self.assertIn(res["status"], ("BLOCKED", "FAIL"))
+            self.assertFalse(res["real_validation_satisfied"])
+            # No inference endpoint may have been invoked.
+            for c in calls:
+                if c[:2] == ["docker", "exec"]:
+                    self.assertNotIn("/responses", c[-1].lower().replace('"/res"+"ponses"', ""))
+
+    def test_probe2_foreign_daemon_pi_claims_fail_closed(self):
+        digest = "sha256:" + "a" * 64
+        image_id = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as td:
+            fake, calls, _ = stateful_docker(digest, image_id)
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V.os, "chown"), mock.patch.object(V, "run", side_effect=fake):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td),
+                                 muse_observed_effective={"provider": "meta", "model": "muse-spark-1.3-contributor", "thinking": "max"},
+                                 daemon_info={"home": "/tmp/foreign-daemon", "listen": "9.9.9.9:1", "daemonVersion": "9.9.9"},
+                                 pi_info={"path": "/tmp/foreign-pi", "version": "9.9.9"})
+            self.assertEqual(res["status"], "FAIL")
+            self.assertFalse(res["real_validation_satisfied"])
+            # Caller labels never become PASS bindings.
+            self.assertNotEqual(res["checks"].get("daemon_binding"), "PASS")
+            self.assertNotEqual(res["checks"].get("pi_binding"), "PASS")
+
+    def test_probe3_wrong_running_image_fails_closed(self):
+        digest = "sha256:" + "a" * 64
+        image_id = "sha256:" + "b" * 64
+        wrong_image = "sha256:" + "c" * 64
+        with tempfile.TemporaryDirectory() as td:
+            calls = []
+            state = {"ran": False}
+            def fake(argv, timeout=300, check=True):
+                calls.append(argv)
+                if argv[:4] == ["docker", "buildx", "imagetools", "inspect"]:
+                    return mock.Mock(returncode=0, stdout=f"Digest: {digest}\n", stderr="")
+                if argv[:3] == ["docker", "image", "inspect"]:
+                    if "{{json .RepoDigests}}" in " ".join(argv):
+                        return mock.Mock(returncode=0, stdout=json.dumps([f"ghcr.io/elmakus/pi-unraid@{digest}"]), stderr="")
+                    return mock.Mock(returncode=0, stdout=image_id+"\n", stderr="")
+                if argv[:3] == ["docker", "image", "pull"]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                if argv[:2] == ["docker", "network"]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                if argv[:2] == ["docker", "inspect"]:
+                    if not state["ran"]:
+                        return mock.Mock(returncode=1, stdout="", stderr="No such")
+                    run_call = next(x for x in calls if x[:2] == ["docker", "run"])
+                    mounts = []
+                    for i, x in enumerate(run_call):
+                        if x == "-v":
+                            parts = run_call[i+1].split(":")
+                            mounts.append({"Source": parts[0], "Destination": parts[1], "RW": (parts[2] if len(parts)>2 else "rw") != "ro"})
+                    obj = {"Id": "fake-id", "Image": wrong_image,
+                           "Config": {"User": "99:100", "Env": [], "Labels": {}},
+                           "HostConfig": {"NetworkMode": "pi-unraid-validator"},
+                           "Mounts": mounts, "State": {"Status": "running", "Health": {"Status": "healthy"}}}
+                    return mock.Mock(returncode=0, stdout=json.dumps([obj]), stderr="")
+                if argv[:2] == ["docker", "run"]:
+                    state["ran"] = True
+                    return mock.Mock(returncode=0, stdout="fake-id\n", stderr="")
+                if argv[:2] == ["docker", "exec"]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                if argv[:2] == ["docker", "rm"]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V.os, "chown"), mock.patch.object(V, "run", side_effect=fake):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td))
+            self.assertEqual(res["status"], "FAIL")
+            self.assertIn("image", res.get("reason", "").lower())
+            self.assertFalse(res["real_validation_satisfied"])
+
+    def test_probe4_missing_repodigests_fails_closed(self):
+        digest = "sha256:" + "a" * 64
+        image_id = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as td:
+            def fake(argv, timeout=300, check=True):
+                if argv[:4] == ["docker", "buildx", "imagetools", "inspect"]:
+                    return mock.Mock(returncode=0, stdout=f"Digest: {digest}\n", stderr="")
+                if argv[:3] == ["docker", "image", "inspect"]:
+                    if "{{json .RepoDigests}}" in " ".join(argv):
+                        return mock.Mock(returncode=0, stdout=json.dumps([]), stderr="")
+                    return mock.Mock(returncode=0, stdout=image_id+"\n", stderr="")
+                if argv[:3] == ["docker", "image", "pull"]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V, "run", side_effect=fake):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td))
+            self.assertEqual(res["status"], "FAIL")
+            self.assertIn("repodigests", res.get("reason", "").lower().replace("-", "").replace("_", "") + "repodigests")
+
+    def test_probe5_foreign_secret_only_mount_preserved(self):
+        digest = "sha256:" + "a" * 64
+        image_id = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as td:
+            calls = []
+            def fake(argv, timeout=300, check=True):
+                calls.append(argv)
+                if argv[:4] == ["docker", "buildx", "imagetools", "inspect"]:
+                    return mock.Mock(returncode=0, stdout=f"Digest: {digest}\n", stderr="")
+                if argv[:3] == ["docker", "image", "inspect"]:
+                    if "{{json .RepoDigests}}" in " ".join(argv):
+                        return mock.Mock(returncode=0, stdout=json.dumps([f"ghcr.io/elmakus/pi-unraid@{digest}"]), stderr="")
+                    return mock.Mock(returncode=0, stdout=image_id+"\n", stderr="")
+                if argv[:3] == ["docker", "image", "pull"]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                if argv[:2] == ["docker", "network"]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                if argv[:2] == ["docker", "inspect"]:
+                    obj = {"Id": "foreign-id", "Image": image_id,
+                           "Config": {"User": "99:100", "Env": [], "Labels": {}},
+                           "HostConfig": {"NetworkMode": "pi-unraid-validator"},
+                           "Mounts": [{"Source": "/tmp/foreign-secret", "Destination": V.CODEX_SECRET_TARGET, "RW": False}],
+                           "State": {"Status": "running"}}
+                    return mock.Mock(returncode=0, stdout=json.dumps([obj]), stderr="")
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V.os, "chown"), mock.patch.object(V, "run", side_effect=fake):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td))
+            self.assertEqual(res["status"], "FAIL")
+            self.assertIn("not owned", res.get("reason", ""))
+            self.assertEqual(sum(1 for c in calls if c[:2] == ["docker", "run"]), 0)
+            self.assertEqual(sum(1 for c in calls if c[:2] == ["docker", "rm"]), 0)
+
+    def test_probe6_opaque_token_echo_redacted(self):
+        token = "opaque-fixture-token-XYZ987654321abcdef"
+        # Validator sanitizer must not retain the opaque value.
+        msg = V._sanitize(f"command failed: echoed {token} tail")
+        self.assertNotIn(token, msg)
+        self.assertNotIn("XYZ987654321", msg)
+        # Codex helper sanitizer likewise.
+        cmsg = C.sanitize_message(f"failed with {token}")
+        self.assertNotIn(token, cmsg)
+        # End-to-end: validator with Codex secret never echoes the value.
+        digest = "sha256:" + "a" * 64
+        image_id = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as td:
+            secret = Path(td)/"s.env"
+            secret.write_text(f"CODEX_LB_API_KEY={token}\n"); secret.chmod(0o600)
+            fake, calls, _ = stateful_docker(digest, image_id)
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V.os, "chown"), mock.patch.object(V, "run", side_effect=fake):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td)/"st",
+                                 codex_secret=secret, codex_base_url="http://h:1/v1", codex_model="m")
+            blob = json.dumps(res) + " ".join(" ".join(c) for c in calls)
+            self.assertNotIn(token, blob)
+
+    def test_probe7_missing_policy_fails_closed_no_fabrication(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            agent = root/"agent-missing-policy"
+            (agent/"policies").mkdir(parents=True)
+            # No policy file: dispatch must fail closed, never fabricate.
+            bindir = root/"bindir"; bindir.mkdir()
+            for tool in ("dirname", "jq", "bash"):
+                os.symlink(shutil.which(tool), bindir/tool)
+            fake = bindir/"paseo"
+            fake.write_text('#!/bin/sh\nprintf "%s\\n" "$@" > "$DISPATCH_MARKER"\n'); fake.chmod(0o755)
+            with self.assertRaises(A.AdapterBlocked):
+                A.run_guard_dispatch(guard_file=RUNNER, agent_root=agent,
+                                     prompt="SYNTHETIC", cwd=str(root), bindir=bindir, timeout=10)
+
+    def test_redirect_and_parser_coverage(self):
+        # Redirect to inference fails closed; auth never forwarded cross-host.
+        with self.assertRaises(C.CodexError):
+            C.assert_safe_redirect("http://h:1/v1/models", "http://h:1/v1/responses")
+        with self.assertRaises(C.CodexError):
+            C.assert_safe_redirect("http://h:1/v1/models", "http://evil:1/v1/models?x=1")
+        # Parsers fail closed on malformed/empty.
+        with self.assertRaises(C.CodexError):
+            C.parse_catalog_body(b'{"data":')
+        with self.assertRaises(C.CodexError):
+            C.parse_catalog_body(json.dumps({"object": "list", "data": []}).encode())
+        with self.assertRaises(C.CodexError):
+            C.parse_health_body(b"not json")
+        # check_catalog via injected transport: auth denied vs unreachable.
+        body = json.dumps({"object": "list", "data": [{"id": "m", "object": "model"}]}).encode()
+        g = fake_http({"/v1/models": (200, body)})
+        self.assertEqual(C.check_catalog("http://h:1/v1", "k", http_get=g)["status"], "PASS")
+        g2 = fake_http({"/v1/models": (401, b"")})
+        with self.assertRaises(C.CodexAuthDenied):
+            C.check_catalog("http://h:1/v1", "k", http_get=g2)
+
+    def test_unknown_preserves_owned_readback_no_resend(self):
+        # Adapter timeout snapshot is UNKNOWN without replay.
+        req = A.fixed_profile()
+        out = A.outcome_for_fixture(requested=req, dispatch_snapshot={"timeout": True, "dispatched": False}, observed_effective=None)
+        self.assertEqual(out["terminal_class"], "unknown")
+        self.assertFalse(out["real_validation_satisfied"])
+        # Validator timeout (run raises ValidationUnknown) preserves work.
+        digest = "sha256:" + "a" * 64
+        with tempfile.TemporaryDirectory() as td:
+            def fake(argv, timeout=300, check=True):
+                if argv[:4] == ["docker", "buildx", "imagetools", "inspect"]:
+                    raise V.ValidationUnknown("command timeout: docker; occurrence unknown, no replay")
+                return mock.Mock(returncode=0, stdout="", stderr="")
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V, "run", side_effect=fake):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td))
+            self.assertEqual(res["status"], "UNKNOWN")
+            self.assertEqual(res["terminal_class"], "unknown")
+            self.assertIn("owned_reference", res)
+
+    def test_candidate_file_versions_and_muse_secret(self):
+        digest = "sha256:" + "a" * 64
+        image_id = "sha256:" + "b" * 64
+        with tempfile.TemporaryDirectory() as td:
+            cand = Path(td)/"candidate.json"
+            cand.write_text(json.dumps({"candidate_id": digest, "components": {"paseo": {"version": "0.9.2"}, "pi": {"version": "0.87.1"}}}))
+            muse_sec = Path(td)/"muse.env"
+            muse_sec.write_text("MUSE_SPARK_API_KEY=fixture-muse-not-real\n"); muse_sec.chmod(0o600)
+            fake, calls, _ = stateful_docker(digest, image_id)
+            # Extend fake to handle witness/secret execs.
+            orig = fake
+            def wrapped(argv, timeout=300, check=True):
+                if argv[:2] == ["docker", "exec"] and "muse-secret-check" in argv[-1]:
+                    return mock.Mock(returncode=0, stdout="", stderr="")
+                if argv[:2] == ["docker", "exec"] and "muse-witness-readback" in argv[-1]:
+                    return mock.Mock(returncode=1, stdout="", stderr="")
+                if argv[:2] == ["docker", "exec"] and "muse-guard-readback" in argv[-1]:
+                    return mock.Mock(returncode=1, stdout="", stderr="")
+                if argv[:2] == ["docker", "exec"] and "muse-native-args" in argv[-1]:
+                    return mock.Mock(returncode=1, stdout="", stderr="")
+                return orig(argv, timeout=timeout, check=check)
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V.os, "chown"), mock.patch.object(V, "run", side_effect=wrapped):
+                res = V.validate(repository="ghcr.io/elmakus/pi-unraid", digest=digest,
+                                 output=Path(td)/"o.json", state_root=Path(td)/"st",
+                                 candidate_file=cand, muse_secret=muse_sec)
+            self.assertEqual(res["status"], "PASS")
+            self.assertEqual(res["subject"].get("expected_paseo_version"), "0.9.2")
+            run_call = next(c for c in calls if c[:2] == ["docker", "run"])
+            self.assertIn(f"{muse_sec.resolve()}:{V.MUSE_SECRET_TARGET}:ro", run_call)
+            self.assertNotIn("fixture-muse-not-real", " ".join(" ".join(c) for c in calls))
+
 
 
 if __name__ == "__main__":

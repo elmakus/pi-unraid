@@ -42,6 +42,12 @@ GUARD_REL = Path("config/pi-agent/bin/run-llm-test.sh")
 POLICY_REL = Path("config/pi-agent/policies/llm-test-policy.json")
 SCHEMA_VERSION = 1
 
+# Dedicated Muse validation credential (operator-controlled, synthetic only in
+# M07-T05). Private file on the host, read-only mount inside the candidate.
+# Never placed on argv/env, never logged, never persisted in evidence.
+MUSE_SECRET_TARGET = "/run/secrets/pi-unraid-muse"
+MUSE_SECRET_ENV_NAME = "MUSE_SPARK_API_KEY"
+
 # Production markers that must never be selected as the candidate daemon.
 PRODUCTION_HOMES = (
     str(Path.home() / ".paseo"),
@@ -289,6 +295,10 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
     test-owned bindir, snapshots dispatch BEFORE temp cleanup. Returns a
     snapshot dict with returncode/stderr/dispatched/dispatch_lines.
     Never causes real inference when bindir holds only fake executables.
+
+    The exact delivered policy MUST exist at agent_root/policies/...; a
+    missing policy fails closed (AdapterBlocked) and never fabricates a
+    substitute fixed policy.
     """
     with tempfile.TemporaryDirectory(prefix="muse-adapter-") as tmp:
         tmp_p = Path(tmp)
@@ -298,21 +308,16 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
         launcher = agent / "bin" / "run-llm-test.sh"
         launcher.write_bytes(Path(guard_file).read_bytes())
         launcher.chmod(0o755)
-        # Policy for the disposable agent root: mirror the repo policy unless
-        # the caller supplied an explicit agent_root policy fixture.
+        # Policy for the disposable agent root: the exact delivered bytes.
+        # Missing source fails closed; no invented fixed-policy substitute.
+        # (Closes Main probe 7: missing policy previously synthesized dispatch.)
         src_policy = Path(agent_root) / "policies" / "llm-test-policy.json"
-        if src_policy.is_file():
-            (agent / "policies" / "llm-test-policy.json").write_bytes(src_policy.read_bytes())
-        else:
-            # Fall back to the repo policy so the guard shape is preserved.
-            (agent / "policies" / "llm-test-policy.json").write_text(json.dumps({
-                "schema": 1,
-                "real_llm_tests": {
-                    "provider": FIXED_PROVIDER, "model": FIXED_MODEL,
-                    "thinking": FIXED_THINKING, "forbidden_models": list(FORBIDDEN_MODELS),
-                    "fallback_allowed": False,
-                },
-            }))
+        if not src_policy.is_file():
+            raise AdapterBlocked(
+                "canonical policy unavailable for dispatch: "
+                f"{src_policy} (missing exact delivered policy fails closed)"
+            )
+        (agent / "policies" / "llm-test-policy.json").write_bytes(src_policy.read_bytes())
         marker = tmp_p / "dispatched.txt"
         env = {"PATH": str(bindir), "DISPATCH_MARKER": str(marker)}
         if extra_env:
@@ -346,6 +351,157 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
         return snapshot
 
 
+def read_dedicated_muse_secret(secret_path) -> str:
+    """Read the dedicated operator-controlled Muse validation credential.
+
+    Validates: regular file, not a symlink, private mode (0600/0400),
+    single non-empty line, optional MUSE_SPARK_API_KEY= prefix. Never logs
+    the value. Missing file -> Blocked; malformed/insecure -> Error.
+    Only synthetic fixture values are supplied in M07-T05; no ordinary
+    agent credential is ever read/copied. The value is kept in private
+    memory and mounted read-only at MUSE_SECRET_TARGET; never placed on
+    argv/env, never persisted in evidence.
+    """
+    from pathlib import Path as _P
+    pth = _P(secret_path)
+    try:
+        if pth.is_symlink():
+            raise AdapterError("dedicated Muse credential must not be a symlink")
+        st = pth.stat()
+    except FileNotFoundError as exc:
+        raise AdapterBlocked("dedicated Muse credential file unavailable") from exc
+    except OSError as exc:
+        raise AdapterBlocked(f"dedicated Muse credential unavailable") from exc
+    import stat as _sm
+    if not _sm.S_ISREG(st.st_mode):
+        raise AdapterError("dedicated Muse credential must be a regular file")
+    mode = _sm.S_IMODE(st.st_mode)
+    if mode & 0o077:
+        raise AdapterError(f"dedicated Muse credential must be private (0600/0400), got {mode:04o}")
+    try:
+        text = pth.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise AdapterBlocked(f"dedicated Muse credential unreadable") from exc
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
+    if len(lines) != 1:
+        raise AdapterError("dedicated Muse credential must hold exactly one entry")
+    line = lines[0]
+    if "=" in line:
+        name, _, value = line.partition("=")
+        if name != MUSE_SECRET_ENV_NAME:
+            raise AdapterError(f"dedicated Muse credential entry must be {MUSE_SECRET_ENV_NAME} or a bare key")
+    else:
+        value = line
+    value = value.strip()
+    if not value or any(ch.isspace() for ch in value) or "\x00" in value:
+        raise AdapterError("dedicated Muse credential value is invalid")
+    if len(value) > 4096:
+        raise AdapterError("dedicated Muse credential value is too long")
+    return value
+
+
+def muse_secret_mount_args(secret_resolved) -> list:
+    """Return the read-only mount args for the dedicated Muse credential."""
+    return ["-v", f"{secret_resolved}:{MUSE_SECRET_TARGET}:ro"]
+
+
+# --- Supported effective-profile observation boundary (source lead, not proof) ---
+#
+# Installed pi 0.87.1 (pi-ai 0.87.1) declares extension events
+# before_provider_request / after_provider_response in
+# dist/core/sdk.js + dist/core/extensions/types.d.ts, wired via onPayload /
+# onResponse in pi-ai compat chunks (openai-responses, azure, pi-messages).
+# They fire ONLY when a test-owned extension registers a handler; without a
+# handler no payload/response is observed. They do NOT prove on-wire max:
+# pinned meta.json maps muse-spark-1.3-contributor max->null (unsupported)
+# while muse-spark-1.3 max->max, and clampThinkingLevel(max) on the
+# contributor therefore downgrades max->xhigh (models.js). A metadata label,
+# requested max flag, or ordinary workflow return is not effective-max proof.
+# The witness below records ONLY nonsecret profile/request/outcome facts
+# (provider/model/thinking/status, bounded counts); never raw headers, body,
+# prompt, or token output. If no witness is observed the gate stays UNKNOWN
+# and fails closed to M08-T01/Research-Planning; no bypass is invented.
+EFFECTIVE_WITNESS_ALLOWLIST = ("provider", "model", "thinking", "status", "count")
+
+
+def write_effective_witness_extension(dest: Path) -> Path:
+    """Stage a test-owned extension that records only whitelisted facts.
+
+    The extension subscribes to before_provider_request (payload) and
+    after_provider_response (status) and appends one JSON line per event to
+    the witness file with ONLY provider/model/thinking/status/count. Raw
+    headers/body/prompt/tokens are never recorded. Returns the staged path.
+    """
+    dest = Path(dest)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_text(
+        "// M07-T05 effective-profile witness (test-owned, secret-free).\n"
+        "// Records only provider/model/thinking/status/count.\n"
+        "export default function (ctx) {\n"
+        "  const fs = require('node:fs');\n"
+        "  const witness = process.env.M07_T05_WITNESS_FILE || '/tmp/m07-t05-witness.jsonl';\n"
+        "  function safeAppend(obj) {\n"
+        "    const allow = {};\n"
+        "    for (const k of ['provider','model','thinking','status','count']) {\n"
+        "      if (obj[k] !== undefined) allow[k] = String(obj[k]).slice(0,128);\n"
+        "    }\n"
+        "    try { fs.appendFileSync(witness, JSON.stringify(allow)+'\\n', {mode: 0o600}); } catch {} \n"
+        "  }\n"
+        "  ctx.on('before_provider_request', (ev) => {\n"
+        "    try {\n"
+        "      const p = ev.payload || {};\n"
+        "      safeAppend({provider: p.provider, model: p.model, thinking: (p.reasoningEffort||p.thinking), status: 'request'});\n"
+        "    } catch {} \n"
+        "    return ev.payload;\n"
+        "  });\n"
+        "  ctx.on('after_provider_response', (ev) => {\n"
+        "    try { safeAppend({status: String(ev.status)}); } catch {} \n"
+        "  });\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    try:
+        dest.chmod(0o644)
+    except OSError:
+        pass
+    return dest
+
+
+def parse_effective_witness_file(path: Path):
+    """Parse the witness file into an observed effective dict or None.
+
+    Returns None when absent/empty/malformed (UNKNOWN, no replay). Only
+    whitelisted keys are retained; any other keys are dropped.
+    """
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return None
+    obs = None
+    for ln in lines[-20:]:
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            doc = json.loads(ln)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(doc, dict):
+            continue
+        filt = {k: doc[k] for k in EFFECTIVE_WITNESS_ALLOWLIST if isinstance(doc.get(k), str)}
+        if filt:
+            obs = filt
+    if obs is None:
+        return None
+    # Normalize to the classify_effective_profile shape.
+    return {
+        "provider": obs.get("provider"),
+        "model": obs.get("model"),
+        "thinking": obs.get("thinking"),
+        "unknown": False,
+    }
+
+
 def outcome_for_fixture(*, requested: dict, dispatch_snapshot: dict,
                         observed_effective, daemon_binding=None, pi_binding=None,
                         subject: dict | None = None) -> dict:
@@ -357,8 +513,14 @@ def outcome_for_fixture(*, requested: dict, dispatch_snapshot: dict,
         reason = "guard dispatch timeout; occurrence unknown, no replay"
     elif not dispatch_snapshot.get("dispatched"):
         terminal = "terminal"
-        status = "FAIL" if dispatch_snapshot.get("returncode") not in (0, None) else "BLOCKED"
-        reason = (dispatch_snapshot.get("stderr") or "guard did not dispatch")[:300]
+        rc = dispatch_snapshot.get("returncode")
+        if rc not in (0, None):
+            status = "FAIL"
+            reason = f"guard did not dispatch (exit {rc}); no replay"
+        else:
+            status = "BLOCKED"
+            reason = "guard did not dispatch; input unavailable"
+        # Never echo raw stderr tails (they may contain opaque echoes).
     elif eff["gate"] != "PASS":
         terminal = "terminal"
         status = "FAIL"

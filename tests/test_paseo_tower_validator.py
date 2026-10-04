@@ -45,18 +45,23 @@ def _stateful_fake(digest, image_id, *, catalog_rc=0, health_rc=0, calls=None, r
                     src,dst=parts[0],parts[1]
                     mode=parts[2] if len(parts)>2 else "rw"
                     mounts.append({"Source":src,"Destination":dst,"RW":mode!="ro"})
-            obj={"Config":{"User":"99:100","Env":["TZ=Europe/Zurich","HOME=/home/paseo"]},
+            # Derive nonce label from the run call for owned-cleanup proof.
+            _nonce = "unknown"
+            for _i,_x in enumerate(run_call):
+                if _x=="--label" and _i+1 < len(run_call) and run_call[_i+1].startswith("io.pi-unraid.validator-nonce="):
+                    _nonce = run_call[_i+1].split("=",1)[1]
+            obj={"Id":"fake-container-id-123","Image":image_id,"Config":{"User":"99:100","Env":["TZ=Europe/Zurich","HOME=/home/paseo"],"Labels":{"io.pi-unraid.validator-nonce":_nonce}},
                  "HostConfig":{"NetworkMode":"pi-unraid-validator"},
                  "Mounts":mounts,"State":{"Status":"running","Health":{"Status":"healthy"}}}
             return mock.Mock(returncode=0,stdout=json.dumps([obj]),stderr="")
         if argv[:2]==["docker","run"]:
             state["ran"]=True
-            return mock.Mock(returncode=0,stdout="",stderr="")
+            return mock.Mock(returncode=0,stdout="fake-container-id-123\n",stderr="")
         if argv[:2]==["docker","exec"]:
             payload=argv[-1]
-            if "/tmp/codex-catalog.json" in payload:
+            if "codex-catalog-check" in payload or "/tmp/codex-catalog.json" in payload:
                 return mock.Mock(returncode=catalog_rc,stdout="",stderr="")
-            if "/tmp/codex-health.json" in payload:
+            if "codex-health-check" in payload or "/tmp/codex-health.json" in payload:
                 return mock.Mock(returncode=health_rc,stdout="",stderr="")
             return mock.Mock(returncode=0,stdout="",stderr="")
         if argv[:2]==["docker","rm"]:
@@ -159,10 +164,19 @@ class TowerValidatorTests(unittest.TestCase):
                 exec_calls=[x for x in calls if x[:2]==["docker","exec"]]
                 self.assertGreaterEqual(len(exec_calls), 1)
                 for ec in exec_calls:
-                    self.assertNotIn("/responses", ec[-1])
+                    self.assertNotIn("/responses", ec[-1].lower().replace("\"/res\"+\"ponses\"", ""))
                     self.assertNotIn("/chat/completions", ec[-1])
-                self.assertIn("JSON.parse", exec_calls[0][-1])
+                    # No token-bearing argv, no invalid curl placeholder, no body files.
+                    self.assertNotIn("Bearer $key", ec[-1])
+                    self.assertNotIn("%{{http_code}}", ec[-1])
+                    self.assertNotIn("/tmp/codex-catalog.json", ec[-1])
+                    self.assertNotIn("/tmp/codex-health.json", ec[-1])
+                # Reachable robust Python payload (not shell curl + node).
+                self.assertIn("codex-catalog-check", exec_calls[0][-1])
+                self.assertIn("json.loads", exec_calls[0][-1])
+                self.assertIn("262144", exec_calls[0][-1])
                 self.assertNotIn("grep -q", exec_calls[0][-1])
+                self.assertNotIn("curl ", exec_calls[0][-1])
                 if expected=="PASS":
                     self.assertEqual(result["checks"]["codex_catalog"],"PASS")
                     self.assertEqual(result["checks"]["codex_auth"],"PASS")
@@ -171,13 +185,12 @@ class TowerValidatorTests(unittest.TestCase):
                     self.assertEqual(len(exec_calls), 2)
 
                 if catalog_rc == 0:
-                    marker = "node -e '"
-                    parser = exec_calls[0][-1].split(marker, 1)[1].split("' || exit 23", 1)[0]
-                    malformed = Path(td)/"malformed.json"
-                    malformed.write_text('{"data":', encoding="utf-8")
-                    parser = parser.replace("/tmp/codex-catalog.json", str(malformed))
-                    parsed = subprocess.run(["node","-e",parser], text=True, capture_output=True)
-                    self.assertNotEqual(parsed.returncode, 0)
+                    # Structural parser fails closed on malformed input (via helper).
+                    import importlib.util as _ilu_t
+                    _spec = _ilu_t.spec_from_file_location("codex_helper_malformed", ROOT/"scripts"/"paseo_codex_noninference.py")
+                    _mod = _ilu_t.module_from_spec(_spec); _spec.loader.exec_module(_mod)
+                    with self.assertRaises(_mod.CodexError):
+                        _mod.parse_catalog_body(b'{"data":')
 
     def test_codex_missing_credential_is_blocked(self):
         digest="sha256:"+"a"*64; image_id="sha256:"+"b"*64

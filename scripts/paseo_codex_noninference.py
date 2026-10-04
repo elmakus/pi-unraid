@@ -99,7 +99,13 @@ def assert_no_inference_url(url: str) -> None:
 
 
 def sanitize_message(msg: str, *, limit: int = 300) -> str:
-    """Bounded secret-safe message: single line, truncated, no token shapes."""
+    """Bounded secret-safe message: single line, truncated, no token shapes.
+
+    Never echoes arbitrary dependency tails: labelled bearer/key shapes are
+    redacted AND any unlabelled opaque token-looking value (>=20 chars of
+    token alphabet) is replaced, so an echoed synthetic secret cannot be
+    retained in ValidationError/Classification reasons.
+    """
     if not isinstance(msg, str):
         msg = str(msg)
     # Strip bearer tokens and key-like assignments if a dependency echoed them.
@@ -108,6 +114,10 @@ def sanitize_message(msg: str, *, limit: int = 300) -> str:
     redacted = re.sub(r"sk-[A-Za-z0-9]{8,}", "sk-[redacted]", redacted)
     redacted = re.sub(r"gh[pousr]_[A-Za-z0-9]{8,}", "gh_[redacted]", redacted)
     redacted = re.sub(r"-----BEGIN [A-Z ]*PRIVATE KEY-----", "[redacted-key]", redacted)
+    # Unlabelled opaque echoes: any 20+ char token-alphabet run is not safe
+    # to retain (Main probe: subprocess echoes synthetic token verbatim).
+    # Preserve common short words by requiring length >= 20.
+    redacted = re.sub(r"[A-Za-z0-9._\-~+/=]{20,}", "[redacted-value]", redacted)
     single = " ".join(redacted.split())
     if len(single) > limit:
         single = single[:limit] + "…"
@@ -161,12 +171,75 @@ def read_dedicated_secret(secret_path) -> str:
     return value
 
 
-def _http_get(url: str, headers: dict, timeout: int):
-    """Default transport: urllib GET with bounded timeout, no secret on argv."""
-    assert_no_inference_url(url)
-    req = urllib.request.Request(url, headers=headers, method="GET")
+def assert_safe_redirect(from_url: str, to_url: str) -> None:
+    """Fail closed on unsafe redirect targets.
+
+    Redirects must stay http(s), must not point at an inference endpoint,
+    and must not carry credentials/query/fragment. Auth is never forwarded
+    cross-host by the transport below; any redirect to a different host
+    drops Authorization. Inference-shaped or credentialed targets fail.
+    """
+    if not isinstance(to_url, str) or not to_url:
+        raise CodexError("Codex-LB redirect target is invalid")
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        parsed = urlsplit(to_url)
+    except ValueError as exc:
+        raise CodexError("Codex-LB redirect target is not a valid URL") from exc
+    if parsed.scheme not in ("http", "https") or not parsed.hostname:
+        raise CodexError("Codex-LB redirect target must be http(s) with a host")
+    if parsed.username or parsed.password or parsed.query or parsed.fragment:
+        raise CodexError("Codex-LB redirect target must not carry credentials/query/fragment")
+    assert_no_inference_url(to_url)
+
+
+class _NoAuthForwardRedirectHandler(urllib.request.HTTPRedirectHandler):
+    """Redirect handler that validates targets and strips auth cross-host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Validate the redirect target before following.
+        assert_safe_redirect(req.full_url, newurl)
+        nxt = super().redirect_request(req, fp, code, msg, headers, newurl)
+        if nxt is None:
+            return None
+        # Never forward Authorization (or proxy-auth) to a different host.
+        try:
+            orig_host = (urlsplit(req.full_url).hostname or "").lower()
+            new_host = (urlsplit(nxt.full_url).hostname or "").lower()
+        except ValueError:
+            raise CodexError("Codex-LB redirect target is not a valid URL")
+        if orig_host != new_host:
+            for h in ("Authorization", "Proxy-Authorization", "Cookie"):
+                try:
+                    if nxt.has_header(h):
+                        nxt.remove_header(h)
+                except Exception:
+                    pass
+        # Re-assert the final URL is not an inference endpoint.
+        assert_no_inference_url(nxt.full_url)
+        return nxt
+
+
+def _http_get(url: str, headers: dict, timeout: int):
+    """Default transport: urllib GET with bounded timeout, no secret on argv.
+
+    Uses a redirect-validating opener: inference-shaped, credentialed or
+    off-scheme redirect targets fail closed; Authorization is never
+    forwarded to a different host. Bodies are bounded (256KiB success,
+    64KiB error) and never persisted; only status+body bytes are returned
+    for structural parsing by the caller.
+    """
+    assert_no_inference_url(url)
+    opener = urllib.request.build_opener(_NoAuthForwardRedirectHandler)
+    req = urllib.request.Request(url, headers=dict(headers), method="GET")
+    try:
+        with opener.open(req, timeout=timeout) as resp:
+            # Final URL after redirects must still be a safe non-inference target.
+            try:
+                final_url = resp.geturl()
+            except Exception:
+                final_url = url
+            assert_no_inference_url(final_url)
+            assert_safe_redirect(url, final_url) if final_url != url else None
             status = getattr(resp, "status", 200) or 200
             body = resp.read(256 * 1024)
             return status, body

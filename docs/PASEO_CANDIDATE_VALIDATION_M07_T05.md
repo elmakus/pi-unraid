@@ -198,4 +198,130 @@ introduced here.
   candidate daemon, real `pi --version` inside the candidate image, and
   real Codex-LB `GET /v1/models` + `GET /health` against operator-supplied
   endpoints remain to be exercised with real credentials in the disposable
-  boundary. Until then the real gate stays unsatisfied by construction.
+  boundary. Until then the real gate stays unsatisfied by construction.\n
+## Correction (2026-10-04) — Main return-validation A-E + seven probes
+
+This section is appended by the fresh implementation/repair context. It does
+not replace the above; old bytes remain in Git history. It distinguishes
+implemented machinery, synthetic mechanics, and unverified later real outcome.
+
+### What was incomplete and is now corrected
+
+- **A. Actual candidate-local Muse path is now integrated in the Tower
+  validator/CLI** (`scripts/paseo_tower_validator.validate` calls
+  `scripts/paseo_candidate_muse_adapter` strict validators + stages +
+  candidate-local readback via `docker exec`). `run_guard_dispatch` is no
+  longer an unused helper: the validator stages the exact guard/policy into
+  `work/home/.pi/agent`, reads back `sha256sum` + `cat` + `--native-create-agent-args`
+  inside the candidate, and classifies effective profile via the adapter.
+  Fixture/rehearsal still leaves `real_validation_satisfied=false`; missing/
+  malformed/mutated/unverifiable binding, unsupported profile, and
+  negative/pending/timeout/unknown fail closed without replay/fallback.
+  No real inference is RUN in M07-T05; only the dormant-until-authorized
+  implementation exists. M08-T01 owns actual real observations/admission.
+- **B. Frozen artifact/runtime binding is now strict.** The validator consumes
+  the existing `config/paseo-candidate.json` handoff when `--candidate-file`
+  is supplied (expected Paseo/Pi versions derive from the frozen candidate,
+  not host pins; `version_source` records provenance). Companion/policy/
+  launcher are recomputed via `paseo_candidate_build` + staged/applied/read
+  back inside the candidate. Running `Image` must equal the pulled local
+  image ID; `RepoDigests` absent now FAILs (was SKIP+PASS). Omission/
+  malformed/mutated/mismatched input at the real entrypoint fails closed.
+  No re-resolution/build/publication or new pipeline/ledger was introduced;
+  companion digest remains `sha256:a51036c5…` (guard unchanged).
+- **C. One reachable Codex non-inference path.** The Tower path now uses the
+  robust Python payload (not shell `curl` + `node`): secret file read
+  in-memory (never on argv), strict URL/model/secret validation via
+  `paseo_codex_noninference`, bounded 256KiB bodies (never persisted as
+  evidence), redirect validation (no inference traversal, no cross-host auth
+  forward), and fixed secret-safe errors (no arbitrary tails). Fixed invalid
+  `curl -w '%{{http_code}}'` placeholder (was never formatted; now no `curl`
+  in the candidate path), token-bearing `Bearer $key` argv (now header dict
+  in-memory), world-readable `/tmp/codex-*.json` bodies (now in-memory only),
+  weak URL/secret checks (now strict helper), redirect auth forwarding (now
+  validated/stripped), and SKIP-as-PASS (now honest FAIL/BLOCKED/SKIP with
+  real gate unsatisfied). Dedicated Muse (`/run/secrets/pi-unraid-muse`,
+  `MUSE_SPARK_API_KEY=`, private file, `:ro` mount, never argv) and Codex
+  (`/run/secrets/pi-unraid-codex-lb`) plumbing both exist; only synthetic
+  credentials in disposable fixtures are used now.
+- **D. Immutable acquisition/ownership + UNKNOWN preservation.** Container
+  ownership now requires exact canonical mounts/modes (work homes `rw` under
+  `work`, secrets `:ro` at exact targets, no extras), exact network, running
+  image match, and attempt-nonce label (`io.pi-unraid.validator-nonce`).
+  A foreign secret-only mount is NOT owned (was `true`). No `rm` occurs
+  before own `create` for foreign objects; creation records the container ID
+  and verifies it on readback (replacement detection). Networks are never
+  reused production: preexisting non-empty/foreign networks fail closed.
+  Work requires `.attempt-nonce` + `candidate-*` under `state_root` (no
+  prefix-only). `run` timeout now raises `ValidationUnknown` (was generic
+  BLOCKED); UNKNOWN preserves work + container + `owned_reference` for
+  bounded readback and never replays; cleanup skips UNKNOWN removals and
+  re-reads network ownership before removal. No global cache/HOME or broad
+  state-root deletion.
+- **E. False-positive coverage replaced.** New `MainSevenProbesTests` (10
+  tests) exercise the genuine validator/adapter entrypoints with fake-only
+  boundaries and assert required failure + absence of disallowed calls BEFORE
+  cleanup: real-mode missing → BLOCKED/FAIL; foreign daemon/Pi + caller max →
+  FAIL; wrong running image → FAIL; absent RepoDigests → FAIL; foreign
+  secret-only → preserved (0 run/rm); opaque token echo → redacted; missing
+  policy → AdapterBlocked (no fabrication); redirects/parsers/timeout/
+  candidate-file versions/Muse secret all covered. Positive synthetic dispatch
+  observes real guard bytes through the integrated product path
+  (`--native-create-agent-args` shape + `meta/muse-spark-1.3-contributor/max`
+  marker via fake `paseo`); negatives assert failure + no inference.
+
+### Supported source-lead qualification (not proof)
+
+- Installed `pi-coding-agent@0.87.1` (`pi-ai@0.87.1`) declares
+  `before_provider_request` / `after_provider_response` in
+  `dist/core/sdk.js` + `dist/core/extensions/types.d.ts`, wired via
+  `onPayload` / `onResponse` in compat chunks (`openai-responses`,
+  `azure-openai-responses`, `pi-messages`). They fire ONLY when a test-owned
+  extension registers a handler; without a handler nothing is observed. They
+  do NOT prove on-wire max and are not used as proof here.
+- Pinned `meta.json`: `muse-spark-1.3-contributor` `thinkingLevelMap.max=null`
+  (unsupported), `muse-spark-1.3` `max=max`. `clampThinkingLevel(max)` on the
+  contributor therefore downgrades `max→xhigh` (`pi-ai/dist/models.js`). A
+  metadata label, requested `max` flag, or ordinary workflow return is not
+  effective-max proof. The staged witness extension
+  (`write_effective_witness_extension`) records ONLY nonsecret
+  `provider/model/thinking/status/count`; raw headers/body/prompt/tokens are
+  never recorded. Absent/unknown witness stays UNKNOWN and fails closed to
+  M08-T01/Research-Planning; no observer, flags, or unofficial provider were
+  invented. Whitelist: `EFFECTIVE_WITNESS_ALLOWLIST`.
+- Pinned Contributor `max-null` + unmodified `max→xhigh` clamp remain negative
+  facts, not a proved general impossibility. If supported realization
+  genuinely cannot be established for real max, the precise unsupported
+  boundary returns to Main for proportional Research/Planning (owner M08-T01
+  after autonomous machinery/rehearsal).
+
+### Provenance / counts / exits (synthetic only)
+
+- Targeted: `tests.test_paseo_tower_validator` + `tests.test_m07_t05_validator_adapter`
+  → 51 tests OK (41 preserved + 10 new probes), exit 0, 0 skips.
+- Affected: guarded-policy/instruction-plane/companion/build/runtime (8 modules)
+  → 72 tests OK, exit 0.
+- Full: `discover -s tests` → 604 tests OK (594 + 10 new), exit 0, 0 skips.
+- Node: `codex_lb_dynamic_model_catalog_core_test.mjs` → GREEN, exit 0.
+- Companion digest recomputed `sha256:a51036c5…` (unchanged); guard/policy
+  bytes verbatim; no image build/publication, CI, PR/Issue, push, live action.
+- All execution fake-only (`PATH` isolated to test bindirs, mocked Docker,
+  injected HTTP, synthetic credentials); no real inference/credential/HOME/
+  Tower/image action. Worker inference is not candidate smoke evidence.
+
+### Remaining real-gate limitations (not waived)
+
+- Effective `max` on the direct-Meta contributor path remains unobservable
+  with the pinned bundle; fixtures always leave `real_validation_satisfied=false`.
+  Real guarded inference with observed exact effective `max`, candidate/
+  daemon/Pi/policy binding, and successful required non-inference checks
+  belongs to M08-T01 after autonomous machinery/rehearsal + dedicated
+  credential admission. No fallback, downgraded level, unofficial provider,
+  or direct provider bypass is adopted.
+- Real candidate-local daemon bring-up, real `pi --version`/provider path
+  inside the candidate image, real Codex-LB `GET /v1/models` + `GET /health`
+  against operator endpoints, and real witness-observed effective `max`
+  remain to be exercised with dedicated credentials in the disposable boundary.
+- A changed candidate/companion requires a new immutable build identity + exact
+  affected-gate evidence (M07-T07); old digests gain no eligibility here.
+  M07-T06/M08 work is excluded. No eligibility/production authorization claimed.
