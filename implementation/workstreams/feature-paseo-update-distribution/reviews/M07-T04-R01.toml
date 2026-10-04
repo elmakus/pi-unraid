@@ -1,7 +1,7 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M07-T04"
 attempt = "R01"
-verdict = "pending"
+verdict = "in_progress"
 evidence_path = ""
 
 [subject]
