@@ -2,8 +2,9 @@
 """Bounded candidate-local Muse adapter (M07-T05, coherent rewrite).
 
 The future-authorized path invokes the repository-delivered canonical guard
-``config/pi-agent/bin/run-llm-test.sh`` in its PROMPT form from the
-disposable candidate's own environment (own local Paseo daemon/home), with
+``config/pi-agent/bin/run-llm-test.sh`` through its fixed-profile
+candidate-only ``--candidate-owned`` extension from the disposable private
+Paseo daemon/home, with
 candidate-local daemon/Pi lifecycle observation, staged witness extension,
 per-owned-test request/response/terminal aggregation, and strict
 ``meta/muse-spark-1.3-contributor/max`` no-fallback profile. The Tower
@@ -539,7 +540,7 @@ def write_effective_witness_extension(dest: Path) -> Path:
     return stage_witness_extension(dest)
 
 
-def parse_witness_readback(text: str, test_id: str) -> list:
+def parse_witness_readback(text: str, test_id: str, runtime_binding: dict | None = None) -> list:
     """Validate the ENTIRE private readback before any aggregation/filtering.
 
     Malformed, mixed-subject and unknown-field rows invalidate the readback;
@@ -562,8 +563,17 @@ def parse_witness_readback(text: str, test_id: str) -> list:
         fields = {'request': {'test_id', 'kind', 'provider', 'thinking', 'model', 'effort'},
                   'response': {'test_id', 'kind', 'status'},
                   'terminal': {'test_id', 'kind', 'status'}}.get(kind)
+        if runtime_binding is not None:
+            runtime_fields = {'pid', 'agent_id', 'workspace_id', 'server_id'}
+            if fields is not None:
+                fields = fields | runtime_fields
+            if any(doc.get(key) != runtime_binding.get(key) for key in runtime_fields):
+                raise AdapterError('witness process/agent/workspace/server binding mismatch')
+            if not isinstance(doc.get('pid'), int) or isinstance(doc['pid'], bool) or doc['pid'] <= 0:
+                raise AdapterError('witness process identity malformed')
         if fields is None or set(doc) != fields or any(
-                not isinstance(v, str) or not v or len(v) > 128 for v in doc.values()):
+                not isinstance(v, str) or not v or len(v) > 128
+                for k, v in doc.items() if k != 'pid'):
             raise AdapterError("witness readback contains malformed typed facts")
         out.append(doc)
         if len(out) > 16:
@@ -721,6 +731,69 @@ def classify_aggregated_witness(events: list, *, test_id: str) -> dict:
 # Integrated product path: daemon/Pi observers + guarded dispatch (validator calls these)
 # ---------------------------------------------------------------------------
 
+def private_daemon_config() -> dict:
+    """Pinned PersistedConfigSchema/provider command replacement, no profile override."""
+    return {'version': 1, 'pluginsEnabled': False,
+            'daemon': {'listen': '127.0.0.1:6767', 'relay': {'enabled': False},
+                       'mcp': {'enabled': False, 'injectIntoAgents': False},
+                       'browserTools': {'enabled': False}},
+            'agents': {'providers': {'pi': {
+                'command': ['/home/paseo/.pi/agent/bin/m07-t05-pi-owned.py']}}}}
+
+
+def stage_private_runtime(home: Path, *, uid: int, gid: int) -> None:
+    """Exclusive private configuration and acquisition directories, not live HOME."""
+    for relative in ('.paseo', '.m07-t05', '.m07-t05/processes'):
+        directory = home / relative
+        directory.mkdir(mode=0o700)
+        os.chown(directory, uid, gid)
+    config = home / '.paseo/config.json'
+    fd = os.open(config, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        json.dump(private_daemon_config(), stream, sort_keys=True)
+        stream.flush()
+        os.fsync(stream.fileno())
+    os.chown(config, uid, gid)
+
+
+def controlled_candidate_argv(argv: list) -> list:
+    """Whitelist only nonsecret selectors. No image/CLI ambient env inheritance."""
+    return ['env', '-i', 'HOME=/home/paseo', 'PASEO_HOME=/home/paseo/.paseo',
+            'PATH=/usr/local/bin:/usr/bin:/bin', 'TMPDIR=/tmp', *argv]
+
+
+def dispatch_owned_runtime(exec_run, *, daemon: dict, pi: dict, test_id: str,
+                           witness: str) -> dict:
+    """Use the fixed guard native shape, acquire IDs, inspect, then bounded send.
+
+    Bridge refs live on the private mounted candidate HOME, usable even when
+    dispatch/inspection times out. No title lookup or automatic resend.
+    """
+    config = {'test_id': test_id, 'daemon': daemon, 'pi': pi, 'cwd': '/tmp',
+              'daemon_config': private_daemon_config(),
+              'guard': '/home/paseo/.pi/agent/bin/run-llm-test.sh',
+              'reference': '/home/paseo/.m07-t05/owned.json',
+              'binding': '/home/paseo/.m07-t05/binding.json',
+              'process_dir': '/home/paseo/.m07-t05/processes', 'witness': witness}
+    # Data passes stdin-equivalent via quoted shell literal; no secret values.
+    import shlex
+    text = json.dumps(config, sort_keys=True)
+    script = ('# guarded-dispatch (owned-runtime)\numask 077; set -C; printf %s ' + shlex.quote(text)
+              + ' > /home/paseo/.m07-t05/launch.json; '
+              + 'bash /home/paseo/.pi/agent/bin/run-llm-test.sh --candidate-owned '
+              + '/home/paseo/.m07-t05/launch.json')
+    proc = exec_run(['sh', '-ec', script], timeout=120)
+    try:
+        result = json.loads(proc.stdout or '')
+    except (ValueError, AttributeError):
+        raise AdapterBlocked('owned runtime occurrence unknown; retain candidate readback') from None
+    if not isinstance(result, dict) or result.get('status') != 'PASS':
+        raise AdapterBlocked('owned runtime occurrence unknown; retain candidate readback')
+    if result.get('test_id') != test_id or result.get('daemon') != daemon or result.get('dispatch') != 'settled':
+        raise AdapterError('owned runtime subject mismatch')
+    return result
+
+
 def _require_candidate_local_endpoint(endpoint: str) -> str:
     """Require a candidate-local daemon endpoint (loopback IP, never remote).
 
@@ -753,7 +826,7 @@ def _require_candidate_local_endpoint(endpoint: str) -> str:
 def _require_candidate_local_pi_path(path: str) -> str:
     """Require a plausible candidate-local Pi executable path.
 
-    This predicate alone is NOT executable provenance: it rejects malformed
+    This legacy predicate alone is NOT executable provenance: it rejects malformed
     or keyword-shaped pseudo-paths (``..`` escapes, non-absolute paths,
     names that merely contain ``pi`` such as ``/operator/providers/pi``
     without any binding to the observed daemon), but a well-formed path
@@ -866,7 +939,12 @@ def observe_pi_version(exec_run, *, expected_version: str) -> dict:
     out = out[-1].strip() if out else ""
     if out != str(expected_version):
         raise AdapterError(f"Pi version mismatch vs frozen candidate: {out!r}")
-    return {"path": path, "version": out}
+    hashed = exec_run(['sha256sum', path], timeout=30)
+    digest = (getattr(hashed, 'stdout', '') or '').split()
+    import re
+    if getattr(hashed, 'returncode', 1) != 0 or not digest or not re.fullmatch('[0-9a-f]{64}', digest[0]):
+        raise AdapterBlocked('candidate Pi executable bytes unavailable')
+    return {"path": path, "version": out, 'sha256': 'sha256:' + digest[0]}
 
 
 def ensure_candidate_daemon(exec_run, *, candidate_home: str, expected_version: str,
@@ -944,7 +1022,12 @@ def preflight_candidate_profile(exec_run, *, candidate_home: str) -> dict:
 def inspect_owned_agent(exec_run, *, candidate_home: str, expected_title: str,
                         expected_model: str = FIXED_MODEL,
                         expected_thinking: str = FIXED_THINKING) -> dict:
-    """Inspect the owned dispatched child via supported agent commands.
+    """Legacy helper-level CLI inspection; NOT product ownership/provenance proof.
+
+    Product execution uses actual supported creation IDs and snapshot workspaceId
+    through the private bridge, never title/idle/usage inference.
+
+    Inspect the dispatched child via supported agent commands.
 
     Source-qualified inspection (pinned Paseo 0.9.2): ``paseo agent ls
     --json --home`` lists ``{id, name(title), provider, thinking(effective),

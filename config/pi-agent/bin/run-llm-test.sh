@@ -5,7 +5,11 @@ agent_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 policy="$agent_root/policies/llm-test-policy.json"
 
 native_args=false
-if [ "$#" -eq 1 ] && [ "$1" = "--native-create-agent-args" ]; then
+candidate_owned=false
+if [ "$#" -eq 2 ] && [ "$1" = "--candidate-owned" ]; then
+  candidate_owned=true
+  candidate_config="$2"
+elif [ "$#" -eq 1 ] && [ "$1" = "--native-create-agent-args" ]; then
   native_args=true
 elif [ "$#" -ge 1 ] && [ "$#" -le 2 ] && [[ "$1" != --* ]]; then
   prompt="$1"
@@ -27,6 +31,15 @@ fallback="$(jq -r '.real_llm_tests.fallback_allowed | tostring' "$policy")"
 if jq -e '.real_llm_tests.forbidden_models | index("gpt-6-astra") != null' "$policy" >/dev/null; then :; else
   echo "LLM test policy error: gpt-6-astra must remain explicitly forbidden" >&2
   exit 3
+fi
+
+# Narrow candidate-only guard extension. The fixed-profile checks above are
+# mandatory; the private bridge proves supported daemon/process/API identities,
+# acquires without initialPrompt, and persists IDs before its only bounded send.
+# No caller/model/thinking override is accepted by this mode.
+if [ "$candidate_owned" = true ]; then
+  unset PASEO_AGENT_ID PASEO_WORKSPACE_ID PASEO_HOST PASEO_SERVER PASEO_PASSWORD NODE_OPTIONS
+  exec node "$agent_root/bin/m07-t05-owned-runtime.mjs" "$candidate_config"
 fi
 
 if [ "$native_args" = true ]; then

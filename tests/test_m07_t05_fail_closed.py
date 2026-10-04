@@ -1,7 +1,7 @@
 """Bounded synthetic regression, NOT full acceptance or real-test evidence.
 
-Product validate is reached with Docker entirely mocked by the existing harness;
-that harness is still incomplete for separate daemon/Pi realization. Observer
+Product validate is reached with Docker lifecycle mocked by the existing harness;
+runtime exec selects/spawns separate external-only fake CLI/daemon/Pi processes. Observer
 payload is executed under Node with only the SDK boundary fake. HTTP safety tests
 are localhost only. No real binaries/providers/Docker or ordinary auth are used.
 """
@@ -36,8 +36,8 @@ class FailClosedRegression(unittest.TestCase):
         self.assert_no_dispatch(calls)
         preflight = [c for c in calls if "models" in c and "provider" in c]
         self.assertEqual(len(preflight), 1)
-        self.assertEqual(preflight[0][3:], ["paseo", "provider", "models", "pi", "--thinking", "--json",
-                                         "--home", "/home/paseo/.paseo"])
+        self.assertEqual(preflight[0][3:], A.controlled_candidate_argv(
+            ["paseo", "provider", "models", "pi", "--thinking", "--json", "--home", "/home/paseo/.paseo"]))
 
     def test_missing_or_ambiguous_catalog_blocks_before_prompt(self):
         for catalog in ([], {}, [{"id": "meta/muse-spark-1.3-contributor"}],

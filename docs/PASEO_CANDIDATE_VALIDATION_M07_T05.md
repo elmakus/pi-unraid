@@ -52,20 +52,39 @@ inheritance. Dedicated Meta input is a private file reference, read by the
 candidate-env shell loader into supported `META_API_KEY`, not a raw key in argv
 or `--env`. Host input must be privately owned by the candidate UID; ordinary
 `.pi`/`.paseo` and production HOME input roots are rejected before content reads.
-Nonsecret correlation/file pointers use the guard's supported
-`--env` forwarding.
+Ordinary prompt-form guard use retains supported `--env` forwarding. The
+candidate-only `--candidate-owned PRIVATE_CONFIG` guard extension uses the same
+fixed policy, then invokes the frozen private runtime bridge. It is not an
+unguarded root/native inference launcher: native-argument export inside the
+bridge is metadata validation only; every candidate effect is reached through
+the guard extension. No profile override or fallback is accepted.
 
 Docker now overrides the upstream entrypoint with a non-daemon hold process
 (`/bin/sh -c 'exec sleep infinity'`, upstream healthcheck disabled). No upstream
 startup runs before private staging. A controlled PATH and absolute PI_COMMAND
 are supplied to this disposable container; Pi resolution must match
 `/usr/local/bin/pi`. Missing selected Pi in daemon status fails before dispatch.
-**Remaining startup gap:** this is not actual daemon-selected process proof.
-Private daemon configuration, descendant-process and agent/workspace correlation
-still need source-faithful end-to-end qualification. Resolution/version and
-expected env/argv alone cannot satisfy those requirements.
-The existing positive fake reconstructs parts of startup/dispatch; it is not a
-source-faithful separate daemon selecting and spawning Pi for the full validator.
+The private `config.json` uses supported `agents.providers.pi.command`
+replacement to select the frozen `m07-t05-pi-owned.py` wrapper, not PI_COMMAND
+expectations. Relay, MCP injection, browser tools and plugins are disabled. Every
+runtime CLI invocation uses `env -i` with a small nonsecret HOME/PATH/TMP whitelist;
+ambient daemon/caller/workspace/Node/Pi selectors cannot select another process.
+The wrapper compares inherited Meta auth in memory against the dedicated private
+pointer, exclusively records PID/PPID/start-time/executable-byte facts under the
+actual supported PASEO_AGENT_ID, then execs the fixed Pi executable. It never
+exports an auth value/fingerprint or reads a credential-bearing /proc environment.
+The bridge verifies the connected client's supported server-info, actual agent
+snapshot workspaceId/cwd/provider/runtime model/effective thinking, parent process
+Node identity, /proc process start times and selected executable argv/bytes before
+sending. CLI inspect does **not** expose workspaceId; no automatic workspace env
+is invented. Private config/reference inode changes fail closed.
+
+The separate external CLI/daemon/Pi fixture now executes the same validator,
+guard, loader, bridge, wrapper and observer path (namespace path translation only).
+Its daemon selects/spawns a separate fake Pi via the actual pinned buildPiLaunch.
+No provider/auth resolver is imported. Actual processes/IDs, rather than canned
+PID/title/usage metadata, supply the runtime controls. This qualifies bounded
+synthetic runtime behavior, not an actual daemon/provider or artifact chain.
 A new, separately classified source-qualification fixture uses the **actual**
 pinned Paseo PiRpcAgentClient/PiCliRuntime/JSONL process code in an isolated
 synthetic daemon to select/spawn a separate metadata-only fake Pi. Official
@@ -98,8 +117,13 @@ fail; strict readback rejects every malformed, wrong-subject or unknown-field ro
 before aggregation rather than filtering it away. Missing qualified completion
 remains UNKNOWN, without replay. Abort/error
 is not overwritten by settlement. Arbitrary done/success labels are not qualified
-completion. **Remaining observation gap:** independently bound selected provider,
-per-call identity and complete process/agent/workspace proof are not yet established.
+completion. Candidate-path events additionally bind every row to actual Pi PID,
+agent ID, API-observed workspace ID and connected server ID. The immutable private
+binding includes its acquired inode; an identical-byte replacement is rejected
+by the observer before transport. Only one provider exchange is admitted because
+the pinned hooks expose no universal request ID. API workspace/agent creation
+request IDs, idempotency keys and the supported messageId are retained separately
+from that single-exchange process binding, never misrepresented as provider IDs.
 
 ## Frozen binding
 
@@ -111,7 +135,7 @@ actual pulled image candidate label and candidate Env. In real mode an omitted
 CLI companion declaration derives from the prepared record and is verified,
 never silently skipped.
 
-The loader, observer and shared Codex programs are now repository-managed
+The loader, observer, private runtime bridge/Pi wrapper and shared Codex programs are repository-managed
 `config/pi-agent` files in the existing companion file/mode/content declaration.
 The prepare/build/package companion also freezes the nine used validation source
 files as `validation_sources`; verification compares them to the executing
@@ -143,6 +167,12 @@ no duplicate/extra destinations, exact UID:GID, readonly root and required
 `/tmp`/`/run` tmpfs properties. Each candidate exec rechecks acquired IDs and
 ownership, then addresses the immutable container ID. Owned test references are
 written before any network/container acquisition and updated with acquired IDs.
+Host references are private atomic updates with inode checks and directory fsync.
+The private runtime bridge allocates supported requested workspaceId/agentId and
+requestId before acquisition, then separately retains actually acknowledged IDs.
+Creation has no initialPrompt. Snapshot/process proof precedes the only send, and
+supported messageId is retained before that effect. Uncertain creation/inspection
+keeps requested readback IDs and acknowledged workspace/agent IDs without a retry.
 UNKNOWN preserves inspection state and never automatically resends. Failed inspect
 is not absence: only the exact Docker no-such-object diagnostic qualifies absence
 before creation; generic permission/transport errors block. Work device/inode and
@@ -164,8 +194,9 @@ synthetic secrets and localhost/fake transports. Compile or AST-check exact ship
 programs; use a disposable `PYTHONPYCACHEPREFIX` for explicit py_compile. Strong
 acceptance coverage must execute exact shipped argv/internal plumbing with only
 candidate namespace paths translated, use actual producers with external effects
-faked, and use a separate fake daemon selecting/spawning actual fake Pi. Current
-legacy harness coverage does not satisfy all these requirements. Do not equate
+faked, and use a separate fake daemon selecting/spawning actual fake Pi. The current runtime fixture replaces the old full-validator runtime success path;
+legacy hand-authored producer inputs still do not satisfy producer provenance.
+No synthetic success is evidence of real fixed-max availability. Do not equate
 passing unit counts or a fake-tested real branch with full Card acceptance.
 
 `test_m07_t05_transport_qualification.py` uses the actual pinned official

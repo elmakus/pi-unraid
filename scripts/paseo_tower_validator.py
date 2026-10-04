@@ -887,15 +887,47 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             except PermissionError as exc:
                 raise ValidationBlocked("cannot establish validator UID:GID ownership") from exc
         owned_test_path = str(work / f"test-{attempt_nonce}.json")
-        def retain_acquisition():
-            Path(owned_test_path).write_text(json.dumps({
+        owned_record = {}
+        owned_record_identity = None
+        def retain_acquisition(extra=None):
+            nonlocal owned_record_identity
+            owned_record.update({
                 'schema_version': SCHEMA_VERSION, 'test_id': test_id,
                 'attempt_nonce': attempt_nonce, 'image_id': image_id,
                 'container': {'name': name, 'id': created_id},
                 'network': {'name': network, 'id': acquired_network_id},
-                'work_identity': list(work_identity), 'dispatch': {'state': 'not-dispatched'},
-            }, sort_keys=True) + '\n', encoding='utf-8')
-            Path(owned_test_path).chmod(0o600)
+                'work_identity': list(work_identity),
+                'runtime_readback': str(work / 'home/.m07-t05/owned.json'),
+                'candidate_runtime_readback': '/home/paseo/.m07-t05/owned.json',
+            })
+            owned_record.update(extra or {})
+            target = Path(owned_test_path)
+            if owned_record_identity is not None:
+                current = target.lstat()
+                if target.is_symlink() or (current.st_dev, current.st_ino) != owned_record_identity:
+                    raise ValidationUnknown('owned reference replaced; preserve resources')
+            elif target.exists() or target.is_symlink():
+                raise ValidationUnknown('owned reference collision; preserve resources')
+            temporary = target.with_suffix('.next')
+            fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            with os.fdopen(fd, 'w') as stream:
+                json.dump(owned_record, stream, sort_keys=True)
+                stream.flush()
+                os.fsync(stream.fileno())
+            if owned_record_identity is not None:
+                current = target.lstat()
+                if target.is_symlink() or (current.st_dev, current.st_ino) != owned_record_identity:
+                    raise ValidationUnknown('owned reference changed during update; preserve resources')
+            elif target.exists() or target.is_symlink():
+                raise ValidationUnknown('owned reference appeared during acquisition; preserve resources')
+            os.replace(temporary, target)
+            directory_fd = os.open(target.parent, os.O_RDONLY)
+            try:
+                os.fsync(directory_fd)
+            finally:
+                os.close(directory_fd)
+            observed = target.lstat()
+            owned_record_identity = (observed.st_dev, observed.st_ino)
         retain_acquisition()
         # Network: nonce label REQUIRED (label-less always FAIL, fixture or real).
         net_inspect = run(["docker", "network", "inspect", network], check=False)
@@ -1031,7 +1063,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     pass
             for source_rel, dest_rel in (
                     ('extensions/m07-t05-witness.js', 'extensions/m07-t05-witness.js'),
-                    ('bin/m07-t05-candidate-env.sh', 'bin/m07-t05-candidate-env.sh')):
+                    ('bin/m07-t05-candidate-env.sh', 'bin/m07-t05-candidate-env.sh'),
+                    ('bin/m07-t05-pi-owned.py', 'bin/m07-t05-pi-owned.py'),
+                    ('bin/m07-t05-owned-runtime.mjs', 'bin/m07-t05-owned-runtime.mjs')):
                 source_payload = src_agent / source_rel
                 target_payload = dst_agent / dest_rel
                 target_payload.parent.mkdir(parents=True, exist_ok=True)
@@ -1086,6 +1120,18 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     raise
                 except Exception as exc:
                     raise ValidationBlocked(f"staged companion unreadable: {exc}") from exc
+            # Native private Pi paths must be writable by the candidate UID,
+            # not merely readable host-staged configuration. This changes only
+            # the acquired disposable HOME; declared file modes/bytes stay exact.
+            for private_path in [work / 'home/.pi', dst_agent, *dst_agent.rglob('*')]:
+                if private_path.is_symlink():
+                    raise ValidationError('private Pi configuration contains a symlink')
+                try:
+                    os.chown(private_path, uid, gid)
+                    if private_path.is_dir():
+                        private_path.chmod(0o700)
+                except OSError as exc:
+                    raise ValidationBlocked('private Pi configuration ownership unavailable') from exc
             result["subject"]["staged_identities"] = staged_identities
         # --- Candidate-local execs (each compared, not just returncode) ---
         # Exec by IMMUTABLE acquired container ID, never the mutable name: a
@@ -1193,9 +1239,10 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         # plus home/listen/version. Pinned Pi types.d.ts terminal semantics:
         # agent_end/agent_settled (observer) — see adapter.aggregate_witness.
         def _candidate_exec(argv, timeout=30):
-            return _exec(argv, timeout=timeout, check=False)
+            return _exec(adap.controlled_candidate_argv(argv), timeout=timeout, check=False)
 
         if expected_paseo is not None:
+            adap.stage_private_runtime(work / 'home', uid=uid, gid=gid)
             # Source-qualified local bring-up first: `paseo daemon start
             # --home` (pinned daemon/start.js: started|already_running +
             # pid/listen) runs under the staged candidate-env loader, so the
@@ -1276,23 +1323,10 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             result["checks"]["muse_profile_preflight"] = "PASS"
             # Record the owned test BEFORE possible dispatch so UNKNOWN occurrence
             # retains a usable exact reference (bounded readback, never blind resend).
-            Path(owned_test_path).write_text(json.dumps({
-                "schema_version": SCHEMA_VERSION, "test_id": test_id,
-                "attempt_nonce": attempt_nonce,
-                "container": {"name": name, "id": created_id},
-                "daemon": daemon_ref, "image_id": image_id,
-                "dispatch": {"state": "pending"},
-            }, sort_keys=True, indent=2) + "\n", encoding="utf-8")
-            prompt = f"M07-T05 synthetic smoke {test_id} (no inference claim)"
-            # Candidate-local dispatch through the staged candidate-env loader
-            # (reads META_API_KEY_FILE inside the candidate, exports
-            # META_API_KEY for the guard/Pi process) execing the canonical
-            # guard PROMPT form. The extended guard forwards ONLY the three
-            # nonsecret correlation/pointer vars via supported `paseo run
-            # --env` (pinned run.js parseRunEnv → createAgent.env →
-            # launchContext → Pi subprocess env); CLI-inherited variables are
-            # never relied upon. Exact daemon-internal delivery is simulated
-            # by the fake boundary; the argv contract is asserted in tests.
+            retain_acquisition({'daemon': daemon_ref, 'dispatch': {'state': 'pending'}})
+            # Supported native guard shape; no prompt is part of creation.
+            # The private bridge persists actual API IDs, proves snapshot and
+            # selected process binding, and only then sends one bounded prompt.
             # Re-observe the connected daemon immediately before the effect.
             # A same-home replacement is not the daemon whose startup/catalog
             # was verified; never silently reconnect and dispatch into it.
@@ -1306,20 +1340,23 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError(_sanitize(str(exc), 200)) from exc
             if current_daemon != daemon_ref:
                 raise ValidationError("candidate daemon changed before guarded dispatch")
-            dg = _exec(["bash", "-c",
-                        f"# guarded-dispatch\nM07_T05_TEST_ID={test_id} M07_T05_WITNESS_FILE={WITNESS_CANDIDATE_PATH} "
-                        f"{MUSE_POINTER_ENV}={MUSE_SECRET_TARGET} "
-                        f"bash /home/paseo/.pi/agent/bin/m07-t05-candidate-env.sh "
-                        f"/home/paseo/.pi/agent/bin/run-llm-test.sh {json.dumps(prompt)} /tmp"],
-                       timeout=120, check=False)
-            if dg.returncode is None:
-                raise ValidationUnknown("guarded dispatch occurrence unknown; preserving test object")
+            try:
+                runtime = adap.dispatch_owned_runtime(
+                    _candidate_exec, daemon=daemon_ref, pi=pi_ref, test_id=test_id,
+                    witness=WITNESS_CANDIDATE_PATH)
+            except adap.AdapterBlocked as exc:
+                raise ValidationUnknown('owned runtime uncertain; preserve actual readback refs') from exc
+            except adap.AdapterError as exc:
+                raise ValidationError('owned runtime subject mismatch') from exc
+            retain_acquisition({'runtime': runtime})
+            result['subject']['owned_runtime'] = runtime
+            result['subject']['candidate_readback_reference'] = '/home/paseo/.m07-t05/owned.json'
             # Witness aggregation for THIS owned test (request+response+terminal).
             wr = _exec(["sh", "-c", f"# witness-read\ncat {WITNESS_CANDIDATE_PATH}"], timeout=30, check=False)
             if wr.returncode != 0:
                 raise ValidationUnknown('witness readback unavailable; preserve owned test')
             try:
-                events = adap.parse_witness_readback(wr.stdout or '', test_id)
+                events = adap.parse_witness_readback(wr.stdout or '', test_id, runtime['process'])
             except adap.AdapterError as exc:
                 raise ValidationError('owned witness readback is malformed or wrong-subject') from exc
             # Caller-supplied observed dicts are untrusted claims, never proof.
@@ -1335,7 +1372,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             # resend); only terminal FAIL becomes a validation failure.
             if agg["gate"] == "UNKNOWN":
                 raise ValidationUnknown("guarded dispatch occurrence unknown; preserving test object")
-            if dg.returncode != 0 or agg["gate"] != "PASS":
+            if agg["gate"] != "PASS":
                 raise ValidationError(f"guarded dispatch failed: {agg['reason']}")
             result["checks"]["muse_dispatch"] = "PASS"
             result["checks"]["muse_effective_profile"] = "PASS"
@@ -1347,16 +1384,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             # corroborates provider/model/EFFECTIVE thinking/usage against
             # the witness; a clamped/downgraded effective profile or zero
             # token consumption observed here fails even with witness PASS.
-            try:
-                child = adap.inspect_owned_agent(
-                    _candidate_exec, candidate_home="/home/paseo/.paseo",
-                    expected_title=f"LLM-TEST:{FIXED_MODEL}:{FIXED_THINKING}:{test_id}")
-            except adap.AdapterBlocked as exc:
-                raise ValidationBlocked(_sanitize(str(exc), 200)) from exc
-            except adap.AdapterError as exc:
-                raise ValidationError(_sanitize(str(exc), 200)) from exc
-            if child.get("thinking") != (agg.get("observed") or {}).get("thinking"):
-                raise ValidationError("owned child effective profile contradicts witness")
+            child = {'id': runtime['agent_id'], 'workspace_id': runtime['workspace_id'],
+                     'process': runtime['process'], 'thinking': FIXED_THINKING,
+                     'source': 'actual native creation and effective snapshot readback'}
             result["subject"]["muse_owned_child"] = child
             result["checks"]["muse_owned_child"] = "PASS"
             dispatch_summary["agent"] = child.get("id")
@@ -1371,7 +1401,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             "container": {"name": name, "id": created_id}, "daemon": daemon_ref,
             "image_id": image_id, "dispatch": dispatch_summary,
         }
-        Path(owned_test_path).write_text(json.dumps(owned_test, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+        retain_acquisition(owned_test)
         result["subject"]["owned_test"] = owned_test_path
         # Real-mode gate: the path EXISTS structurally (not hardcoded false).
         if real_mode:

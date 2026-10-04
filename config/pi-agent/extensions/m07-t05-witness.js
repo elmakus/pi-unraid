@@ -6,6 +6,26 @@ export default function (api) {
   if (!witness || !testId || !witness.startsWith('/') || !/^[A-Za-z0-9_.-]{1,64}$/.test(testId)) return;
   function emit(obj) {
     const row = { test_id: testId };
+    // Candidate runtime opt-in binds every event to the actual selected Pi
+    // process and supported agent ID. Workspace/server are acquired API facts,
+    // NOT automatically injected environment variables.
+    const bindingFile = process.env.M07_T05_RUNTIME_BINDING;
+    if (bindingFile) {
+      const bindingFd = fs.openSync(bindingFile, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+      try {
+        const st = fs.fstatSync(bindingFd);
+        if (!st.isFile() || (st.mode & 0o777) !== 0o600 || st.uid !== process.getuid() || st.size > 65536)
+          throw new Error('runtime binding unavailable');
+        const binding = JSON.parse(fs.readFileSync(bindingFd, 'utf8'));
+        if (binding.file_identity !== `${st.dev}:${st.ino}`
+            || binding.pid !== process.pid || binding.ppid !== process.ppid || binding.test_id !== testId
+            || binding.agent_id !== process.env.PASEO_AGENT_ID || binding.auth_inherited !== true
+            || !/^[A-Za-z0-9_.-]{1,128}$/.test(binding.workspace_id)
+            || !/^[A-Za-z0-9_.-]{1,128}$/.test(binding.server_id)) throw new Error('runtime binding mismatch');
+        Object.assign(row, {pid: process.pid, agent_id: binding.agent_id,
+          workspace_id: binding.workspace_id, server_id: binding.server_id});
+      } finally { fs.closeSync(bindingFd); }
+    }
     const levels = ['off','minimal','low','medium','high','xhigh','max'];
     if (obj.provider !== undefined) row.provider = ['meta','codex-lb'].includes(obj.provider) ? obj.provider : 'other';
     if (obj.thinking !== undefined) row.thinking = levels.includes(obj.thinking) ? obj.thinking : 'unknown';

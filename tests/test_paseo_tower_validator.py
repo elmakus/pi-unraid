@@ -517,6 +517,59 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             payload = argv[-1] if isinstance(argv[-1], str) else ""
             full = " ".join(argv)
             work = state.get("work", "")
+            # Runtime success must come from separate actual fake processes,
+            # not the historical canned PID/title/usage success path below.
+            if argv[3:5] == ['env', '-i']:
+                from tests.test_m07_t05_owned_runtime import OwnedRuntimeFixture
+                runtime = state.get('_owned_runtime')
+                if runtime is None:
+                    root = Path(work) / 'external-runtime'
+                    root.mkdir()
+                    profile_path = Path(state.get('bindir', '')) / 'fake-profile.json'
+                    profile = json.loads(profile_path.read_text()) if profile_path.is_file() else {}
+                    faults = {'thinking': paseo_effort != 'max' or state.get('agent_thinking', 'max') != 'max',
+                              'completion': state.get('agent_status', 'completed') not in ('completed', 'idle'),
+                              'omit_witness': bool(state.get('omit_witness') or state.get('omit_terminal')),
+                              'omit_settled': bool(state.get('omit_settled')),
+                              'turn': state.get('witness_turn', 'completed'),
+                              'response': state.get('witness_response', '200'),
+                              'effort': state.get('witness_effort', profile.get('effort', paseo_effort)), 'version': pi_version}
+                    faults.update(state.get('runtime_fault', {}))
+                    runtime = OwnedRuntimeFixture(root, faults)
+                    state['_owned_runtime'] = runtime
+                    for rel in ('bin/run-llm-test.sh', 'bin/m07-t05-candidate-env.sh',
+                                'bin/m07-t05-pi-owned.py', 'bin/m07-t05-owned-runtime.mjs',
+                                'policies/llm-test-policy.json', 'extensions/m07-t05-witness.js'):
+                        (runtime.agent / rel).write_text(runtime.translate(
+                            (Path(work) / 'home/.pi/agent' / rel).read_text()))
+                result = runtime.execute(argv[3:], timeout=timeout)
+                if 'daemon-bringup' in payload:
+                    if state.get('daemon_start_exit'):
+                        result.returncode = state['daemon_start_exit']
+                    if state.get('daemon_start_action'):
+                        doc = json.loads(result.stdout); doc['action'] = state['daemon_start_action']
+                        result.stdout = json.dumps(doc)
+                if 'status' in argv:
+                    override = state.get('daemon_override') or daemon_json
+                    if override:
+                        result.stdout = json.dumps(override)
+                        if override.get('__unavailable'):
+                            result.returncode = 1
+                if 'models' in argv and 'model_catalog' in state:
+                    result.stdout = json.dumps(state['model_catalog'])
+                if 'command -v pi' in payload and state.get('pi_path'):
+                    result.stdout = state['pi_path'] + '\n'
+                if '--candidate-owned' in payload:
+                    state['dispatch_complete'] = 'prompt' in runtime.calls()
+                    state['test_id'] = json.loads(result.stdout).get('test_id', '') if result.stdout else ''
+                    state['witness_host'] = json.loads((runtime.home / '.m07-t05/launch.json').read_text())['witness']
+                    for filename in ('owned.json', 'binding.json'):
+                        source = runtime.home / '.m07-t05' / filename
+                        if source.exists():
+                            target = Path(work) / 'home/.m07-t05' / filename
+                            target.write_text(runtime.restore(source.read_text()))
+                            target.chmod(0o600)
+                return result
             # Codex check: run the ACTUAL staged file locally.
             if argv[3:5] == ['python3', '/home/paseo/.pi/agent/bin/paseo_codex_candidate_check.py']:
                 staged = (Path(work) / "home" / ".pi" / "agent" / "bin" / "paseo_codex_candidate_check.py") if work else None
@@ -708,6 +761,9 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 return mock.Mock(returncode=1, stdout="", stderr="")
             return mock.Mock(returncode=0, stdout="", stderr="")
         if argv[:2] == ['docker', 'rm']:
+            if state.get('_owned_runtime'):
+                state['runtime_calls_before_cleanup'] = state['_owned_runtime'].calls()
+                state['_owned_runtime'].close()
             if state.get('remove_failure'):
                 return mock.Mock(returncode=1, stdout='', stderr='synthetic removal failed')
             state['ran'] = False

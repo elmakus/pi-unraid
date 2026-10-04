@@ -415,7 +415,9 @@ class MuseAdapterTests(unittest.TestCase):
                 return exec_which(argv, timeout)
             return exec_ver(argv, timeout)
 
-        self.assertEqual(A.observe_pi_version(exec_pi, expected_version="0.87.1")["version"], "0.87.1")
+        # Version/PATH strings alone no longer qualify executable bytes.
+        with self.assertRaises(A.AdapterBlocked):
+            A.observe_pi_version(exec_pi, expected_version="0.87.1")
         # Foreign Pi paths fail closed even with the right version.
         def exec_foreign(argv, timeout=30):
             if argv[:2] == ["sh", "-c"]:
@@ -1290,16 +1292,18 @@ class FourthReturnRegressionTests(unittest.TestCase):
             self.assertFalse(res["real_validation_satisfied"])
             self.assertEqual(sum(1 for c in calls if "guarded-dispatch" in " ".join(c)), 0)
 
-    def test_clamped_agent_inspect_fails_despite_witness(self):
-        # Agent-side effective downgrade fails even when the witness agreed:
-        # the owned-child inspection is an independent corroboration.
+    def test_clamped_actual_snapshot_prevents_prompt_and_preserves_ids(self):
+        # Native creation has no initialPrompt. A clamped actual snapshot
+        # fails before any prompt/witness; acquired IDs remain usable.
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
             with T.LocalCodexServer(mode="ok") as srv:
-                res, _, _ = _run_validate(td, server_base=srv.base,
+                res, calls, state = _run_validate(td, server_base=srv.base,
                                           execution_class="real",
                                           agent_thinking="xhigh")
-            self.assertEqual(res["status"], "FAIL")
+            self.assertEqual(res["status"], "UNKNOWN")
+            self.assertNotIn('prompt', state['_owned_runtime'].calls())
+            self.assertFalse(any(c[:2] == ['docker', 'rm'] for c in calls))
             self.assertFalse(res["real_validation_satisfied"])
 
     def test_encoded_inference_redirect_reaches_nothing(self):
