@@ -535,8 +535,130 @@ Card/contract boundary (validator/guard/delivery/binding/argument/test/doc).
   `run.js` env forwarding, `daemon/status.js` fields, `types.d.ts` terminal
   events, `meta.ts` auth shape, Contributor `max:null` + `max→xhigh` clamp
   negatives).
-- Staged ephemeral files (witness extension, Meta loader, per-attempt local
-  loader copies) are test-owned tooling outside the frozen 10-file
-  companion identity; any future guard/delivery change still needs a new
-  downstream artifact via prepare/build/package (M07-T07), never mutable
+- Staged ephemeral files (witness extension, candidate-env loader,
+  per-attempt local copies) are bound to exact validator-source bytes and
+  recorded in validator output (`staged_identities`); the staged companion
+  payload is re-digested host-side and read back in-candidate (bytes+mode).
+  Any guard/delivery change propagates identity (below) and still needs a
+  new downstream artifact via prepare/build/package (M07-T07), never mutable
   HOME code blessed to an old digest.
+
+## Correction 4 (2026-10-04) — integrated CLI/daemon/Pi path, qualified completion, complete producer binding
+
+Old bytes above stay in Git history. This section reports ONLY actually
+proven behavior after Main's fourth validation
+(`evidence/M07-T05-return-validation-2026-10-04.md` §"Fourth contribution",
+checkpoint `564c6a0`). No `11/11 closed` claim is made; remaining gaps are
+listed explicitly.
+
+### 1. Supported guard → daemon → Pi env/auth path (narrow guard extension)
+
+- `config/pi-agent/bin/run-llm-test.sh` gains a bounded extension that
+  preserves the exact fixed profile, no-fallback, Astra-forbidden gates and
+  both invocation shapes: it unsets ambient `PASEO_AGENT_ID` /
+  `PASEO_WORKSPACE_ID` selectors, mints an explicit `--new-workspace
+  local`, appends the owned test ID to `--title`
+  (`LLM-TEST:model:thinking:test-id`, unchanged without one), and forwards
+  exactly three nonsecret vars via supported `paseo run --env`
+  (`M07_T05_TEST_ID`, `M07_T05_WITNESS_FILE`, `META_API_KEY_FILE`;
+  strict value shape, raw secrets never forwarded).
+- Pinned chain (all read, non-inference): `run.js` `parseRunEnv`
+  (first-`=` split) → `createAgent({env})` → server `createOptions.env` →
+  `agent-manager.buildLaunchContext` (merge + `PASEO_AGENT_ID/CWD`) → Pi
+  provider `createSession` → `buildPiLaunch` argv/env → Pi subprocess env
+  (`createExternalProcessEnv(daemon env, launch.env)`; `META_API_KEY` is
+  not a runtime-control key). Meta auth reaches the actual Pi subprocess
+  through the DAEMON process env: the candidate daemon is brought up from
+  the staged candidate-env loader (`META_API_KEY` read in-candidate from
+  the private pointer, exported, never on argv/`--env`/evidence).
+- New companion identity from this extension (recomputed, propagated — the
+  old `sha256:a51036c5…` remains the historical M07-T04 subject only):
+  companion `sha256:34aeccececa9da893be44b27823efe801e09a86a552d0a9dfa6f97d7318b4500`
+  (10 files), guard
+  `sha256:7da865ab7c10e74b1eb4a8b6305508a02031486dcb681d8c371e915bf7ba916c`
+  (`0755`). Fixtures carry the recomputed binding; an M07-T07 fresh
+  artifact is still required before any eligibility. No old digest gains
+  eligibility from the new code.
+- Bring-up/observation/inspection in the validator (all supported CLIs):
+  `paseo daemon start --home <candidate>` (idempotent
+  started|already_running + pid/listen) under the env loader → `paseo
+  status` (home/endpoint/pid/version + localDaemon/connectedDaemon/
+  serverId/workerPid) → `command -v pi` + `pi --version` (frozen) → after
+  dispatch, `paseo agent ls --json` (exactly-one title match = owned
+  child) → `paseo agent inspect <id> --json` (provider pi, model contains
+  the fixed model, EFFECTIVE thinking `max`, successful status, token
+  usage > 0). A clamp/downgrade or zero-token child observed here FAILS
+  even with witness PASS. `PI_COMMAND` default PATH resolution is
+  observed and bound (no override pinned); the Pi path predicate is
+  structural only and never presented as standalone proof.
+
+### 2. Qualified observer completion (pinned Pi semantics)
+
+- Extension records `turn_end` outcome (`completed`|`aborted`|`error`, per
+  `agent-session.js` stopReason mapping + `BoundaryState.outcome`), scans
+  `agent_end` messages for aborted/error stopReason, and records
+  `agent_settled` as neutral `settled` (final notification-only per
+  extension/sdk docs — never success).
+- Aggregation: non-numeric response status FAILS (malformed can never prove
+  HTTP success); any aborted/error terminal FAILS and a later settled
+  never overwrites it; settled-only/non-success terminals stay UNKNOWN;
+  contradictions/clamp/fallback/unknown reject as before.
+- Every witness byte in fixtures flows through the actual staged observer
+  under node (full request/response/turn/agent_end/settled sequence); the
+  CLI fake writes none and ignores ambient env (parses `--env` exactly
+  like `run.js`).
+
+### 3. Complete frozen producer/payload binding
+
+- The validator CALLS the exact resolver `validate()` (schema, component
+  provenance, compatibility, policy, `candidate_id` content hash).
+- Strict formats: Git SHAs (40-hex), approved refs, required byte links in
+  real mode; full cross-record consistency (source_parent/ref/head,
+  accepted IDs, discovery SHAs); companion FULL modes compare; build
+  phases `resolution_readback`/`build`/`test` GREEN + image label match;
+  tested `schema_version`; publication `schema_version` + all byte hashes
+  verified against actual record bytes (forged hashes fail).
+- Used-payload binding: staged companion re-digested host-side (exact
+  declared set/modes/digest); guard/policy read back in-candidate by
+  bytes AND mode (`0755`/`0644`); image Config Env must carry the frozen
+  `PI_UNRAID_PI_VERSION` (label corroboration). Staged validator-source
+  files byte-compared to repo source with recorded identities.
+- NOT re-run (documented why): buildx `verify_build_inputs` (source
+  Dockerfile tracks the accepted candidate, not the validated one; the
+  build record's frozen readback phase is required instead), publish
+  `verify_inputs` (needs the image.tar archive), handoff `verify_handoff`
+  (needs the accepted record; ID format + cross-record consistency
+  enforced instead).
+
+### 4. Immutable ownership and pre-effect transport safety
+
+- Ownership re-verified before EVERY exec (container ID + image + nonce +
+  network + exact mounts + secret SOURCES + modes); execs address the
+  immutable container ID, never the mutable name; network acquisition ID
+  bound at create and verified at every boundary and cleanup (removal by
+  acquired ID only); cleanup preserves replaced/foreign/unverified objects
+  and potentially mounted work.
+- Codex transport normalizes percent-encoding (repeatedly, bounded) before
+  every check and allows only supported non-inference destinations;
+  same-origin (scheme/host/port) enforced; encoded `/v1/%72esponses`
+  rejected with zero receiver requests/auth.
+- Endpoint validation requires IP-literal loopback/`localhost` (no DNS;
+  `127.attacker.invalid` rejected); Pi path predicate is structural
+  (absolute, no escapes, Pi executable name) with binding from the
+  bring-up/version/inspect chain.
+
+### Explicit remaining gaps (not waived; M08 owns execution/proof)
+
+- Real daemon/Pi/Codex execution with dedicated operator credentials,
+  exact on-wire `--env`/daemon-internal delivery proof, and effective-max
+  wire proof remain M08-T01. The fake daemon internals (env merge, Pi
+  spawn, agent registry) simulate documented server behavior; the argv
+  contract, bring-up/observation/inspection sequence, and all byte/mode
+  comparisons execute for real.
+- Workspace isolation beyond `--new-workspace local` + selector scrubbing
+  (no workspace-ID readback asserted); `PI_COMMAND` default resolution
+  (no override pinned); agent `ls` title uniqueness assumes test-ID nonce
+  uniqueness (validator-generated per attempt).
+- A changed candidate/companion (including this extension) needs a new
+  immutable build identity + affected-gate evidence (M07-T07); M07-T06/M08
+  excluded. No eligibility/production authorization claimed.

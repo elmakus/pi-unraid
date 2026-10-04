@@ -151,15 +151,20 @@ class LocalCodexServer:
 
 def make_fake_paseo(bindir: Path, *, effort="max", response_status="200",
                     dispatch=True):
-    """Test-owned fake paseo: records dispatch, writes witness, never infers.
+    """Test-owned fake paseo CLI: source-faithful argv parsing, never infers.
 
-    The fake simulates the EXTERNAL candidate Paseo/Pi/SDK event boundary
-    only: it requires META_API_KEY (exit 42 when the loader fails to
-    provision it — proving the staged loader works) and writes the
-    request+response events a provider interaction would produce. The
-    terminal event is NOT fabricated here: the docker-exec harness runs the
-    ACTUAL staged witness extension under node to emit it (see
-    _emit_terminal_via_observer). No real inference ever occurs. """
+    Faithful to pinned Paseo 0.9.2 ``run.js`` ``parseKeyValueFlags``: only
+    ``--env K=V`` / ``--env=K=V`` pairs (first-``=`` split) constitute
+    transmitted agent env; the ambient CLI process environment is NEVER
+    consulted for agent delivery (``M07_T05_*``/``META_API_KEY`` ambient
+    values are ignored, exactly like the real daemon boundary). ``run``
+    requires loader-delivered ``META_API_KEY`` (real shell inheritance,
+    as in the candidate container) plus transmitted correlation/pointer
+    names; otherwise exit 42/3 with no dispatch. Records full argv to
+    ``DISPATCH_MARKER`` so tests assert the transmitted ``--env`` contract.
+    Writes NOTHING to any witness file: all witness bytes flow through the
+    actual staged observer under node (see ``_emit_full_sequence``).
+    """
     bindir.mkdir(parents=True, exist_ok=True)
     for tool in ("dirname", "jq", "bash", "sh", "sha256sum", "cat", "command"):
         tgt = shutil.which(tool)
@@ -171,27 +176,52 @@ def make_fake_paseo(bindir: Path, *, effort="max", response_status="200",
     fake = bindir / "paseo"
     fake.write_text(
         "#!/bin/sh\n"
+        "# Source-faithful subset of pinned run.js parseKeyValueFlags:\n"
+        "# first-equals split; `--env K=V` and `--env=K=V` forms.\n"
+        "# Ambient CLI env is NEVER consulted for agent delivery.\n"
+        "T_ID=\"\"\n"
+        "T_WIT=\"\"\n"
+        "T_PTR=\"\"\n"
+        "T_PREV=\"\"\n"
+        "for _a in \"$@\"; do\n"
+        "  if [ \"$T_PREV\" = \"--env\" ]; then _kv=\"$_a\"; T_PREV=\"\"\n"
+        "  elif [ \"$_a\" = \"--env\" ]; then T_PREV=\"--env\"; continue\n"
+        "  else case \"$_a\" in --env=*) _kv=\"${_a#--env=}\" ;; *) T_PREV=\"\"; continue ;; esac\n"
+        "  fi\n"
+        "  _k=\"${_kv%%=*}\"; _v=\"${_kv#*=}\"\n"
+        "  case \"$_k\" in\n"
+        "    M07_T05_TEST_ID) T_ID=\"$_v\" ;;\n"
+        "    M07_T05_WITNESS_FILE) T_WIT=\"$_v\" ;;\n"
+        "    META_API_KEY_FILE) T_PTR=\"$_v\" ;;\n"
+        "  esac\n"
+        "done\n"
         "if [ \"$1\" = \"status\" ]; then\n"
         "  printf '%s' \"$PASEO_STATUS_JSON\"\n"
         "  exit 0\n"
         "fi\n"
-        "if [ -z \"$META_API_KEY\" ]; then\n"
-        "  echo 'fake-paseo: META_API_KEY unavailable' >&2\n"
-        "  exit 42\n"
+        "if [ \"$1\" = \"run\" ]; then\n"
+        "  if [ -z \"$META_API_KEY\" ]; then\n"
+        "    echo 'fake-paseo: META_API_KEY unavailable' >&2\n"
+        "    exit 42\n"
+        "  fi\n"
+        "  if [ -z \"$T_ID\" ] || [ -z \"$T_PTR\" ]; then\n"
+        "    echo 'fake-paseo: correlation/pointer not transmitted via --env' >&2\n"
+        "    exit 3\n"
+        "  fi\n"
+        f"  DISPATCH={1 if dispatch else 0}\n"
+        "  if [ \"$DISPATCH\" = \"1\" ]; then\n"
+        "    printf '%s\\n' \"$@\" > \"${DISPATCH_MARKER:-/dev/null}\"\n"
+        "  fi\n"
+        f"  exit {0 if dispatch else 3}\n"
         "fi\n"
-        f"DISPATCH={1 if dispatch else 0}\n"
-        "if [ \"$DISPATCH\" = \"1\" ]; then\n"
-        "  printf '%s\\n' \"$@\" > \"$DISPATCH_MARKER\"\n"
-        "fi\n"
-        "WIT=\"$M07_T05_WITNESS_FILE\"\n"
-        "TID=\"$M07_T05_TEST_ID\"\n"
-        "if [ -n \"$WIT\" ] && [ -n \"$TID\" ] && [ \"$DISPATCH\" = \"1\" ]; then\n"
-        f"  printf '{{\"test_id\":\"%s\",\"kind\":\"request\",\"model\":\"muse-spark-1.3-contributor\",\"effort\":\"{effort}\"}}\\n' \"$TID\" >> \"$WIT\"\n"
-        f"  printf '{{\"test_id\":\"%s\",\"kind\":\"response\",\"status\":\"{response_status}\"}}\\n' \"$TID\" >> \"$WIT\"\n"
-        "fi\n"
-        f"exit {0 if dispatch else 3}\n"
+        "echo 'fake-paseo: unsupported command' >&2\n"
+        "exit 2\n"
     )
     fake.chmod(0o755)
+    # Witness profile for the node full-sequence step (read via bindir):
+    # the shell fake never writes witness bytes itself.
+    (bindir / "fake-profile.json").write_text(json.dumps(
+        {"effort": effort, "response_status": response_status}))
     # Fake pi for candidate Pi lifecycle.
     pi = bindir / "pi"
     pi.write_text(f"#!/bin/sh\necho '{REAL_PI}'\n")
@@ -217,30 +247,54 @@ def _find_node():
     return None
 
 
-def _emit_terminal_via_observer(*, staged_ext: Path, witness_host: str, test_id: str) -> bool:
-    """Emit the terminal event through the ACTUAL staged witness extension.
+def _emit_full_sequence_via_observer(*, staged_ext: Path, witness_host: str, test_id: str,
+                                     effort: str = "max", response_status: str = "200",
+                                     turn_outcome: str | None = "completed",
+                                     fire_agent_end: bool = True,
+                                     fire_settled: bool = True) -> bool:
+    """Emit the FULL provider/turn/settlement sequence through the ACTUAL staged observer.
 
     Loads the shipped ``m07-t05-witness.js`` bytes under node with a fake SDK
-    event boundary (register + fire agent_settled/agent_end) and the owned
-    test's correlation env. Returns True when a terminal event for test_id
-    was appended by the real observer code (never fabricated shell JSON).
+    event boundary that fires the supported sequence — ``before_provider_request``
+    (model/effort payload), ``after_provider_response`` (status), ``turn_end``
+    (qualified ``outcome``), ``agent_end`` (assistant messages with stopReason),
+    ``agent_settled`` (neutral) — using the owned test's correlation env.
+    Every witness byte is produced by shipped observer code; the shell fake
+    writes none. Parameters let negatives control the sequence (aborted turn,
+    malformed response, omitted terminal). Returns True when at least one
+    terminal event for test_id was appended.
     """
     node = _find_node()
     if node is None:
         return False
+    agent_end_arg = "aborted" if turn_outcome in ("aborted", "error") else "stop"
     harness = (
         "import {createRequire} from 'node:module';\n"
         "globalThis.require = createRequire(import.meta.url);\n"
         "const registered = {};\n"
         "const ext = await import(process.argv[1]);\n"
         "ext.default({on: (k, fn) => { registered[k] = fn; }});\n"
-        "if (registered.agent_settled) { await registered.agent_settled({}); }\n"
-        "else if (registered.agent_end) { await registered.agent_end({messages: []}); }\n"
-        "else { console.log('NO_TERMINAL_HANDLER'); }\n"
+        "const cfg = JSON.parse(process.argv[2]);\n"
+        "if (registered.before_provider_request) {\n"
+        "  await registered.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: cfg.effort}}});\n"
+        "}\n"
+        "if (registered.after_provider_response) {\n"
+        "  await registered.after_provider_response({status: cfg.response, headers: {}});\n"
+        "}\n"
+        "if (cfg.turn !== null && registered.turn_end) {\n"
+        "  await registered.turn_end({outcome: cfg.turn, turnIndex: 0, message: {}, toolResults: []});\n"
+        "}\n"
+        "if (cfg.agentEnd && registered.agent_end) {\n"
+        "  await registered.agent_end({messages: [{role: 'assistant', stopReason: cfg.agentEnd, content: []}]});\n"
+        "}\n"
+        "if (cfg.settled && registered.agent_settled) { await registered.agent_settled({}); }\n"
     )
+    cfg = {"effort": effort, "response": response_status,
+           "turn": turn_outcome, "agentEnd": agent_end_arg if fire_agent_end else None,
+           "settled": fire_settled}
     try:
         pr = subprocess.run(
-            [node, "--input-type=module", "-e", harness, str(staged_ext)],
+            [node, "--input-type=module", "-e", harness, str(staged_ext), json.dumps(cfg)],
             env={"M07_T05_TEST_ID": test_id, "M07_T05_WITNESS_FILE": witness_host,
                  "PATH": "/usr/bin:/bin"},
             text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30)
@@ -260,6 +314,35 @@ def _emit_terminal_via_observer(*, staged_ext: Path, witness_host: str, test_id:
         if doc.get("test_id") == test_id and doc.get("kind") == "terminal":
             return True
     return False
+
+
+# Backwards-compatible alias (older probes import this name).
+def _emit_terminal_via_observer(*, staged_ext: Path, witness_host: str, test_id: str) -> bool:
+    return _emit_full_sequence_via_observer(staged_ext=staged_ext,
+                                            witness_host=witness_host, test_id=test_id)
+
+
+def transmitted_env_names(marker_path: Path) -> list:
+    """Parse transmitted --env names from recorded dispatch argv (first-`=` split)."""
+    names = []
+    try:
+        argv = Path(marker_path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return names
+    prev = None
+    for a in argv:
+        if prev == "--env":
+            kv, prev = a, None
+        elif a == "--env":
+            prev = "--env"
+            continue
+        elif a.startswith("--env="):
+            kv = a[len("--env="):]
+        else:
+            prev = None
+            continue
+        names.append(kv.split("=", 1)[0])
+    return names
 
 
 def build_artifact_chain(td: Path, *, image_id="sha256:" + "b" * 64):
@@ -347,6 +430,17 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 if state.get("no_repodigests"):
                     return mock.Mock(returncode=0, stdout=json.dumps([]), stderr="")
                 return mock.Mock(returncode=0, stdout=json.dumps([f"ghcr.io/elmakus/pi-unraid@{digest}"]), stderr="")
+            if "{{json .Config}}" in " ".join(argv):
+                if state.get("wrong_image_config"):
+                    return mock.Mock(returncode=0, stdout=json.dumps(
+                        {"Env": ["PI_UNRAID_PI_VERSION=9.9.9"],
+                         "Labels": {"io.pi-unraid.pi-version": "9.9.9"}}), stderr="")
+                return mock.Mock(returncode=0, stdout=json.dumps(
+                    {"Env": ["PATH=/usr/local/bin:/usr/bin:/bin",
+                             f"PI_UNRAID_PI_VERSION={REAL_PI}",
+                             "PI_UNRAID_CANDIDATE_ID=" + REAL_CANDIDATE_ID],
+                     "Labels": {"io.pi-unraid.pi-version": REAL_PI,
+                                "io.pi-unraid.candidate-id": REAL_CANDIDATE_ID}}), stderr="")
             return mock.Mock(returncode=0, stdout=image_id + "\n", stderr="")
         if argv[:3] == ["docker", "image", "pull"]:
             return mock.Mock(returncode=0, stdout="", stderr="")
@@ -356,14 +450,16 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                     return mock.Mock(returncode=1, stdout="", stderr="No such")
                 import json as _j
                 return mock.Mock(returncode=0, stdout=_j.dumps([{
+                    "Id": state.get("replaced_network_id") or state.get("acquired_network_id") or "fake-net-id-1",
                     "Labels": {"io.pi-unraid.validator-nonce": state["nonce"]}}]), stderr="")
             if argv[2] == "create":
                 state["net_exists"] = True
+                state["acquired_network_id"] = "fake-net-id-1"
                 # record nonce from --label
                 for i, x in enumerate(argv):
                     if x == "--label" and i + 1 < len(argv) and argv[i + 1].startswith("io.pi-unraid.validator-nonce="):
                         state["nonce"] = argv[i + 1].split("=", 1)[1]
-                return mock.Mock(returncode=0, stdout="netid\n", stderr="")
+                return mock.Mock(returncode=0, stdout="fake-net-id-1\n", stderr="")
             if argv[2] == "rm":
                 state["net_exists"] = False
                 return mock.Mock(returncode=0, stdout="", stderr="")
@@ -422,18 +518,29 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 except Exception as exc:
                     return mock.Mock(returncode=20, stdout="", stderr=str(exc)[:200])
                 return mock.Mock(returncode=pr.returncode, stdout=pr.stdout, stderr=pr.stderr)
-            # Guard hash: compute ACTUAL hash of staged file.
-            if "guard-hash-compare" in payload:
-                staged_guard = Path(work) / "home" / ".pi" / "agent" / "bin" / "run-llm-test.sh" if work else None
+            # File readback: compute ACTUAL hash+mode of staged files locally.
+            # The validator compares both (bytes AND mode); returncode 0 alone
+            # never passes. Only the in-candidate path prefix is translated.
+            if "file-readback" in payload:
+                import hashlib as _hl
+                toks = payload.split()
+                cand_path = ""
+                if "sha256sum" in toks:
+                    cand_path = toks[toks.index("sha256sum") + 1].rstrip(";") if len(toks) > toks.index("sha256sum") + 1 else ""
+                host_path = cand_path.replace("/home/paseo", (work + "/home") if work else "/nonexistent", 1)
                 try:
-                    import hashlib as _hl
-                    h = _hl.sha256(staged_guard.read_bytes()).hexdigest()
+                    data = Path(host_path).read_bytes()
+                    h = _hl.sha256(data).hexdigest()
                     if break_guard or state.get("break_guard"):
                         h = "0" * 64
-                    return mock.Mock(returncode=0, stdout=f"{h}  /home/paseo/.pi/agent/bin/run-llm-test.sh\n", stderr="")
+                    import stat as _sm
+                    mode = oct(_sm.S_IMODE(Path(host_path).stat().st_mode))[2:]
+                    if state.get("policy_drift") and cand_path.endswith("llm-test-policy.json"):
+                        mode = "666"
+                    return mock.Mock(returncode=0, stdout=f"{h}  {cand_path}\n{mode}\n", stderr="")
                 except OSError:
                     return mock.Mock(returncode=1, stdout="", stderr="")
-            # Policy cat: return ACTUAL staged content.
+            # Policy cat: return ACTUAL staged content (drifted when the probe mutates it).
             if "policy-compare" in payload:
                 staged_pol = Path(work) / "home" / ".pi" / "agent" / "policies" / "llm-test-policy.json" if work else None
                 try:
@@ -443,6 +550,24 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             # Daemon status inside candidate (fake daemon boundary, parsed for real).
             # state["daemon_override"] lets negatives inject stopped/unreachable/
             # remote/null-pid/foreign observations through the genuine entrypoint.
+            # Daemon bring-up (idempotent start, shell-wrapped): succeeds when
+            # the daemon is startable; the subsequent status observation decides.
+            # Matched on the marker substring (shell-wrapped argv), ordered before
+            # the generic status branch below.
+            if "daemon-bringup" in payload:
+                state["daemon_started"] = True
+                return mock.Mock(returncode=0, stdout="Already running: PID 1234\n", stderr="")
+            # Owned-child listing: exactly the agents this fake daemon created.
+            if "paseo" in argv and "agent" in argv and "ls" in argv:
+                agents = state.get("agents", [])
+                return mock.Mock(returncode=0, stdout=json.dumps(agents), stderr="")
+            # Owned-child inspection: only recorded agents resolve.
+            if "paseo" in argv and "agent" in argv and "inspect" in argv:
+                want = argv[argv.index("inspect") + 1] if "inspect" in argv else ""
+                for a in state.get("agents", []):
+                    if a.get("id") == want or str(a.get("id", "")).startswith(want) or want.startswith(str(a.get("id", ""))):
+                        return mock.Mock(returncode=0, stdout=json.dumps(a), stderr="")
+                return mock.Mock(returncode=1, stdout="", stderr="No such agent")
             if "paseo" in argv and "status" in argv:
                 doc = state.get("daemon_override")
                 if doc is None:
@@ -452,6 +577,11 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                         "localDaemon": "running", "connectedDaemon": "reachable"}
                 if isinstance(doc, dict) and doc.get("__unavailable"):
                     return mock.Mock(returncode=1, stdout="", stderr="")
+                if state.get("daemon_started") and isinstance(doc, dict) and doc.get("localDaemon") == "stopped":
+                    # Bring-up flips a stopped-but-otherwise-valid daemon to
+                    # running; broken endpoint/pid/version observations persist
+                    # and still fail the strict observer below.
+                    doc = dict(doc, localDaemon="running", connectedDaemon="reachable")
                 return mock.Mock(returncode=0, stdout=json.dumps(doc), stderr="")
             if "command -v pi" in payload:
                 return mock.Mock(returncode=0, stdout=(state.get("pi_path") or "/home/paseo/.pi/agent/bin/pi") + "\n", stderr="")
@@ -466,12 +596,15 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 except Exception as exc:
                     return mock.Mock(returncode=2, stdout="", stderr=str(exc)[:200])
                 return mock.Mock(returncode=pr.returncode, stdout=pr.stdout, stderr=pr.stderr)
-            # Guarded PROMPT dispatch: run the ACTUAL staged Meta loader (namespace-
-            # translated guard path only), then emit the terminal event through the
-            # ACTUAL staged witness extension under node. Candidate witness path
-            # (/tmp/...) maps to the host witness file; never confused.
+            # Guarded PROMPT dispatch: run the ACTUAL staged candidate-env
+            # loader (namespace-translated paths only) execing the ACTUAL
+            # staged guard; the shell fake parses --env exactly like pinned
+            # run.js and requires loader-delivered META_API_KEY. Then the FULL
+            # provider/turn/settlement sequence runs through the ACTUAL staged
+            # observer under node (never shell-fabricated witness bytes), and
+            # the dispatched agent is recorded for ls/inspect binding.
             if "guarded-dispatch" in payload:
-                staged_loader = Path(work) / "home" / ".pi" / "agent" / "bin" / "m07-t05-meta-loader.sh" if work else None
+                staged_env = Path(work) / "home" / ".pi" / "agent" / "bin" / "m07-t05-candidate-env.sh" if work else None
                 staged_guard = Path(work) / "home" / ".pi" / "agent" / "bin" / "run-llm-test.sh" if work else None
                 staged_ext = Path(work) / "home" / ".pi" / "agent" / "extensions" / "m07-t05-witness.js" if work else None
                 bindir = state.get("bindir", "/tmp")
@@ -482,35 +615,54 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 if m:
                     tid = m.group(1).strip().strip("'\"")
                     state["test_id"] = tid
-                # Execute the staged loader bytes with only the in-candidate guard
-                # path translated to the staged host path (namespace translation).
                 try:
-                    loader_text = staged_loader.read_text(encoding="utf-8")
+                    env_text = staged_env.read_text(encoding="utf-8")
                 except OSError as exc:
                     return mock.Mock(returncode=42, stdout="", stderr=str(exc)[:200])
-                local_loader = Path(work) / f"loader-{tid}.sh"
-                local_loader.write_text(loader_text.replace(
-                    "/home/paseo/.pi/agent/bin/run-llm-test.sh", str(staged_guard)),
-                    encoding="utf-8")
-                local_loader.chmod(0o755)
+                local_env = Path(work) / f"candidate-env-{tid}.sh"
+                local_env.write_text(env_text, encoding="utf-8")
+                local_env.chmod(0o755)
+                marker_path = Path(bindir).parent / "dispatch-argv.txt"
                 env = {"PATH": str(bindir), "M07_T05_TEST_ID": tid,
                        "M07_T05_WITNESS_FILE": str(wit),
+                       "DISPATCH_MARKER": str(marker_path),
                        "META_API_KEY_FILE": str(muse_secret_host) if muse_secret_host else ""}
                 try:
-                    pr = subprocess.run(["bash", str(local_loader), f"SYNTHETIC_PROMPT_{tid}", "/tmp"],
+                    pr = subprocess.run(["bash", str(local_env), str(staged_guard),
+                                         f"SYNTHETIC_PROMPT_{tid}", "/tmp"],
                                         env=env, text=True, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE, timeout=60)
                 except subprocess.TimeoutExpired:
                     return mock.Mock(returncode=None, stdout="", stderr="timeout")
                 except Exception as exc:
                     return mock.Mock(returncode=3, stdout="", stderr=str(exc)[:200])
-                if pr.returncode == 0 and not state.get("omit_terminal"):
-                    # Terminal completion via the REAL staged observer (fake SDK
-                    # boundary fires agent_settled; observer code emits terminal).
-                    _emit_terminal_via_observer(staged_ext=staged_ext,
-                                              witness_host=str(wit), test_id=tid)
                 if pr.returncode == 0:
                     state["dispatch_complete"] = True
+                    agent_id = f"agent-{tid[:12]}"
+                    # Legacy omit_terminal flag also suppresses witness emission
+                    # (no terminal event exists to aggregate).
+                    if state.get("omit_terminal"):
+                        state["omit_witness"] = True
+                    title = f"LLM-TEST:muse-spark-1.3-contributor:max:{tid}"
+                    state.setdefault("agents", []).append({
+                        "id": agent_id, "name": title, "title": title,
+                        "provider": "pi", "model": "meta/muse-spark-1.3-contributor",
+                        "thinking": state.get("agent_thinking", "max"),
+                        "status": state.get("agent_status", "completed"),
+                        "LastUsage": {"InputTokens": 120, "OutputTokens": 60,
+                                      "CachedTokens": 0, "CostUsd": 0.001}})
+                    if not state.get("omit_witness"):
+                        try:
+                            profile = json.loads((Path(bindir) / "fake-profile.json").read_text())
+                        except (OSError, ValueError):
+                            profile = {}
+                        _emit_full_sequence_via_observer(
+                            staged_ext=staged_ext, witness_host=str(wit), test_id=tid,
+                            effort=state.get("witness_effort") or profile.get("effort", "max"),
+                            response_status=state.get("witness_response") or profile.get("response_status", "200"),
+                            turn_outcome=state.get("witness_turn", "completed"),
+                            fire_agent_end=not state.get("omit_agent_end", False),
+                            fire_settled=not state.get("omit_settled", False))
                 return mock.Mock(returncode=pr.returncode, stdout=pr.stdout, stderr=pr.stderr)
             # Witness read: return ACTUAL witness file.
             if "witness-read" in payload:
@@ -597,10 +749,11 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                                      publication_file=publication_file, muse_secret=muse_sec)
             self.assertEqual(res["status"], "PASS")
             self.assertFalse(res["real_validation_satisfied"])
-            for k in ("registry_digest", "image_mapping", "frozen_chain", "companion_binding",
-                      "policy_binding", "daemon_binding", "pi_binding", "codex_catalog",
-                      "codex_auth", "codex_health", "muse_guard_readback",
-                      "muse_policy_readback", "muse_dispatch", "muse_effective_profile"):
+            for k in ("registry_digest", "image_mapping", "image_config", "frozen_chain",
+                      "companion_binding", "policy_binding", "daemon_binding", "pi_binding",
+                      "codex_catalog", "codex_auth", "codex_health", "muse_guard_readback",
+                      "muse_policy_readback", "muse_dispatch", "muse_effective_profile",
+                      "muse_owned_child"):
                 self.assertEqual(res["checks"].get(k), "PASS", k)
             # No inference endpoint in any exec; no secret value in calls/output.
             blob = json.dumps(res) + " ".join(" ".join(c) for c in calls)
@@ -609,6 +762,22 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             self.assertNotIn("fixture-meta-key", blob)
             # Dispatched through the real guard (fake paseo marker + witness).
             self.assertGreaterEqual(len([c for c in calls if c[:2] == ["docker", "exec"]]), 6)
+            # Guard transmitted exactly the three nonsecret --env names (parsed
+            # from the recorded argv, like pinned run.js parseRunEnv); no raw
+            # secret value was transmitted.
+            names = transmitted_env_names(Path(state["bindir"]).parent / "dispatch-argv.txt")
+            self.assertEqual(sorted(names),
+                             ["M07_T05_TEST_ID", "M07_T05_WITNESS_FILE", "META_API_KEY_FILE"])
+            marker_file = Path(state["bindir"]).parent / "dispatch-argv.txt"
+            self.assertNotIn("fixture-meta-key",
+                             marker_file.read_text() if marker_file.is_file() else "")
+            # Owned child bound via supported ls/inspect with effective profile.
+            subj = res.get("subject") or {}
+            child = subj.get("muse_owned_child")
+            self.assertIsNotNone(child)
+            self.assertEqual(child.get("thinking"), "max")
+            self.assertGreater(child.get("tokens", 0), 0)
+            self.assertIn("agent-", child.get("id", ""))
 
     def test_real_mode_structurally_succeeds_under_fakes(self):
         # Real path exists (not hardcoded false): same fakes, real class.

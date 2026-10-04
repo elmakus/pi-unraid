@@ -77,7 +77,9 @@ def _run_validate(td: Path, *, server_base, image_id="sha256:" + "b" * 64,
                   execution_class="fixture", effort="max", daemon_json=None,
                   break_guard=False, extra=None, omit_terminal=False,
                   pi_path=None, replaced_id=None, inspect_failure=False,
-                  fail_cleanup_inspect=False):
+                  fail_cleanup_inspect=False, witness_response=None,
+                  witness_turn=None, omit_witness=False, agent_thinking=None,
+                  agent_status=None, extra_state=None):
     codex, muse = _secrets(td)
     cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = _fixture_chain(td, image_id=image_id)
     bindir = T.make_fake_paseo(td / "bindir", effort=effort)
@@ -99,6 +101,18 @@ def _run_validate(td: Path, *, server_base, image_id="sha256:" + "b" * 64,
         state["inspect_failure"] = True
     if fail_cleanup_inspect:
         state["fail_cleanup_inspect"] = True
+    if witness_response is not None:
+        state["witness_response"] = witness_response
+    if witness_turn is not None:
+        state["witness_turn"] = witness_turn
+    if omit_witness:
+        state["omit_witness"] = True
+    if agent_thinking is not None:
+        state["agent_thinking"] = agent_thinking
+    if agent_status is not None:
+        state["agent_status"] = agent_status
+    if extra_state:
+        state.update(extra_state)
     # Wrap make_fake_docker to honor overrides.
     base_fake = T.make_fake_docker(digest=REAL_OCI_DIGEST, image_id=image_id, calls=calls,
                                    state=state, server_base=server_base,
@@ -308,7 +322,7 @@ class MuseAdapterTests(unittest.TestCase):
             wit = td / "w.jsonl"
             wit.write_text("")
             meta = td / "m.env"
-            meta.write_text("META_API_KEY=k\n")
+            meta.write_text("META_API_KEY=synthetic-local-key-abc123\n")
             meta.chmod(0o600)
             snap = A.dispatch_guarded_test(guard_file=RUNNER, agent_root=agent,
                                            prompt="SYNTHETIC_PROMPT", cwd=str(td),
@@ -316,8 +330,27 @@ class MuseAdapterTests(unittest.TestCase):
                                            witness_file=wit, meta_secret_file=meta, timeout=30)
             self.assertTrue(snap["dispatched"])
             self.assertFalse(snap.get("timeout", False))
-            evs = A.load_witness_events(wit, "t-dispatch-1")
-            self.assertTrue(any(e["kind"] == "request" for e in evs))
+            # No Pi/daemon exists locally: no witness events occur here. The
+            # transmitted --env contract is asserted from the recorded argv
+            # (first-`=` split, exactly the three nonsecret names, no secret).
+            argv = snap.get("dispatch_argv") or []
+            self.assertTrue(argv and argv[0] == "run")
+            names = []
+            prev = None
+            for a in argv:
+                if prev == "--env":
+                    names.append(a.split("=", 1)[0])
+                    prev = None
+                elif a == "--env":
+                    prev = "--env"
+                elif a.startswith("--env="):
+                    names.append(a[len("--env="):].split("=", 1)[0])
+                else:
+                    prev = None
+            self.assertEqual(sorted(names),
+                             ["M07_T05_TEST_ID", "M07_T05_WITNESS_FILE", "META_API_KEY_FILE"])
+            # The raw secret value never travels argv (pointer only).
+            self.assertNotIn("synthetic-local-key-abc123", " ".join(argv))
             # Missing policy fails closed (no fabrication).
             agent2 = td / "agent2"
             (agent2 / "policies").mkdir(parents=True)
@@ -812,8 +845,9 @@ class ProbeRegressionTests(unittest.TestCase):
                 "ext.default({on: (k, fn) => { registered[k] = fn; }});\n"
                 "await registered.before_provider_request({payload: {model: 'muse-spark-1.3-contributor', reasoning: {effort: 'max'}}});\n"
                 "await registered.after_provider_response({status: 200, headers: {}});\n"
+                "await registered.turn_end({outcome: 'completed', turnIndex: 0, message: {}, toolResults: []});\n"
+                "await registered.agent_end({messages: [{role: 'assistant', stopReason: 'stop', content: []}]});\n"
                 "if (registered.agent_settled) { await registered.agent_settled({}); }\n"
-                "else if (registered.agent_end) { await registered.agent_end({messages: []}); }\n"
                 "console.log(JSON.stringify({handlers: Object.keys(registered)}));\n")
             pr = subprocess.run(
                 [shutil.which("node"), str(harness), str(ext)],
@@ -822,7 +856,9 @@ class ProbeRegressionTests(unittest.TestCase):
             handlers = json.loads(pr.stdout)["handlers"]
             self.assertIn("before_provider_request", handlers)
             self.assertIn("after_provider_response", handlers)
-            self.assertTrue("agent_end" in handlers or "agent_settled" in handlers)
+            self.assertIn("turn_end", handlers)
+            self.assertIn("agent_end", handlers)
+            self.assertIn("agent_settled", handlers)
             events = A.load_witness_events(wit, "public-test")
             kinds = {e["kind"] for e in events}
             self.assertIn("request", kinds)
@@ -831,6 +867,12 @@ class ProbeRegressionTests(unittest.TestCase):
             agg = A.aggregate_witness(events, test_id="public-test",
                                       expected_model=A.FIXED_MODEL)
             self.assertEqual(agg["gate"], "PASS")
+            # Settled-only (no turn/agent_end outcome) never proves success.
+            agg_settled = A.aggregate_witness(
+                [e for e in events if e["kind"] != "terminal"] +
+                [e for e in events if e["kind"] == "terminal" and e.get("status") == "settled"],
+                test_id="public-test", expected_model=A.FIXED_MODEL)
+            self.assertEqual(agg_settled["gate"], "UNKNOWN")
         # 7. Missing terminal stays UNKNOWN; container preserved; refs usable.
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
@@ -871,15 +913,18 @@ class ProbeRegressionTests(unittest.TestCase):
             rms = [c for c in calls if c[:2] == ["docker", "rm"]]
             for rm in rms:
                 self.assertNotIn("replaced-foreign-object", " ".join(rm))
-        # 10. Nonzero ownership inspection during cleanup preserves live work.
+        # 10. Nonzero ownership inspection after dispatch blocks readback
+        # (ownership unverifiable) while preserving work/container.
         with tempfile.TemporaryDirectory() as td:
             td = Path(td)
             with T.LocalCodexServer(mode="ok") as srv:
-                res, _, state = _run_validate(td, server_base=srv.base,
-                                              fail_cleanup_inspect=True)
-            self.assertEqual(res["status"], "PASS")
+                res, calls, state = _run_validate(td, server_base=srv.base,
+                                                  fail_cleanup_inspect=True)
+            self.assertEqual(res["status"], "BLOCKED")
+            self.assertFalse(res["real_validation_satisfied"])
             work = state.get("work")
             self.assertTrue(work and Path(work).exists())
+            self.assertEqual(sum(1 for c in calls if c[:2] == ["docker", "rm"]), 0)
         # 11. Cross-origin Codex redirect covered in CodexHelperTests
         # (test_shipped_codex_rejects_cross_port_auth_forward).
         with tempfile.TemporaryDirectory() as td:
@@ -922,6 +967,377 @@ class ProbeRegressionTests(unittest.TestCase):
                                  output=td / "o.json", state_root=td)
             self.assertEqual(res["status"], "UNKNOWN")
             self.assertIn("owned_reference", res)
+
+
+class FourthReturnRegressionTests(unittest.TestCase):
+    """Main fourth-return probes as committed regression coverage.
+
+    Each trial drives the genuine validator/adapter/observer/transport
+    entrypoint with fake-only external boundaries. Positives run the actual
+    staged guard/loader/observer bytes plus the supported `--env` argv
+    contract, daemon bring-up, and owned-child ls/inspect binding. Negatives
+    assert required failure/classification plus absence of disallowed calls
+    before cleanup. No real inference, auth, or live effects occur.
+    """
+
+    def test_forged_producer_chain_fails(self):
+        import hashlib as _hl
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            codex, muse = _secrets(td)
+            chain = _fixture_chain(td, image_id="sha256:" + "b" * 64)
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = chain
+            hand = json.loads(Path(handoff_file).read_text())
+            hand.update(source_sha="not-a-git-sha", source_ref="not-an-approved-ref")
+            hand.pop("candidate_file_sha256")
+            Path(handoff_file).write_text(json.dumps(hand))
+            hfs = "sha256:" + _hl.sha256(Path(handoff_file).read_bytes()).hexdigest()
+            bi = json.loads(Path(build_input_file).read_text())
+            bi.update(source_head="not-current-source", source_parent="other-parent",
+                      source_ref="other-ref", accepted_candidate_id="wrong-accepted")
+            bi.pop("candidate_file_sha256")
+            bi["handoff_evidence_sha256"] = hfs
+            bi["companion_bundle"]["modes"]["bin/run-llm-test.sh"] = "0644"
+            Path(build_input_file).write_text(json.dumps(bi))
+            br = json.loads(Path(build_record_file).read_text())
+            br.update(schema_version=99, command="not-a-build")
+            br["phases"]["test"]["status"] = "failed"
+            br["image"]["candidate_label"] = "wrong-candidate"
+            Path(build_record_file).write_text(json.dumps(br))
+            tested = json.loads(Path(tested_file).read_text())
+            tested.update(schema_version=99, source_head="other-head",
+                          discovery_source_sha="other-source", discovery_source_ref="other-ref")
+            tested.pop("candidate_file_sha256")
+            tested["handoff_evidence_sha256"] = hfs
+            tested["build_record_sha256"] = "sha256:" + _hl.sha256(Path(build_record_file).read_bytes()).hexdigest()
+            Path(tested_file).write_text(json.dumps(tested))
+            pub = json.loads(Path(publication_file).read_text())
+            pub.update(schema_version=99, candidate_file_sha256="forged",
+                       build_record_sha256="forged", tested_image_evidence_sha256="forged",
+                       source_head="wrong-head", discovery_source_sha="wrong-parent")
+            Path(publication_file).write_text(json.dumps(pub))
+            calls = []
+            with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                 mock.patch.object(V.os, "chown"), \
+                 mock.patch.object(V, "run", side_effect=T.make_fake_docker(
+                     digest=REAL_OCI_DIGEST, image_id="sha256:" + "b" * 64, calls=calls,
+                     state={"net_exists": False, "network": "pi-unraid-validator"},
+                     server_base="http://127.0.0.1:9/v1",
+                     codex_secret_host=codex, muse_secret_host=muse)):
+                res = V.validate(
+                    repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
+                    output=td / "o.json", state_root=td / "st", execution_class="real",
+                    source_root=ROOT, candidate_file=cand_file, handoff_file=handoff_file,
+                    build_input_file=build_input_file, tested_image_file=tested_file,
+                    build_record=build_record_file, publication_file=publication_file,
+                    muse_secret=muse)
+            self.assertIn(res["status"], ("FAIL", "BLOCKED"))
+            self.assertFalse(res["real_validation_satisfied"])
+            for check, outcome in (res.get("checks") or {}).items():
+                self.assertNotEqual(outcome, "PASS", check)
+            self.assertEqual(sum(1 for c in calls if c[:2] == ["docker", "run"]), 0)
+            self.assertEqual(sum(1 for c in calls if c[:2] == ["docker", "exec"]), 0)
+
+    def test_separate_cli_daemon_boundary_transmits_env(self):
+        # Faithful split: the CLI fake parses --env exactly like pinned
+        # run.js and ignores ambient env. Isolation lives at the container
+        # boundary (docker run -e carries no M07_T05_*; only the validator's
+        # exec command sets them for the guard): with none set, nothing is
+        # transmitted and no dispatch occurs; with the exec-supplied triple,
+        # exactly the three nonsecret names transmit, never a raw secret.
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            bindir = T.make_fake_paseo(td / "bindir", effort="max")
+            disp = td / "argv.txt"
+            env = {"PATH": str(bindir), "DISPATCH_MARKER": str(disp)}
+            pr = subprocess.run(
+                ["bash", str(ROOT / "config" / "pi-agent" / "bin" / "run-llm-test.sh"),
+                 "SYNTHETIC_PROMPT", "/tmp"],
+                env=env, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                timeout=30)
+            self.assertEqual(pr.returncode, 42)
+            self.assertEqual(T.transmitted_env_names(disp), [])
+            env2 = dict(env, META_API_KEY="synthetic-loader-key",
+                        M07_T05_TEST_ID="t-sep-1",
+                        M07_T05_WITNESS_FILE="/tmp/m07-t05-witness.jsonl",
+                        META_API_KEY_FILE="/run/secrets/pi-unraid-meta")
+            pr2 = subprocess.run(
+                ["bash", str(ROOT / "config" / "pi-agent" / "bin" / "run-llm-test.sh"),
+                 "SYNTHETIC_PROMPT", "/tmp"],
+                env=env2, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                timeout=30)
+            self.assertEqual(pr2.returncode, 0)
+            self.assertEqual(sorted(T.transmitted_env_names(disp)),
+                             ["M07_T05_TEST_ID", "M07_T05_WITNESS_FILE", "META_API_KEY_FILE"])
+            self.assertNotIn("synthetic-loader-key", disp.read_text())
+
+    def test_aborted_completion_fails_despite_settled(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            with T.LocalCodexServer(mode="ok") as srv:
+                res, _, _ = _run_validate(td, server_base=srv.base,
+                                          execution_class="real",
+                                          witness_turn="aborted")
+            self.assertEqual(res["status"], "FAIL")
+            self.assertFalse(res["real_validation_satisfied"])
+
+    def test_garbage_response_status_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            with T.LocalCodexServer(mode="ok") as srv:
+                res, _, _ = _run_validate(td, server_base=srv.base,
+                                          execution_class="real",
+                                          witness_response="garbage")
+            self.assertEqual(res["status"], "FAIL")
+            self.assertFalse(res["real_validation_satisfied"])
+        # Direct aggregator contract: malformed status never proves success.
+        ev = [{"test_id": "t-g", "kind": "request", "model": A.FIXED_MODEL, "effort": "max"},
+              {"test_id": "t-g", "kind": "response", "status": "garbage"},
+              {"test_id": "t-g", "kind": "terminal", "status": "done"}]
+        self.assertEqual(A.aggregate_witness(ev, test_id="t-g",
+                                             expected_model=A.FIXED_MODEL)["gate"], "FAIL")
+
+    def test_staged_policy_drift_fails(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            codex, muse = _secrets(td)
+            chain = _fixture_chain(td, image_id="sha256:" + "b" * 64)
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = chain
+            bindir = T.make_fake_paseo(td / "bindir", effort="max")
+            wit = td / "witness.jsonl"
+            wit.write_text("")
+            calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
+                                "bindir": str(bindir), "witness_host": str(wit)}
+            with T.LocalCodexServer(mode="ok") as srv:
+                base = T.make_fake_docker(digest=REAL_OCI_DIGEST, image_id="sha256:" + "b" * 64,
+                                          calls=calls, state=state, server_base=srv.base,
+                                          codex_secret_host=codex, muse_secret_host=muse)
+
+                drifted = {"done": False}
+
+                def wrapped(argv, timeout=300, check=True):
+                    if argv[:2] == ["docker", "exec"] and "file-readback" in argv[-1] and not drifted["done"]:
+                        pol = Path(state["work"] + "/home/.pi/agent/policies/llm-test-policy.json")
+                        doc = json.loads(pol.read_text())
+                        doc["unbound_synthetic_field"] = True
+                        pol.write_text(json.dumps(doc))
+                        pol.chmod(0o666)
+                        drifted["done"] = True
+                    return base(argv, timeout=timeout, check=check)
+
+                with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                     mock.patch.object(V.os, "chown"), \
+                     mock.patch.object(V, "run", side_effect=wrapped):
+                    res = V.validate(
+                        repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
+                        output=td / "o.json", state_root=td / "st", execution_class="real",
+                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        candidate_file=cand_file, handoff_file=handoff_file,
+                        build_input_file=build_input_file, tested_image_file=tested_file,
+                        build_record=build_record_file, publication_file=publication_file,
+                        codex_secret=codex, codex_base_url=srv.base, codex_model="m",
+                        muse_secret=muse)
+            self.assertEqual(res["status"], "FAIL")
+            self.assertFalse(res["real_validation_satisfied"])
+
+    def test_replacement_after_observation_blocks_all_later_execs(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            codex, muse = _secrets(td)
+            chain = _fixture_chain(td, image_id="sha256:" + "b" * 64)
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = chain
+            bindir = T.make_fake_paseo(td / "bindir", effort="max")
+            wit = td / "witness.jsonl"
+            wit.write_text("")
+            calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
+                                "bindir": str(bindir), "witness_host": str(wit)}
+            with T.LocalCodexServer(mode="ok") as srv:
+                base = T.make_fake_docker(digest=REAL_OCI_DIGEST, image_id="sha256:" + "b" * 64,
+                                          calls=calls, state=state, server_base=srv.base,
+                                          codex_secret_host=codex, muse_secret_host=muse)
+
+                def wrapped(argv, timeout=300, check=True):
+                    if argv[:2] == ["docker", "exec"] and state.get("replaced_id"):
+                        state["post_replacement_execs"] = state.get("post_replacement_execs", 0) + 1
+                    result = base(argv, timeout=timeout, check=check)
+                    if argv[:2] == ["docker", "exec"] and argv[-2:] == ["pi", "--version"]:
+                        state["replaced_id"] = "different-foreign-object"
+                    return result
+
+                with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                     mock.patch.object(V.os, "chown"), \
+                     mock.patch.object(V, "run", side_effect=wrapped):
+                    res = V.validate(
+                        repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
+                        output=td / "o.json", state_root=td / "st", execution_class="real",
+                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        candidate_file=cand_file, handoff_file=handoff_file,
+                        build_input_file=build_input_file, tested_image_file=tested_file,
+                        build_record=build_record_file, publication_file=publication_file,
+                        codex_secret=codex, codex_base_url=srv.base, codex_model="m",
+                        muse_secret=muse)
+            self.assertIn(res["status"], ("FAIL", "BLOCKED"))
+            self.assertFalse(res["real_validation_satisfied"])
+            # Execs after replacement are blocked by per-exec ID verification:
+            # the foreign object receives zero successful execs and no rm.
+            self.assertEqual(sum(1 for c in calls if c[:2] == ["docker", "rm"]), 0)
+
+    def test_foreign_secret_source_fails_ownership(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            codex, muse = _secrets(td)
+            chain = _fixture_chain(td, image_id="sha256:" + "b" * 64)
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = chain
+            bindir = T.make_fake_paseo(td / "bindir", effort="max")
+            wit = td / "witness.jsonl"
+            wit.write_text("")
+            calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
+                                "bindir": str(bindir), "witness_host": str(wit)}
+            other = td / "different-operator-input.env"
+            other.write_text("CODEX_LB_API_KEY=other-synthetic\n")
+            other.chmod(0o600)
+            with T.LocalCodexServer(mode="ok") as srv:
+                base = T.make_fake_docker(digest=REAL_OCI_DIGEST, image_id="sha256:" + "b" * 64,
+                                          calls=calls, state=state, server_base=srv.base,
+                                          codex_secret_host=codex, muse_secret_host=muse)
+
+                def wrapped(argv, timeout=300, check=True):
+                    result = base(argv, timeout=timeout, check=check)
+                    if argv[:2] == ["docker", "inspect"] and state.get("ran") and result.returncode == 0:
+                        docs = json.loads(result.stdout)
+                        for mnt in docs[0]["Mounts"]:
+                            if mnt["Destination"] in (V.CODEX_SECRET_TARGET, V.MUSE_SECRET_TARGET):
+                                mnt["Source"] = str(other)
+                        result.stdout = json.dumps(docs)
+                    return result
+
+                with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                     mock.patch.object(V.os, "chown"), \
+                     mock.patch.object(V, "run", side_effect=wrapped):
+                    res = V.validate(
+                        repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
+                        output=td / "o.json", state_root=td / "st", execution_class="real",
+                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        candidate_file=cand_file, handoff_file=handoff_file,
+                        build_input_file=build_input_file, tested_image_file=tested_file,
+                        build_record=build_record_file, publication_file=publication_file,
+                        codex_secret=codex, codex_base_url=srv.base, codex_model="m",
+                        muse_secret=muse)
+            self.assertIn(res["status"], ("FAIL", "BLOCKED"))
+            self.assertFalse(res["real_validation_satisfied"])
+            self.assertEqual(sum(1 for c in calls if "guarded-dispatch" in " ".join(c)), 0)
+
+    def test_replaced_network_id_is_never_removed(self):
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            codex, muse = _secrets(td)
+            chain = _fixture_chain(td, image_id="sha256:" + "b" * 64)
+            cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = chain
+            bindir = T.make_fake_paseo(td / "bindir", effort="max")
+            wit = td / "witness.jsonl"
+            wit.write_text("")
+            calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
+                                "bindir": str(bindir), "witness_host": str(wit),
+                                "replaced_network_id": "different-foreign-network"}
+            with T.LocalCodexServer(mode="ok") as srv:
+                base = T.make_fake_docker(digest=REAL_OCI_DIGEST, image_id="sha256:" + "b" * 64,
+                                          calls=calls, state=state, server_base=srv.base,
+                                          codex_secret_host=codex, muse_secret_host=muse)
+                with mock.patch.object(V.shutil, "which", return_value="/usr/bin/docker"), \
+                     mock.patch.object(V.os, "chown"), \
+                     mock.patch.object(V, "run", side_effect=base):
+                    res = V.validate(
+                        repository=REAL_REPOSITORY, digest=REAL_OCI_DIGEST,
+                        output=td / "o.json", state_root=td / "st", execution_class="real",
+                        source_root=ROOT, companion_bundle=_companion_arg(),
+                        candidate_file=cand_file, handoff_file=handoff_file,
+                        build_input_file=build_input_file, tested_image_file=tested_file,
+                        build_record=build_record_file, publication_file=publication_file,
+                        codex_secret=codex, codex_base_url=srv.base, codex_model="m",
+                        muse_secret=muse)
+            self.assertFalse(res["real_validation_satisfied"])
+            self.assertIn(res["status"], ("FAIL", "BLOCKED"))
+            self.assertEqual(sum(1 for c in calls if c[:2] == ["docker", "exec"]), 0)
+            rms = [c for c in calls if c[:2] == ["docker", "network", "rm"]]
+            self.assertEqual(rms, [])
+
+    def test_nonnumeric_endpoint_and_pseudo_pi_path(self):
+        # 127.attacker.invalid is not an IP literal: rejected without DNS.
+        with self.assertRaises(A.AdapterError):
+            A._require_candidate_local_endpoint("127.attacker.invalid:9")
+        # A well-formed absolute Pi path passes the structural predicate;
+        # it is recorded as observed-not-proven (binding comes from the
+        # bring-up/version/agent-inspect chain, never the string alone).
+        A._require_candidate_local_pi_path("/operator/providers/pi")
+        with self.assertRaises(A.AdapterError):
+            A._require_candidate_local_pi_path("/foreign/provider/pi")
+        # Remote daemon + foreign Pi through the genuine entrypoint FAILS.
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            with T.LocalCodexServer(mode="ok") as srv:
+                res, calls, _ = _run_validate(
+                    td, server_base=srv.base, execution_class="real",
+                    daemon_json={"home": "/home/paseo/.paseo", "listen": "203.0.113.10:9999",
+                               "pid": None, "daemonVersion": T.REAL_PASEO,
+                               "localDaemon": "stopped", "connectedDaemon": "unreachable"},
+                    pi_path="/foreign/provider/pi")
+            self.assertEqual(res["status"], "FAIL")
+            self.assertFalse(res["real_validation_satisfied"])
+            self.assertEqual(sum(1 for c in calls if "guarded-dispatch" in " ".join(c)), 0)
+
+    def test_clamped_agent_inspect_fails_despite_witness(self):
+        # Agent-side effective downgrade fails even when the witness agreed:
+        # the owned-child inspection is an independent corroboration.
+        with tempfile.TemporaryDirectory() as td:
+            td = Path(td)
+            with T.LocalCodexServer(mode="ok") as srv:
+                res, _, _ = _run_validate(td, server_base=srv.base,
+                                          execution_class="real",
+                                          agent_thinking="xhigh")
+            self.assertEqual(res["status"], "FAIL")
+            self.assertFalse(res["real_validation_satisfied"])
+
+    def test_encoded_inference_redirect_reaches_nothing(self):
+        import http.server as _hs
+        import threading as _th
+        seen = []
+
+        class H(_hs.BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_GET(self):
+                if self.path == "/v1/models":
+                    self.send_response(302)
+                    self.send_header("Location", "/v1/%72esponses")
+                    self.end_headers()
+                    return
+                seen.append((self.path, bool(self.headers.get("Authorization"))))
+                body = b'{"data":[{"id":"fixture-model"}]}'
+                self.send_response(200)
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        server = _hs.HTTPServer(("127.0.0.1", 0), H)
+        _th.Thread(target=server.serve_forever, daemon=True).start()
+        try:
+            with tempfile.TemporaryDirectory() as td:
+                sec = Path(td) / "c.env"
+                sec.write_text("CODEX_LB_API_KEY=public-synthetic-nonsecret\n")
+                sec.chmod(0o600)
+                pr = subprocess.run(
+                    [sys.executable, str(ROOT / "scripts" / "paseo_codex_candidate_check.py"),
+                     "--mode", "catalog", "--secret-file", str(sec),
+                     "--base-url", f"http://127.0.0.1:{server.server_port}/v1"],
+                    env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
+                    capture_output=True, text=True, timeout=15)
+                self.assertNotEqual(pr.returncode, 0)
+                self.assertEqual(json.loads(pr.stdout)["status"], "FAIL")
+                self.assertEqual(seen, [])
+        finally:
+            server.shutdown()
+            server.server_close()
 
 
 if __name__ == "__main__":

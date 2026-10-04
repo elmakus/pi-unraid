@@ -35,10 +35,45 @@ if [ "$native_args" = true ]; then
   exit 0
 fi
 
+# M07-T05 candidate-correlation forwarding (nonsecret scoped env only).
+# Pinned Paseo 0.9.2 dist/commands/agent/run.js forwards ONLY parsed --env
+# (first-`=` split via parseKeyValueFlags) into createAgent.env; the CLI
+# process environment is NOT copied to the daemon/Pi agent process
+# (server createOptions.env -> agent-manager buildLaunchContext -> Pi
+# provider createSession -> buildPiLaunch argv/env -> Pi subprocess env).
+# Forward exactly these nonsecret correlation/pointer vars when present:
+#   M07_T05_TEST_ID / M07_T05_WITNESS_FILE (owned-test witness correlation),
+#   META_API_KEY_FILE (private-file pointer; NEVER the secret value).
+# Raw secret values are never forwarded. Ambient caller selectors are
+# scrubbed and an explicit local workspace is minted so a test never claims
+# a caller agent or foreign workspace.
+unset PASEO_AGENT_ID PASEO_WORKSPACE_ID
+validator_env=()
+for _m07_var in M07_T05_TEST_ID M07_T05_WITNESS_FILE META_API_KEY_FILE; do
+  _m07_val="${!_m07_var:-}"
+  [ -n "$_m07_val" ] || continue
+  case "$_m07_val" in
+    *$'\n'*|*"="*|*"--"*) echo "LLM test policy error: invalid validator env: $_m07_var" >&2; exit 3 ;;
+  esac
+  case "$_m07_val" in
+    /*|[A-Za-z0-9_][A-Za-z0-9_.-]*) ;;
+    *) echo "LLM test policy error: invalid validator env: $_m07_var" >&2; exit 3 ;;
+  esac
+  validator_env+=(--env "$_m07_var=$_m07_val")
+done
+# Correlate the owned agent by title when a test ID is present; the fixed
+# LLM-TEST:model:thinking title is otherwise unchanged.
+run_title="LLM-TEST:$model:$thinking"
+if [ -n "${M07_T05_TEST_ID:-}" ]; then
+  run_title="$run_title:${M07_T05_TEST_ID}"
+fi
+
 exec paseo run \
   --provider pi \
   --model "$provider/$model" \
   --thinking "$thinking" \
   --cwd "$cwd" \
-  --title "LLM-TEST:$model:$thinking" \
+  --new-workspace local \
+  --title "$run_title" \
+  ${validator_env[@]+"${validator_env[@]}"} \
   "$prompt"

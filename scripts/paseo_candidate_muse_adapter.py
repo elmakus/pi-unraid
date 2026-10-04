@@ -414,22 +414,27 @@ def muse_secret_mount_args(secret_resolved) -> list:
     return ["-v", f"{secret_resolved}:{MUSE_SECRET_TARGET}:ro"]
 
 
-LOADER_REL = Path("bin/m07-t05-meta-loader.sh")
+LOADER_REL = Path("bin/m07-t05-candidate-env.sh")
 
 
-def stage_meta_loader(dest: Path, *, guard_path: str = "/home/paseo/.pi/agent/bin/run-llm-test.sh") -> Path:
-    """Stage the candidate-local Meta auth loader (test-owned, ephemeral).
+def stage_candidate_env(dest: Path) -> Path:
+    """Stage the candidate-local env loader (test-owned, ephemeral).
 
-    Source-qualified mechanism: official ``pi-ai`` ``providers/meta.ts``
-    authenticates the Model API via ``envApiKeyAuth("Meta Model API key",
-    ["META_API_KEY"])`` — Pi reads the ``META_API_KEY`` environment
-    variable. The disposable candidate receives only the ``META_API_KEY_FILE``
-    pointer (read-only mount at ``/run/secrets/pi-unraid-meta``); this
-    loader reads the pointer INSIDE the candidate, exports ``META_API_KEY``
-    for the guard/Pi process, and execs the canonical guard PROMPT form.
-    The secret value never appears on host argv/env, in evidence, or in
-    logs; only synthetic files in M07-T05. Missing/unreadable/empty
-    pointer fails closed (exit 42) before any dispatch.
+    Supported mechanism: the Pi Meta provider authenticates via
+    ``envApiKeyAuth("Meta Model API key", ["META_API_KEY"])`` (pinned
+    ``pi-ai`` ``providers/meta.ts``), i.e. Pi reads ``META_API_KEY`` from
+    its process environment. The Pi subprocess environment is
+    ``{...daemon process env, ...createAgent.env}`` (pinned Paseo server
+    ``createExternalProcessEnv(baseEnv=daemon env, overlay=launch.env)``
+    via ``buildPiLaunch``/``JsonlRpcProcess``); ``createAgent.env`` carries
+    ONLY parsed ``--env`` (pinned ``run.js`` ``parseRunEnv``), so a raw key
+    value must NEVER travel ``--env``/argv. Instead the disposable
+    candidate receives the ``META_API_KEY_FILE`` pointer (read-only mount
+    at ``/run/secrets/pi-unraid-meta``); this loader reads the pointer
+    INSIDE the candidate, exports ``META_API_KEY`` for the child process it
+    execs (daemon bring-up or guard dispatch), and never logs the value.
+    Missing/unreadable/non-single/empty pointer fails closed (exit 42)
+    before any child runs. Only synthetic files in M07-T05.
     """
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -456,7 +461,7 @@ def stage_meta_loader(dest: Path, *, guard_path: str = "/home/paseo/.pi/agent/bi
         "if [ \"$count\" -ne 1 ]; then echo 'M07-T05 loader: credential must hold exactly one entry' >&2; exit 42; fi\n"
         "case \"$val\" in \"\"|*[[:space:]]*) echo 'M07-T05 loader: dedicated Muse credential is empty or invalid' >&2; exit 42 ;; esac\n"
         "export META_API_KEY=\"$val\"\n"
-        "exec \"" + guard_path + "\" \"$@\"\n",
+        "exec \"$@\"\n",
         encoding="utf-8",
     )
     try:
@@ -464,6 +469,16 @@ def stage_meta_loader(dest: Path, *, guard_path: str = "/home/paseo/.pi/agent/bi
     except OSError:
         pass
     return dest
+
+
+def stage_meta_loader(dest: Path, *, guard_path: str = "/home/paseo/.pi/agent/bin/run-llm-test.sh") -> Path:
+    """Backwards-compatible loader staging.
+
+    Stages :func:`stage_candidate_env` (generic ``exec "$@"`` form).
+    Callers pass the guard path plus prompt args explicitly at exec time.
+    The ``guard_path`` parameter is accepted and ignored. """
+    _ = guard_path
+    return stage_candidate_env(dest)
 
 
 # ---------------------------------------------------------------------------
@@ -487,8 +502,18 @@ def stage_witness_extension(dest: Path) -> Path:
     Records per event (JSONL): ``test_id`` (from ``M07_T05_TEST_ID``),
     ``model`` (``payload.model`` string), ``effort``
     (``payload.reasoning.effort`` fallback ``reasoningEffort``), ``status``
-    (response ``status`` or terminal ``stopReason``), ``kind``
-    (request/response/terminal). Nothing else is recorded.
+    (response ``status``, turn ``outcome``, or agent-end derived
+    stopReason), ``kind`` (request/response/terminal). Nothing else.
+
+    Pinned terminal semantics (pi 0.87.1 ``agent-session.js`` + extension
+    docs): ``turn_end`` carries the qualified ``outcome``
+    (``completed``|``aborted``|``error`` mapped from the assistant
+    ``stopReason``); ``agent_end`` carries ``messages`` only (a low-level
+    run end — recovery/queued work may follow), so the observer derives
+    ``aborted``/``error`` by scanning message ``stopReason`` and records
+    ``done`` otherwise; ``agent_settled`` is final but notification-only
+    (no success outcome) and is recorded as neutral ``settled``. A later
+    ``settled`` must never overwrite a known aborted/error terminal.
     """
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -516,11 +541,21 @@ def stage_witness_extension(dest: Path) -> Path:
         "  ctx.on('after_provider_response', (ev) => {\n"
         "    try { emit({kind:'response', status: ev.status}); } catch {}\n"
         "  });\n"
+        "  ctx.on('turn_end', (ev) => {\n"
+        "    try { emit({kind:'terminal', status: (ev && ev.outcome) || 'unknown'}); } catch {}\n"
+        "  });\n"
         "  ctx.on('agent_end', (ev) => {\n"
-        "    try { emit({kind:'terminal', status:'done'}); } catch {}\n"
+        "    try {\n"
+        "      let neg = false;\n"
+        "      const msgs = (ev && ev.messages) || [];\n"
+        "      for (const m of msgs) {\n"
+        "        if (m && (m.stopReason === 'aborted' || m.stopReason === 'error')) { neg = true; break; }\n"
+        "      }\n"
+        "      emit({kind:'terminal', status: neg ? 'aborted' : 'done'});\n"
+        "    } catch {}\n"
         "  });\n"
         "  ctx.on('agent_settled', (ev) => {\n"
-        "    try { emit({kind:'terminal', status:'done'}); } catch {}\n"
+        "    try { emit({kind:'terminal', status:'settled'}); } catch {}\n"
         "  });\n"
         "}\n",
         encoding="utf-8",
@@ -614,9 +649,12 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
     ``{provider, model, thinking}`` with thinking = on-wire effort.
     Rules: no request event → UNKNOWN; model mismatch vs expected →
     FAIL (wrong subject); effort != max → FAIL (clamp proven); response
-    status missing/non-2xx → FAIL/UNKNOWN (no success); terminal event
-    missing → UNKNOWN (occurrence uncertain, no resend); contradictory
-    efforts across request events → FAIL (forged witness).
+    missing → UNKNOWN; response non-numeric or non-2xx → FAIL (malformed
+    status cannot prove successful HTTP/provider execution); any aborted/
+    error terminal → FAIL and a later settled notification never overwrites
+    it; settled-only (or otherwise non-success terminal) → UNKNOWN;
+    terminal missing → UNKNOWN (occurrence uncertain, no resend);
+    contradictory efforts across request events → FAIL (forged witness).
     """
     reqs = [e for e in events if e.get("kind") == "request" and e.get("test_id") == test_id]
     resps = [e for e in events if e.get("kind") == "response" and e.get("test_id") == test_id]
@@ -651,20 +689,31 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
         statuses = [int(str(e.get("status", "")).strip()) for e in resps if str(e.get("status", "")).strip().isdigit()]
     except (ValueError, TypeError):
         statuses = []
-    if statuses and not any(200 <= s < 300 for s in statuses):
+    if not statuses:
+        # Non-numeric statuses (e.g. 'garbage'/'ok') are recorded but can
+        # never prove successful HTTP/provider execution: FAIL, not UNKNOWN.
+        return {"gate": "FAIL", "observed": observed,
+                "reason": "witness response status is not valid typed HTTP success", "replay": False}
+    if not any(200 <= s < 300 for s in statuses):
         return {"gate": "FAIL", "observed": observed,
                 "reason": f"witness response not successful: {statuses}", "replay": False}
-    if not statuses:
-        # Non-numeric statuses (e.g. 'ok') are recorded but cannot prove HTTP
-        # success; require the terminal event for completion.
-        pass
     if not terms:
         return {"gate": "UNKNOWN", "observed": observed,
                 "reason": "witness terminal missing; occurrence uncertain, no resend", "replay": False}
-    last_term = terms[-1].get("status", "")
-    if last_term not in ("done", "completed", "success", "idle", "0"):
+    term_statuses = [t.get("status", "") for t in terms]
+    if any(s in ("aborted", "error") for s in term_statuses):
+        # Pinned agent-session.js maps assistant stopReason aborted/error to
+        # the turn_end outcome; a known negative completion is terminal and
+        # a later agent_settled notification (status 'settled', no outcome)
+        # never overwrites it.
         return {"gate": "FAIL", "observed": observed,
-                "reason": f"witness terminal not successful: {last_term!r}", "replay": False}
+                "reason": "witness terminal reports aborted/error completion", "replay": False}
+    if not any(s in ("done", "completed", "success") for s in term_statuses):
+        # Settled-only or other non-success terminals prove settlement at
+        # most, never successful inference: occurrence stays UNKNOWN.
+        return {"gate": "UNKNOWN", "observed": observed,
+                "reason": "witness terminal is not qualified success; occurrence uncertain, no resend",
+                "replay": False}
     return {"gate": "PASS", "observed": observed,
             "reason": "request+response+terminal aggregated for owned test", "replay": False}
 
@@ -679,12 +728,16 @@ def classify_aggregated_witness(events: list, *, test_id: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def _require_candidate_local_endpoint(endpoint: str) -> str:
-    """Require a candidate-local daemon endpoint (loopback, never remote).
+    """Require a candidate-local daemon endpoint (loopback IP, never remote).
 
-    The candidate daemon runs inside the disposable candidate namespace;
-    its listen endpoint must be loopback (127.x/::1/localhost). A remote
-    address (e.g. documentation TEST-NET-3 203.0.113.10) proves the
-    observation belongs to another daemon and fails closed. """
+    The candidate daemon runs inside the disposable candidate namespace.
+    Only IP-literal loopback (127.0.0.0/8, ::1), the name ``localhost``, or
+    a wildcard bind (0.0.0.0/::) inside the candidate netns is accepted.
+    Any other DNS name or address — including strings that merely START
+    with ``127.`` but are not IP literals (e.g. ``127.attacker.invalid``,
+    which DNS-resolves elsewhere) — fails closed. No DNS/network lookup is
+    performed; non-literal names other than localhost are rejected. """
+    import ipaddress as _ip
     host = endpoint.strip()
     # Strip scheme if present, then take host before ':' or '/'.
     if "://" in host:
@@ -692,28 +745,40 @@ def _require_candidate_local_endpoint(endpoint: str) -> str:
     host = host.split("/", 1)[0].split(":", 1)[0].strip().lower().strip("[]")
     if not host:
         raise AdapterError("daemon endpoint host is missing")
-    loopback = (
-        host in ("localhost", "::1")
-        or host.startswith("127.")
-        or host in ("0.0.0.0", "::")  # wildcard bind inside the candidate netns
-    )
-    if not loopback:
+    if host == "localhost":
+        return endpoint
+    try:
+        addr = _ip.ip_address(host)
+    except ValueError:
+        raise AdapterError(f"daemon endpoint host is not a loopback IP literal: {endpoint!r}") from None
+    if not (addr.is_loopback or str(addr) in ("0.0.0.0", "::")):
         raise AdapterError(f"daemon endpoint is not candidate-local: {endpoint!r}")
     return endpoint
 
 
 def _require_candidate_local_pi_path(path: str) -> str:
-    """Require a candidate-local Pi executable path (never foreign).
+    """Require a plausible candidate-local Pi executable path.
 
-    The Pi that runs must resolve inside the candidate (candidate HOME,
-    candidate agent bindir, or the container system path). A foreign
-    provider path proves the observation belongs to another runtime. """
+    This predicate alone is NOT executable provenance: it rejects malformed
+    or keyword-shaped pseudo-paths (``..`` escapes, non-absolute paths,
+    names that merely contain ``pi`` such as ``/operator/providers/pi``
+    without any binding to the observed daemon), but a well-formed path
+    proves nothing by itself. Real binding comes from the bring-up Plus
+    observation chain: the daemon is started inside the candidate from a
+    controlled environment, ``command -v pi`` resolves through the
+    candidate ``PATH``, ``pi --version`` matches the frozen candidate, and
+    ``paseo agent inspect`` confirms provider/model/effective profile for
+    the owned child. """
     if not path.startswith("/"):
         raise AdapterError(f"candidate Pi path is not absolute: {path!r}")
+    parts = [p for p in path.split("/") if p]
+    if not parts or ".." in parts or "." in parts:
+        raise AdapterError(f"candidate Pi path escapes its root: {path!r}")
     low = path.lower()
-    if "foreign" in low or ".." in path.split("/"):
+    if "foreign" in low:
         raise AdapterError(f"candidate Pi path is not candidate-local: {path!r}")
-    if "pi" not in low and "paseo" not in low:
+    base = parts[-1].lower()
+    if base not in ("pi", "pi.exe") and not base.startswith("pi-"):
         raise AdapterError(f"candidate Pi path is not a Pi executable: {path!r}")
     return path
 
@@ -793,6 +858,115 @@ def observe_pi_version(exec_run, *, expected_version: str) -> dict:
     return {"path": path, "version": out}
 
 
+def ensure_candidate_daemon(exec_run, *, candidate_home: str, expected_version: str,
+                            env_loader: str | None = None,
+                            meta_pointer: str | None = None) -> dict:
+    """Bring up the candidate-local daemon (idempotent) and observe it.
+
+    Source-qualified bring-up (pinned Paseo 0.9.2
+    ``dist/commands/daemon/start.js``): ``paseo daemon start --home
+    <candidate-home>`` starts the local daemon from persistent
+    configuration, returning ``started`` or ``already_running`` with
+    ``pid``/``listen``. When ``env_loader``/``meta_pointer`` are supplied,
+    the start runs under the staged candidate-env loader, so the daemon
+    process inherits ``META_API_KEY`` (read in-candidate from the private
+    pointer file) plus the controlled container environment — the
+    supported route by which the actual daemon-selected Pi subprocess
+    receives Meta auth (pinned server ``createExternalProcessEnv(daemon
+    env, launch.env)``; ``META_API_KEY`` is not a runtime-control key).
+    The raw value never travels argv/``--env``/evidence. Afterwards the
+    daemon is observed via :func:`observe_daemon_status` (same strict
+    binding); a start that leaves the daemon unobservable fails closed.
+    """
+    start_argv = ["paseo", "daemon", "start", "--home", candidate_home]
+    if env_loader and meta_pointer:
+        start_argv = ["bash", "-c",
+                      f"daemon-bringup; META_API_KEY_FILE={meta_pointer} "
+                      f"bash {env_loader} paseo daemon start --home {candidate_home}"]
+    proc = exec_run(start_argv, timeout=120)
+    if getattr(proc, "returncode", 1) != 0:
+        # A failed start with an already-running daemon is benign; the
+        # observation below decides. Anything else fails closed there too.
+        pass
+    return observe_daemon_status(exec_run, candidate_home=candidate_home,
+                                 expected_version=expected_version)
+
+
+def inspect_owned_agent(exec_run, *, candidate_home: str, expected_title: str,
+                        expected_model: str = FIXED_MODEL,
+                        expected_thinking: str = FIXED_THINKING) -> dict:
+    """Inspect the owned dispatched child via supported agent commands.
+
+    Source-qualified inspection (pinned Paseo 0.9.2): ``paseo agent ls
+    --json --home`` lists ``{id, name(title), provider, thinking(effective),
+    status, ...}``; ``paseo agent inspect <id> --json --home`` returns the
+    full snapshot including ``Model`` (runtime model), ``Thinking``
+    (``effectiveThinkingOptionId`` — the EFFECTIVE profile observation),
+    ``Status``, ``Cwd``, ``ParentAgentId`` and ``LastUsage`` token/cost
+    proof. The owned child is the exactly-one agent whose title equals the
+    dispatched correlation title; zero or multiple matches fail closed
+    (missing/ambiguous child is never borrowed). Model must contain the
+    fixed model, effective thinking must equal ``max`` (a clamp/downgrade
+    observed here fails even when the witness agreed), and usage must show
+    consumed tokens (a smoke that consumed nothing proves no inference).
+    """
+    proc = exec_run(["paseo", "agent", "ls", "--json", "--home", candidate_home],
+                    timeout=30)
+    if getattr(proc, "returncode", 1) != 0:
+        raise AdapterBlocked("candidate agent list unavailable")
+    try:
+        agents = json.loads((getattr(proc, "stdout", "") or "").strip())
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise AdapterError("candidate agent list malformed") from exc
+    if isinstance(agents, dict):
+        agents = agents.get("agents") or agents.get("data") or []
+    if not isinstance(agents, list):
+        raise AdapterError("candidate agent list malformed")
+    owned = [a for a in agents
+             if isinstance(a, dict) and (a.get("name") or a.get("title")) == expected_title]
+    if len(owned) != 1:
+        raise AdapterError(
+            f"owned dispatched child not uniquely observable: {len(owned)} matches")
+    agent_id = owned[0].get("id")
+    if not agent_id:
+        raise AdapterError("owned dispatched child lacks an identity")
+    iproc = exec_run(["paseo", "agent", "inspect", str(agent_id),
+                      "--json", "--home", candidate_home], timeout=30)
+    if getattr(iproc, "returncode", 1) != 0:
+        raise AdapterBlocked("owned dispatched child inspection unavailable")
+    try:
+        doc = json.loads((getattr(iproc, "stdout", "") or "").strip())
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise AdapterError("owned child inspection malformed") from exc
+    if isinstance(doc, list):
+        doc = doc[0] if doc else {}
+    if not isinstance(doc, dict):
+        raise AdapterError("owned child inspection malformed")
+    if str(doc.get("Id") or doc.get("id") or "") != str(agent_id) and \
+            not str(agent_id).startswith(str(doc.get("Id") or doc.get("id") or "_")):
+        raise AdapterError("owned child identity mismatch on inspection")
+    if str(doc.get("Provider") or doc.get("provider") or "") != "pi":
+        raise AdapterError("owned child is not a Pi agent")
+    model = str(doc.get("Model") or doc.get("model") or "")
+    if expected_model not in model:
+        raise AdapterError(f"owned child model mismatch: {model!r}")
+    thinking = str(doc.get("Thinking") or doc.get("thinking") or "")
+    if thinking != expected_thinking:
+        raise AdapterError(f"owned child effective thinking is not max: {thinking!r}")
+    status = str(doc.get("Status") or doc.get("status") or "")
+    if status.lower() not in ("completed", "idle", "done", "success"):
+        raise AdapterError(f"owned child status is not successful: {status!r}")
+    usage = doc.get("LastUsage") or doc.get("lastUsage") or {}
+    try:
+        consumed = int(usage.get("InputTokens", 0)) + int(usage.get("OutputTokens", 0))
+    except (ValueError, TypeError, AttributeError):
+        consumed = 0
+    if consumed <= 0:
+        raise AdapterError("owned child consumed no tokens; inference unproven")
+    return {"id": str(agent_id), "provider": "pi", "model": model,
+            "thinking": thinking, "status": status, "tokens": consumed}
+
+
 def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cwd: str,
                           bindir: Path, test_id: str, witness_file: Path,
                           meta_secret_file: Path | None = None, timeout: int = 120) -> dict:
@@ -804,7 +978,7 @@ def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cw
     test-owned ``bindir`` (fake ``paseo`` records dispatch + witness, never
     real inference), ``M07_T05_TEST_ID``/``M07_T05_WITNESS_FILE`` correlation,
     and ``META_API_KEY_FILE`` pointer (never the secret value). The staged
-    :func:`stage_meta_loader` wrapper reads the pointer and exports
+    :func:`stage_candidate_env` loader reads the pointer and exports
     ``META_API_KEY`` for the guard/Pi process — the same loader bytes the
     validator stages into the candidate. Snapshots dispatch + witness events
     BEFORE temp cleanup. Timeout → UNKNOWN snapshot with ``replay: False``
@@ -833,19 +1007,23 @@ def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cw
         (agent / "policies" / "llm-test-policy.json").write_bytes(src_policy.read_bytes())
         witness_file = Path(witness_file)
         witness_file.parent.mkdir(parents=True, exist_ok=True)
-        loader = stage_meta_loader(agent / "bin" / "m07-t05-meta-loader.sh",
-                                   guard_path=str(launcher))
+        loader = stage_candidate_env(agent / "bin" / "m07-t05-candidate-env.sh")
+        # Local dispatch-argv capture: the shell fake records its argv here
+        # (no Pi/daemon exists locally, so no witness events occur; dispatch
+        # means the guard executed `paseo run` with the transmitted contract).
+        argv_marker = tmp_p / "dispatch-argv.txt"
         env = {
             "PATH": str(bindir),
             "M07_T05_TEST_ID": test_id,
             "M07_T05_WITNESS_FILE": str(witness_file),
+            "DISPATCH_MARKER": str(argv_marker),
         }
         if meta_secret_file is not None:
             # Pointer only; the staged loader reads the value inside the
             # (here local-simulated) candidate boundary and exports it.
             env[MUSE_SECRET_POINTER_ENV] = str(meta_secret_file)
         try:
-            proc = subprocess.run(["bash", str(loader), prompt, cwd], env=env, text=True,
+            proc = subprocess.run(["bash", str(loader), str(launcher), prompt, cwd], env=env, text=True,
                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                   timeout=timeout, check=False)
         except subprocess.TimeoutExpired:
@@ -857,13 +1035,20 @@ def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cw
             return {"returncode": None, "timeout": False, "dispatched": False,
                     "events": [], "replay": False, "stderr": f"guard unavailable: {exc}"}
         events = load_witness_events(witness_file, test_id)
-        dispatched = proc.returncode == 0 and bool([e for e in events if e.get("kind") == "request"])
+        try:
+            recorded = argv_marker.read_text(encoding="utf-8").splitlines()
+        except OSError:
+            recorded = []
+        # Local dispatch = guard exit 0 AND the shell fake recorded a `run`
+        # invocation (it parses --env and enforces loader auth itself).
+        dispatched = proc.returncode == 0 and bool(recorded) and recorded[0] == "run"
         return {
             "returncode": proc.returncode,
             "timeout": False,
             "stderr": proc.stderr[-2000:] if proc.stderr else "",
             "stdout": proc.stdout[-2000:] if proc.stdout else "",
             "dispatched": dispatched,
+            "dispatch_argv": recorded,
             "events": events,
             "replay": False,
         }

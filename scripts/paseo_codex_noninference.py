@@ -73,8 +73,9 @@ def validate_base_url(value) -> str:
     norm = v.rstrip("/")
     if not norm.endswith(REQUIRED_BASE_SUFFIX):
         raise CodexError("Codex-LB base URL must end in /v1")
-    # Reject inference-shaped base URLs (must be a catalog root, not an endpoint).
-    low = norm.lower()
+    # Reject inference-shaped base URLs on the NORMALIZED form (must be a
+    # catalog root, not an endpoint, encoded or not).
+    low = _normalized_url(norm).lower()
     for sub in INFERENCE_SUBSTRINGS:
         if sub in low:
             raise CodexError("Codex-LB base URL must not point at an inference endpoint")
@@ -91,8 +92,28 @@ def validate_model_id(value) -> str:
     return value
 
 
+def _normalized_url(url: str) -> str:
+    """Normalize a URL for safety checks: percent-decode, case-fold scheme/host.
+
+    Percent-encoded inference destinations (e.g. ``/v1/%72esponses`` for
+    ``/v1/responses``) must be rejected BEFORE any network effect, so every
+    safety predicate below runs on the decoded form. Decoding is applied
+    repeatedly (bounded) to defeat double-encoding. """
+    try:
+        from urllib.parse import unquote
+    except ImportError:  # pragma: no cover
+        return url
+    norm = url
+    for _ in range(3):
+        nxt = unquote(norm)
+        if nxt == norm:
+            break
+        norm = nxt
+    return norm
+
+
 def assert_no_inference_url(url: str) -> None:
-    low = url.lower()
+    low = _normalized_url(url).lower()
     for sub in INFERENCE_SUBSTRINGS:
         if sub in low:
             raise CodexError(f"inference endpoint is forbidden for non-inference checks: {sub}")
@@ -208,6 +229,16 @@ def assert_safe_redirect(from_url: str, to_url: str) -> None:
     if parsed.username or parsed.password or parsed.query or parsed.fragment:
         raise CodexError("Codex-LB redirect target must not carry credentials/query/fragment")
     assert_no_inference_url(to_url)
+    # Supported destinations only: the redirect target path must be a
+    # non-inference API path under the same origin (catalog/health style),
+    # matched on the NORMALIZED path. Anything else fails closed.
+    try:
+        target_path = _normalized_url(to_url).split("?", 1)[0].split("#", 1)[0]
+        target_path = urlsplit(target_path).path or "/"
+    except ValueError as exc:
+        raise CodexError("Codex-LB redirect target is not a valid URL") from exc
+    if not target_path.startswith("/v1/") and target_path != "/health":
+        raise CodexError("Codex-LB redirect target is not a supported non-inference destination")
     # Same-origin only: scheme/host/port must match the request origin.
     # A cross-port (or scheme/host) redirect is a foreign origin and fails
     # closed before any network effect with credentials.
