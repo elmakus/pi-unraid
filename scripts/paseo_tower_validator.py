@@ -281,13 +281,13 @@ EXPECTED_MOUNT_PAIRS = (
 def _container_owned(obj: dict, work: Path, network: str, *,
                      expected_image_id: str, expected_nonce: str,
                      expected_container_id: str | None = None,
-                     expected_secret_sources: dict | None = None) -> bool:
+                     expected_secret_sources: dict | None = None,
+                     expected_user: str = "99:100") -> bool:
     """Exact acquisition+current ownership: Id, Image, nonce label, network,
     exact source→destination/mode pairs. All required, no exceptions.
 
     When expected_container_id is supplied (post-acquisition boundaries),
-    the live object Id must equal the acquired ID (exact or unambiguous
-    prefix in either direction); a replaced container with preserved
+    the live object Id must equal the full acquired ID; a replaced container with preserved
     mounts/nonce but a different Id is foreign and fails.
 
     When expected_secret_sources maps a secret destination to its exact
@@ -301,11 +301,21 @@ def _container_owned(obj: dict, work: Path, network: str, *,
             want = str(expected_container_id or "")
             if not live or not want:
                 return False
-            if not (live == want or live.startswith(want) or want.startswith(live)):
+            if live != want:
                 return False
         host = obj.get("HostConfig") or {}
         if host.get("NetworkMode") != network:
             return False
+        if (obj.get("Config") or {}).get("User") != expected_user:
+            return False
+        if host.get("ReadonlyRootfs") is not True:
+            return False
+        tmpfs = host.get("Tmpfs")
+        if not isinstance(tmpfs, dict) or set(tmpfs) != {"/tmp", "/run"}:
+            return False
+        for options in tmpfs.values():
+            if not isinstance(options, str) or not {"rw", "nosuid", "nodev"}.issubset(set(options.split(","))):
+                return False
         # Actual running image must be the pulled local image ID. No fallback
         # to Config.Image/registry ref: a missing Image field fails.
         if not obj.get("Image") or obj.get("Image") != expected_image_id:
@@ -316,7 +326,14 @@ def _container_owned(obj: dict, work: Path, network: str, *,
         mounts = obj.get("Mounts") or []
         if not mounts:
             return False
+        if any(not isinstance(m, dict) or m.get("Type") != "bind" for m in mounts):
+            return False
         by_dest = {m.get("Destination"): m for m in mounts}
+        if len(by_dest) != len(mounts):
+            return False
+        required_destinations = {d for _, d in EXPECTED_MOUNT_PAIRS} | set(expected_secret_sources or {})
+        if set(by_dest) != required_destinations:
+            return False
         w = work.resolve()
         for sub, dest in EXPECTED_MOUNT_PAIRS:
             m = by_dest.get(dest)
@@ -363,7 +380,7 @@ def _network_owned(net_obj: dict, *, expected_nonce: str,
             want = str(expected_network_id or "")
             if not live or not want:
                 return False
-            if not (live == want or live.startswith(want) or want.startswith(live)):
+            if live != want:
                 return False
         return True
     except Exception:
@@ -454,6 +471,10 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             raise ValidationBlocked(
                 "real validation requires candidate + handoff + build-input + "
                 "tested-image + build record + publication records")
+        if real_mode and companion_bundle is None:
+            if not isinstance(build_input, dict) or not isinstance(build_input.get("companion_bundle"), dict):
+                raise ValidationBlocked("frozen companion declaration required")
+            companion_bundle = build_input["companion_bundle"]
         candidate_id = None
         candidate_raw = None
         handoff_raw = None
@@ -529,15 +550,16 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             result["subject"]["publication_image_id"] = publication.get("image_id")
             # Publication byte claims are verified against actual record bytes:
             # forged hashes fail closed even when linkage fields match.
-            if candidate_raw is not None and publication.get("candidate_file_sha256") not in (
-                    None, result["subject"].get("candidate_file_sha256")):
+            if candidate_raw is not None and publication.get("candidate_file_sha256") != result["subject"].get("candidate_file_sha256"):
                 raise ValidationError("publication candidate hash mismatch vs candidate bytes")
-            if handoff_raw is not None and publication.get("handoff_evidence_sha256") not in (
-                    None, "sha256:" + hashlib.sha256(handoff_raw).hexdigest()):
+            if handoff_raw is not None and publication.get("handoff_evidence_sha256") != "sha256:" + hashlib.sha256(handoff_raw).hexdigest():
                 raise ValidationError("publication handoff hash mismatch vs handoff bytes")
-            if build_rec_raw is not None and publication.get("build_record_sha256") not in (
-                    None, "sha256:" + hashlib.sha256(build_rec_raw).hexdigest()):
+            if build_rec_raw is not None and publication.get("build_record_sha256") != "sha256:" + hashlib.sha256(build_rec_raw).hexdigest():
                 raise ValidationError("publication build-record hash mismatch vs build bytes")
+            if tested_image_file is not None:
+                tested_hash = "sha256:" + hashlib.sha256(Path(tested_image_file).read_bytes()).hexdigest()
+                if publication.get("tested_image_evidence_sha256") != tested_hash:
+                    raise ValidationError("publication tested-image byte digest mismatch")
             if build_input is not None and publication.get("source_head") != build_input.get("source_head"):
                 raise ValidationError("publication source-head mismatch vs prepared record")
             if handoff is not None:
@@ -568,10 +590,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if handoff_raw is not None:
                 expect_hfs = "sha256:" + hashlib.sha256(handoff_raw).hexdigest()
                 for rec, what in ((build_input, "build-input"), (tested, "tested-image")):
-                    if isinstance(rec, dict) and rec.get("handoff_evidence_sha256") not in (None, expect_hfs):
+                    if isinstance(rec, dict) and rec.get("handoff_evidence_sha256") != expect_hfs:
                         raise ValidationError(f"{what} handoff byte digest mismatch vs handoff evidence")
-            if candidate_raw is not None and handoff.get("candidate_file_sha256") not in (
-                    None, result["subject"].get("candidate_file_sha256")):
+            if candidate_raw is not None and handoff.get("candidate_file_sha256") != result["subject"].get("candidate_file_sha256"):
                 raise ValidationError("handoff candidate byte digest mismatch vs candidate file")
         for rec, what in ((build_input, "build-input"), (tested, "tested-image")):
             if rec is None:
@@ -581,7 +602,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if candidate_id is not None and rec.get("candidate_id") != candidate_id:
                 raise ValidationError(f"{what} candidate_id mismatch vs candidate file")
             cfs = rec.get("candidate_file_sha256")
-            if candidate_raw is not None and cfs is not None and cfs != result["subject"].get("candidate_file_sha256"):
+            if real_mode and not cfs:
+                raise ValidationBlocked(f"{what} candidate byte digest required")
+            if candidate_raw is not None and cfs != result["subject"].get("candidate_file_sha256"):
                 raise ValidationError(f"{what} candidate byte digest mismatch")
             cdp = rec.get("companion_bundle") or rec.get("companion_declared")
             if companion_bundle is not None and cdp is not None:
@@ -617,8 +640,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError("tested-image record uses an unsupported schema")
             if tested.get("status") != "tested_image_preserved":
                 raise ValidationError("tested-image record is not a preserved tested image")
-            if build_rec_raw is not None and tested.get("build_record_sha256") not in (
-                    None, "sha256:" + hashlib.sha256(build_rec_raw).hexdigest()):
+            if build_rec_raw is not None and tested.get("build_record_sha256") != "sha256:" + hashlib.sha256(build_rec_raw).hexdigest():
                 raise ValidationError("tested-image build record digest mismatch vs build record")
             if real_mode and build_rec_raw is not None and not tested.get("build_record_sha256"):
                 raise ValidationBlocked("real validation requires the tested build-record digest")
@@ -647,9 +669,19 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if rec_img.get("candidate_label") != candidate_id and candidate_id is not None:
                 raise ValidationError("build record image label mismatch vs candidate")
             _phases = build_rec.get("phases") or {}
-            for _phase in ("resolution_readback", "build", "test"):
+            for _phase in ("resolution_readback", "builder_ensure", "build", "test"):
                 if (_phases.get(_phase) or {}).get("status") != "ok":
                     raise ValidationError(f"build record phase is not GREEN: {_phase}")
+        if handoff is not None:
+            for rec, what in ((build_input, "prepared"), (tested, "tested"), (publication, "publication")):
+                if rec is not None and rec.get("accepted_candidate_id") != handoff.get("accepted_candidate_id"):
+                    raise ValidationError(f"{what} accepted-candidate identity mismatch")
+        if companion_bundle is not None:
+            for rec, what in ((build_input, "prepared"), (build_rec, "build"), (tested, "tested")):
+                if rec is not None and rec.get("companion_bundle") != companion_bundle:
+                    raise ValidationError(f"{what} complete companion declaration mismatch")
+        if build_rec is not None and build_rec.get("command") != "build":
+            raise ValidationError("build record is not a build command result")
         result["checks"]["frozen_chain"] = "PASS" if cand is not None else "SKIP"
         # --- Registry + local image (distinct, mapped) ---
         readback = run(["docker", "buildx", "imagetools", "inspect", ref]).stdout
@@ -691,6 +723,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError("pulled image config lacks the frozen Pi version")
             result["checks"]["image_config"] = "PASS"
             _lbls = cfg_doc.get("Labels") or {}
+            if (_lbls.get("io.pi-unraid.candidate-id") != candidate_id or
+                    f"PI_UNRAID_CANDIDATE_ID={candidate_id}" not in cfg_env):
+                raise ValidationError("pulled image candidate configuration mismatch")
             if _lbls.get("io.pi-unraid.pi-version") not in (None, str(expected_pi)):
                 raise ValidationError("pulled image Pi label contradicts frozen candidate")
             result["subject"]["image_pi_label"] = _lbls.get("io.pi-unraid.pi-version")
@@ -877,7 +912,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         if not obj.get("Id"):
             raise ValidationBlocked("running container identity unavailable; failing closed")
         _live_id, _want_id = str(obj.get("Id")), str(created_id)
-        if not (_live_id == _want_id or _live_id.startswith(_want_id) or _want_id.startswith(_live_id)):
+        if _live_id != _want_id:
             raise ValidationError("container replacement detected; fails closed")
         # Re-verify exact current ownership BEFORE any exec (ID-bound).
         cur0 = run(["docker", "inspect", name], check=False)
@@ -889,7 +924,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             cur0obj = {}
         if not _container_owned(cur0obj, work, network, expected_image_id=image_id, expected_nonce=attempt_nonce,
                                 expected_container_id=created_id,
-                                expected_secret_sources=mounted_secrets or None):
+                                expected_secret_sources=mounted_secrets or None,
+                                expected_user=f"{uid}:{gid}"):
             raise ValidationError("container ownership unverified before exec; preserving")
         cfg, host, mounts = cur0obj.get("Config") or {}, cur0obj.get("HostConfig") or {}, cur0obj.get("Mounts") or []
         if cfg.get("User") != f"{uid}:{gid}":
@@ -993,7 +1029,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if not _container_owned(cur_obj, work, network, expected_image_id=image_id,
                                     expected_nonce=attempt_nonce,
                                     expected_container_id=created_id,
-                                    expected_secret_sources=mounted_secrets or None):
+                                    expected_secret_sources=mounted_secrets or None,
+                                    expected_user=f"{uid}:{gid}"):
                 raise ValidationError(f"container ownership unverified before {stage}; preserving")
             # Network acquisition identity is also an execution boundary: a
             # replaced same-nonce network fails before further execs.
@@ -1015,7 +1052,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         # NOT readback). Used for guard/policy/launcher bytes below.
         def _readback_file(cand_path: str, *, what: str):
             r = _exec(["sh", "-c",
-                       f"file-readback; sha256sum {cand_path}; stat -c %a {cand_path}"],
+                       f"# file-readback\nsha256sum {cand_path}; stat -c %a {cand_path}"],
                       timeout=30, check=False)
             if r.returncode != 0:
                 raise ValidationError(f"candidate {what} readback unavailable")
@@ -1041,7 +1078,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError("candidate policy hash mismatch vs frozen source")
             if p_mode != "644":
                 raise ValidationError("candidate policy mode is not 0644")
-            p = _exec(["sh", "-c", "policy-compare; cat /home/paseo/.pi/agent/policies/llm-test-policy.json"], timeout=30, check=False)
+            p = _exec(["sh", "-c", "# policy-compare\ncat /home/paseo/.pi/agent/policies/llm-test-policy.json"], timeout=30, check=False)
             if p.returncode != 0:
                 raise ValidationError("candidate policy readback unavailable")
             try:
@@ -1121,7 +1158,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             result["checks"]["codex_no_inference"] = "PASS"
         # Muse PROMPT dispatch inside the candidate (NOT native-args export).
         # Native export without dispatch is explicitly rejected below.
-        nexp = _exec(["sh", "-c", "native-export-check; /home/paseo/.pi/agent/bin/run-llm-test.sh --native-create-agent-args"], timeout=30, check=False)
+        nexp = _exec(["sh", "-c", "# native-export-check\n/home/paseo/.pi/agent/bin/run-llm-test.sh --native-create-agent-args"], timeout=30, check=False)
         if nexp.returncode == 0:
             try:
                 npay = json.loads((nexp.stdout or "").strip().splitlines()[-1] if (nexp.stdout or "").strip() else "{}")
@@ -1131,6 +1168,15 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             result["subject"]["muse_native_shape"] = "export-only (not dispatch)"
         dispatch_summary = None
         if muse_secret is not None and source_root is not None:
+            try:
+                profile_preflight = adap.preflight_candidate_profile(
+                    _candidate_exec, candidate_home="/home/paseo/.paseo")
+            except adap.AdapterBlocked as exc:
+                raise ValidationBlocked(_sanitize(str(exc), 200)) from exc
+            except adap.AdapterError as exc:
+                raise ValidationError(_sanitize(str(exc), 200)) from exc
+            result["subject"]["muse_profile_preflight"] = profile_preflight
+            result["checks"]["muse_profile_preflight"] = "PASS"
             # Record the owned test BEFORE possible dispatch so UNKNOWN occurrence
             # retains a usable exact reference (bounded readback, never blind resend).
             Path(owned_test_path).write_text(json.dumps({
@@ -1150,8 +1196,21 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             # launchContext → Pi subprocess env); CLI-inherited variables are
             # never relied upon. Exact daemon-internal delivery is simulated
             # by the fake boundary; the argv contract is asserted in tests.
+            # Re-observe the connected daemon immediately before the effect.
+            # A same-home replacement is not the daemon whose startup/catalog
+            # was verified; never silently reconnect and dispatch into it.
+            try:
+                current_daemon = adap.observe_daemon_status(
+                    _candidate_exec, candidate_home="/home/paseo/.paseo",
+                    expected_version=str(expected_paseo))
+            except adap.AdapterBlocked as exc:
+                raise ValidationBlocked(_sanitize(str(exc), 200)) from exc
+            except adap.AdapterError as exc:
+                raise ValidationError(_sanitize(str(exc), 200)) from exc
+            if current_daemon != daemon_ref:
+                raise ValidationError("candidate daemon changed before guarded dispatch")
             dg = _exec(["bash", "-c",
-                        f"guarded-dispatch; M07_T05_TEST_ID={test_id} M07_T05_WITNESS_FILE={WITNESS_CANDIDATE_PATH} "
+                        f"# guarded-dispatch\nM07_T05_TEST_ID={test_id} M07_T05_WITNESS_FILE={WITNESS_CANDIDATE_PATH} "
                         f"{MUSE_POINTER_ENV}={MUSE_SECRET_TARGET} "
                         f"bash /home/paseo/.pi/agent/bin/m07-t05-candidate-env.sh "
                         f"/home/paseo/.pi/agent/bin/run-llm-test.sh {json.dumps(prompt)} /tmp"],
@@ -1159,7 +1218,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if dg.returncode is None:
                 raise ValidationUnknown("guarded dispatch occurrence unknown; preserving test object")
             # Witness aggregation for THIS owned test (request+response+terminal).
-            wr = _exec(["sh", "-c", f"witness-read; cat {WITNESS_CANDIDATE_PATH}"], timeout=30, check=False)
+            wr = _exec(["sh", "-c", f"# witness-read\ncat {WITNESS_CANDIDATE_PATH}"], timeout=30, check=False)
             events = []
             if wr.returncode == 0 and (wr.stdout or "").strip():
                 for ln in (wr.stdout or "").strip().splitlines():
@@ -1226,7 +1285,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         "policy_binding", "daemon_binding", "pi_binding", "codex_catalog",
                         "codex_auth", "codex_health", "muse_guard_readback",
                         "muse_policy_readback", "muse_dispatch", "muse_effective_profile",
-                        "muse_owned_child"]
+                        "muse_owned_child", "muse_profile_preflight"]
             for k in required:
                 if result["checks"].get(k) != "PASS":
                     raise ValidationBlocked(f"real validation requires {k} PASS")
@@ -1272,7 +1331,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     if _container_owned(cur_obj, work, network, expected_image_id=image_id,
                                         expected_nonce=attempt_nonce,
                                         expected_container_id=created_id,
-                                        expected_secret_sources=mounted_secrets or None):
+                                        expected_secret_sources=mounted_secrets or None,
+                                        expected_user=f"{uid}:{gid}"):
                         # Remove by immutable ID, never a mutable name: a replaced
                         # same-name foreign object is never removed here.
                         run(["docker", "rm", "-f", created_id or name], check=False)

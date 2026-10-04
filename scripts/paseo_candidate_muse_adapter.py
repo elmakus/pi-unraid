@@ -511,7 +511,7 @@ def stage_witness_extension(dest: Path) -> Path:
     ``stopReason``); ``agent_end`` carries ``messages`` only (a low-level
     run end — recovery/queued work may follow), so the observer derives
     ``aborted``/``error`` by scanning message ``stopReason`` and records
-    ``done`` otherwise; ``agent_settled`` is final but notification-only
+    neutral ``ended`` otherwise; ``agent_settled`` is final but notification-only
     (no success outcome) and is recorded as neutral ``settled``. A later
     ``settled`` must never overwrite a known aborted/error terminal.
     """
@@ -551,7 +551,7 @@ def stage_witness_extension(dest: Path) -> Path:
         "      for (const m of msgs) {\n"
         "        if (m && (m.stopReason === 'aborted' || m.stopReason === 'error')) { neg = true; break; }\n"
         "      }\n"
-        "      emit({kind:'terminal', status: neg ? 'aborted' : 'done'});\n"
+        "      emit({kind:'terminal', status: neg ? 'aborted' : 'ended'});\n"
         "    } catch {}\n"
         "  });\n"
         "  ctx.on('agent_settled', (ev) => {\n"
@@ -656,6 +656,12 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
     terminal missing → UNKNOWN (occurrence uncertain, no resend);
     contradictory efforts across request events → FAIL (forged witness).
     """
+    # This bounded smoke permits exactly one provider exchange. Retry/mixed
+    # exchanges have no supported per-request identifier in these pinned hooks;
+    # do not correlate an arbitrary successful response with another request.
+    if not isinstance(events, list) or any(not isinstance(e, dict) or e.get("test_id") != test_id
+                                          or e.get("kind") not in WITNESS_KINDS for e in events):
+        return {"gate": "FAIL", "observed": None, "reason": "mixed or malformed witness", "replay": False}
     reqs = [e for e in events if e.get("kind") == "request" and e.get("test_id") == test_id]
     resps = [e for e in events if e.get("kind") == "response" and e.get("test_id") == test_id]
     terms = [e for e in events if e.get("kind") == "terminal" and e.get("test_id") == test_id]
@@ -663,6 +669,11 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
         return {"gate": "UNKNOWN", "observed": None,
                 "reason": "no witness request for owned test; " + EFFECTIVE_UNOBSERVABLE_BOUNDARY,
                 "replay": False}
+    if len(reqs) != 1 or len(resps) > 1:
+        return {"gate": "FAIL", "observed": None, "reason": "ambiguous provider exchange", "replay": False}
+    if resps and (events.index(resps[0]) < events.index(reqs[0]) or
+                  any(events.index(t) < events.index(resps[0]) for t in terms)):
+        return {"gate": "FAIL", "observed": None, "reason": "out-of-order provider exchange", "replay": False}
     efforts = {e.get("effort") for e in reqs if e.get("effort")}
     models = {e.get("model") for e in reqs if e.get("model")}
     if len(models) > 1:
@@ -708,14 +719,20 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
         # never overwrites it.
         return {"gate": "FAIL", "observed": observed,
                 "reason": "witness terminal reports aborted/error completion", "replay": False}
-    if not any(s in ("done", "completed", "success") for s in term_statuses):
+    if "completed" not in term_statuses or "settled" not in term_statuses:
         # Settled-only or other non-success terminals prove settlement at
         # most, never successful inference: occurrence stays UNKNOWN.
         return {"gate": "UNKNOWN", "observed": observed,
                 "reason": "witness terminal is not qualified success; occurrence uncertain, no resend",
                 "replay": False}
+    if events[-1].get("kind") != "terminal" or events[-1].get("status") != "settled":
+        return {"gate": "FAIL", "observed": observed,
+                "reason": "events continue after claimed final settlement", "replay": False}
+    if any(s not in ("completed", "ended", "settled") for s in term_statuses):
+        return {"gate": "FAIL", "observed": observed,
+                "reason": "contradictory or unsupported terminal facts", "replay": False}
     return {"gate": "PASS", "observed": observed,
-            "reason": "request+response+terminal aggregated for owned test", "replay": False}
+            "reason": "ordered request+response+qualified completion+settlement for owned test", "replay": False}
 
 
 def classify_aggregated_witness(events: list, *, test_id: str) -> dict:
@@ -826,12 +843,22 @@ def observe_daemon_status(exec_run, *, candidate_home: str, expected_version: st
     if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
         raise AdapterError("daemon pid is missing or invalid; process identity unverified")
     local_state = doc.get("localDaemon")
-    if local_state is not None and local_state != "running":
+    if local_state != "running":
         raise AdapterError(f"candidate daemon is not running: {local_state!r}")
     connected = doc.get("connectedDaemon")
-    if connected is not None and connected not in ("reachable",):
+    if connected != "reachable":
         raise AdapterError(f"candidate daemon is not reachable: {connected!r}")
-    return {"home": home, "endpoint": endpoint, "pid": pid, "version": str(version)}
+    worker_pid = doc.get("workerPid")
+    if not isinstance(worker_pid, int) or isinstance(worker_pid, bool) or worker_pid <= 0:
+        raise AdapterError("daemon worker process identity is missing")
+    if not isinstance(doc.get("serverId"), str) or not doc["serverId"]:
+        raise AdapterError("connected daemon server identity is missing")
+    if not isinstance(doc.get("daemonNode"), str) or not doc["daemonNode"].startswith("/"):
+        raise AdapterError("daemon Node executable identity is missing")
+    if not isinstance(doc.get("providers"), (list, dict)) or not doc["providers"]:
+        raise AdapterError("daemon provider details are unavailable")
+    return {"home": home, "endpoint": endpoint, "pid": pid, "version": str(version),
+            "worker_pid": worker_pid, "server_id": doc["serverId"], "node": doc["daemonNode"]}
 
 
 def observe_pi_version(exec_run, *, expected_version: str) -> dict:
@@ -878,18 +905,56 @@ def ensure_candidate_daemon(exec_run, *, candidate_home: str, expected_version: 
     daemon is observed via :func:`observe_daemon_status` (same strict
     binding); a start that leaves the daemon unobservable fails closed.
     """
-    start_argv = ["paseo", "daemon", "start", "--home", candidate_home]
+    start_argv = ["paseo", "daemon", "start", "--json", "--home", candidate_home]
     if env_loader and meta_pointer:
         start_argv = ["bash", "-c",
-                      f"daemon-bringup; META_API_KEY_FILE={meta_pointer} "
-                      f"bash {env_loader} paseo daemon start --home {candidate_home}"]
+                      f"# daemon-bringup\nMETA_API_KEY_FILE={meta_pointer} "
+                      f"bash {env_loader} paseo daemon start --json --home {candidate_home}"]
     proc = exec_run(start_argv, timeout=120)
     if getattr(proc, "returncode", 1) != 0:
-        # A failed start with an already-running daemon is benign; the
-        # observation below decides. Anything else fails closed there too.
-        pass
-    return observe_daemon_status(exec_run, candidate_home=candidate_home,
-                                 expected_version=expected_version)
+        raise AdapterBlocked("candidate daemon startup failed; auth inheritance unverified")
+    try:
+        started = json.loads(getattr(proc, "stdout", "") or "")
+    except (ValueError, TypeError):
+        raise AdapterError("candidate daemon startup result malformed") from None
+    if not isinstance(started, dict) or started.get("action") != "started" or started.get("home") != candidate_home:
+        raise AdapterError("candidate daemon was not newly started under the private loader")
+    observed = observe_daemon_status(exec_run, candidate_home=candidate_home,
+                                    expected_version=expected_version)
+    if started.get("pid") != observed["pid"] or started.get("listen") != observed["endpoint"]:
+        raise AdapterError("candidate daemon changed during startup")
+    return observed
+
+
+def preflight_candidate_profile(exec_run, *, candidate_home: str) -> dict:
+    """Non-inference catalog of the selected candidate daemon, before prompt.
+
+    Paseo 0.9.2 provider/models.js exposes id + thinkingOptionIds from Pi's
+    get_available_models RPC. agent.js resolvePiThinkingConfig excludes a
+    null max mapping, including the pinned Contributor catalog. No override,
+    fallback or prompt is attempted when that required option is absent.
+    This is a necessary capability gate, not proof of effective inference.
+    """
+    proc = exec_run(["paseo", "provider", "models", "pi", "--thinking", "--json",
+                     "--home", candidate_home], timeout=30)
+    if getattr(proc, "returncode", 1) != 0:
+        raise AdapterBlocked("candidate model catalog unavailable before dispatch")
+    try:
+        models = json.loads(getattr(proc, "stdout", "") or "")
+    except (ValueError, TypeError):
+        raise AdapterError("candidate model catalog malformed") from None
+    if not isinstance(models, list) or any(not isinstance(m, dict) for m in models):
+        raise AdapterError("candidate model catalog malformed")
+    matches = [m for m in models if m.get("id") == f"{FIXED_PROVIDER}/{FIXED_MODEL}"]
+    if len(matches) != 1:
+        raise AdapterBlocked("fixed candidate model is absent or ambiguous before dispatch")
+    options = matches[0].get("thinkingOptionIds")
+    if not isinstance(options, list) or any(not isinstance(o, str) for o in options):
+        raise AdapterError("candidate thinking options malformed")
+    if FIXED_THINKING not in options:
+        raise AdapterBlocked("fixed max is unavailable; guarded inference dispatch prohibited")
+    return {"model": f"{FIXED_PROVIDER}/{FIXED_MODEL}", "thinking": FIXED_THINKING,
+            "source": "candidate-daemon provider models (non-inference)"}
 
 
 def inspect_owned_agent(exec_run, *, candidate_home: str, expected_title: str,
@@ -942,13 +1007,12 @@ def inspect_owned_agent(exec_run, *, candidate_home: str, expected_title: str,
         doc = doc[0] if doc else {}
     if not isinstance(doc, dict):
         raise AdapterError("owned child inspection malformed")
-    if str(doc.get("Id") or doc.get("id") or "") != str(agent_id) and \
-            not str(agent_id).startswith(str(doc.get("Id") or doc.get("id") or "_")):
+    if str(doc.get("Id") or doc.get("id") or "") != str(agent_id):
         raise AdapterError("owned child identity mismatch on inspection")
     if str(doc.get("Provider") or doc.get("provider") or "") != "pi":
         raise AdapterError("owned child is not a Pi agent")
     model = str(doc.get("Model") or doc.get("model") or "")
-    if expected_model not in model:
+    if model != f"{FIXED_PROVIDER}/{expected_model}":
         raise AdapterError(f"owned child model mismatch: {model!r}")
     thinking = str(doc.get("Thinking") or doc.get("thinking") or "")
     if thinking != expected_thinking:

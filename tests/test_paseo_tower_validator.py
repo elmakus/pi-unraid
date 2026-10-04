@@ -111,7 +111,8 @@ class LocalCodexServer:
                         return
                     else:
                         body = json.dumps({"object": "list", "data": [
-                            {"id": "fixture-model", "object": "model"}]}).encode()
+                            {"id": "fixture-model", "object": "model"},
+                            {"id": "m", "object": "model"}]}).encode()
                     self.send_response(200)
                     self.send_header("Content-Type", "application/json")
                     self.send_header("Content-Length", str(len(body)))
@@ -476,7 +477,7 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             for i, x in enumerate(run_call):
                 if x == "-v":
                     parts = run_call[i + 1].split(":")
-                    mounts.append({"Source": parts[0], "Destination": parts[1],
+                    mounts.append({"Type": "bind", "Source": parts[0], "Destination": parts[1],
                                    "RW": (parts[2] if len(parts) > 2 else "rw") != "ro"})
             nonce = state.get("nonce", "unknown")
             img = state.get("wrong_image") or image_id
@@ -484,7 +485,9 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             obj = {"Id": cid, "Image": img,
                    "Config": {"User": "99:100", "Env": ["TZ=Europe/Zurich", "HOME=/home/paseo"],
                               "Labels": {"io.pi-unraid.validator-nonce": nonce}},
-                   "HostConfig": {"NetworkMode": state.get("network", "pi-unraid-validator")},
+                   "HostConfig": {"NetworkMode": state.get("network", "pi-unraid-validator"),
+                                  "ReadonlyRootfs": True,
+                                  "Tmpfs": {"/tmp": "rw,nosuid,nodev", "/run": "rw,nosuid,nodev"}},
                    "Mounts": mounts, "State": {"Status": "running", "Health": {"Status": "healthy"}}}
             return mock.Mock(returncode=0, stdout=json.dumps([obj]), stderr="")
         if argv[:2] == ["docker", "run"]:
@@ -506,12 +509,20 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             # Codex check: run the ACTUAL staged file locally.
             if "paseo_codex_candidate_check.py" in full:
                 staged = (Path(work) / "home" / ".pi" / "agent" / "bin" / "paseo_codex_candidate_check.py") if work else None
-                mode = "health" if "--mode health" in full or ("--mode" in argv and argv[argv.index("--mode")+1] == "health") else "catalog"
-                # Find host secret + base for local execution.
-                env = {"PI_CODEX_LB_BASE_URL": server_base, "PATH": "/usr/bin:/bin"}
-                cmd = [sys.executable, str(staged), "--mode", mode,
-                       "--secret-file", str(codex_secret_host),
-                       "--base-url", server_base, "--model", "fixture-model"]
+                # Execute the shipped argv unchanged except namespace mappings.
+                # Derive mounts from docker run; never substitute helper arguments.
+                run_call = next(c for c in calls if c[:2] == ["docker", "run"])
+                namespaces = {}
+                for i, arg in enumerate(run_call):
+                    if arg == "-v":
+                        source, destination, _mode = run_call[i + 1].split(":")
+                        namespaces[destination] = source
+                def translate(arg):
+                    for destination in sorted(namespaces, key=len, reverse=True):
+                        if arg == destination or arg.startswith(destination + "/"):
+                            return namespaces[destination] + arg[len(destination):]
+                    return arg
+                cmd = [sys.executable] + [translate(arg) for arg in argv[4:]]
                 try:
                     pr = subprocess.run(cmd, text=True, stdout=subprocess.PIPE,
                                         stderr=subprocess.PIPE, timeout=30)
@@ -556,7 +567,9 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             # the generic status branch below.
             if "daemon-bringup" in payload:
                 state["daemon_started"] = True
-                return mock.Mock(returncode=0, stdout="Already running: PID 1234\n", stderr="")
+                return mock.Mock(returncode=state.get("daemon_start_exit", 0), stdout=json.dumps({
+                    "action": state.get("daemon_start_action", "started"),
+                    "home": "/home/paseo/.paseo", "pid": 1234, "listen": "127.0.0.1:7777"}), stderr="")
             # Owned-child listing: exactly the agents this fake daemon created.
             if "paseo" in argv and "agent" in argv and "ls" in argv:
                 agents = state.get("agents", [])
@@ -574,7 +587,9 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                     doc = daemon_json if daemon_json is not None else {
                         "home": "/home/paseo/.paseo", "listen": "127.0.0.1:7777",
                         "pid": 1234, "daemonVersion": REAL_PASEO,
-                        "localDaemon": "running", "connectedDaemon": "reachable"}
+                        "localDaemon": "running", "connectedDaemon": "reachable",
+                        "workerPid": 1235, "serverId": "synthetic-server", "daemonNode": "/usr/bin/node",
+                        "providers": ["pi"]}
                 if isinstance(doc, dict) and doc.get("__unavailable"):
                     return mock.Mock(returncode=1, stdout="", stderr="")
                 if state.get("daemon_started") and isinstance(doc, dict) and doc.get("localDaemon") == "stopped":
@@ -583,6 +598,10 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                     # and still fail the strict observer below.
                     doc = dict(doc, localDaemon="running", connectedDaemon="reachable")
                 return mock.Mock(returncode=0, stdout=json.dumps(doc), stderr="")
+            if argv[3:7] == ["paseo", "provider", "models", "pi"]:
+                models = state.get("model_catalog", [{"id": "meta/muse-spark-1.3-contributor",
+                                                       "thinkingOptionIds": ["max"]}])
+                return mock.Mock(returncode=0, stdout=json.dumps(models), stderr="")
             if "command -v pi" in payload:
                 return mock.Mock(returncode=0, stdout=(state.get("pi_path") or "/home/paseo/.pi/agent/bin/pi") + "\n", stderr="")
             if argv[-2:] == ["pi", "--version"] or payload.strip() == "pi --version":
@@ -687,7 +706,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
     def test_shipped_check_program_compiles_and_runs(self):
         # Finding 1: exact shipped program must compile AND execute.
         prog = ROOT / "scripts" / "paseo_codex_candidate_check.py"
-        subprocess.run([sys.executable, "-m", "py_compile", str(prog)], check=True)
+        compile(prog.read_bytes(), str(prog), "exec")
         with tempfile.TemporaryDirectory() as td:
             sec = Path(td) / "codex.env"
             sec.write_text("CODEX_LB_API_KEY=fixture-check-key\n")

@@ -166,8 +166,10 @@ class CodexHelperTests(unittest.TestCase):
         # with credentials (same-hostname comparison is insufficient).
         with self.assertRaises(C.CodexError):
             C.assert_safe_redirect("http://127.0.0.1:11/v1/models", "http://127.0.0.1:22/catalog")
-        # Same origin passes.
-        C.assert_safe_redirect("http://127.0.0.1:11/v1/models", "http://127.0.0.1:11/v1/other")
+        # Same origin is necessary, not sufficient: only the exact check path passes.
+        C.assert_safe_redirect("http://127.0.0.1:11/v1/models", "http://127.0.0.1:11/v1/models")
+        with self.assertRaises(C.CodexError):
+            C.assert_safe_redirect("http://127.0.0.1:11/v1/models", "http://127.0.0.1:11/v1/other")
 
     def test_parsers_and_transport_against_local_server(self):
         with T.LocalCodexServer(mode="ok") as srv:
@@ -286,7 +288,8 @@ class MuseAdapterTests(unittest.TestCase):
         tid = "t-aggregate-1"
         evs = [{"test_id": tid, "kind": "request", "model": "muse-spark-1.3-contributor", "effort": "max"},
                {"test_id": tid, "kind": "response", "status": "200"},
-               {"test_id": tid, "kind": "terminal", "status": "done"}]
+               {"test_id": tid, "kind": "terminal", "status": "completed"},
+               {"test_id": tid, "kind": "terminal", "status": "settled"}]
         agg = A.aggregate_witness(evs, test_id=tid, expected_model="muse-spark-1.3-contributor")
         self.assertEqual(agg["gate"], "PASS")
         self.assertEqual(agg["observed"]["thinking"], "max")
@@ -366,7 +369,9 @@ class MuseAdapterTests(unittest.TestCase):
             return mock.Mock(returncode=0, stdout=json.dumps({
                 "home": "/home/paseo/.paseo", "listen": "127.0.0.1:1",
                 "pid": 7, "daemonVersion": "0.9.2",
-                "localDaemon": "running", "connectedDaemon": "reachable"}))
+                "localDaemon": "running", "connectedDaemon": "reachable",
+                "workerPid": 8, "serverId": "synthetic-server", "daemonNode": "/usr/bin/node",
+                "providers": ["pi"]}))
         dobs = A.observe_daemon_status(exec_daemon, candidate_home="/home/paseo/.paseo",
                                        expected_version="0.9.2")
         self.assertEqual(dobs["version"], "0.9.2")

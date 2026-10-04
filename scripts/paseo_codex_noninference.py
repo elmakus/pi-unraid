@@ -237,8 +237,12 @@ def assert_safe_redirect(from_url: str, to_url: str) -> None:
         target_path = urlsplit(target_path).path or "/"
     except ValueError as exc:
         raise CodexError("Codex-LB redirect target is not a valid URL") from exc
-    if not target_path.startswith("/v1/") and target_path != "/health":
+    # Only the two implemented readbacks are admitted. A blacklist cannot
+    # classify an arbitrary /v1/* route as non-inference.
+    if target_path not in ("/v1/models", "/health"):
         raise CodexError("Codex-LB redirect target is not a supported non-inference destination")
+    if target_path != urlsplit(_normalized_url(from_url)).path:
+        raise CodexError("Codex-LB redirect changes the required check destination")
     # Same-origin only: scheme/host/port must match the request origin.
     # A cross-port (or scheme/host) redirect is a foreign origin and fails
     # closed before any network effect with credentials.
@@ -297,6 +301,8 @@ def _http_get(url: str, headers: dict, timeout: int):
     for structural parsing by the caller.
     """
     assert_no_inference_url(url)
+    if urlsplit(url).path not in ("/v1/models", "/health"):
+        raise CodexError("unsupported non-inference destination")
     opener = urllib.request.build_opener(_NoAuthForwardRedirectHandler)
     req = urllib.request.Request(url, headers=dict(headers), method="GET")
     try:
