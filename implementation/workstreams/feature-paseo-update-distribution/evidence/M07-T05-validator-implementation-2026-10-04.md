@@ -1241,3 +1241,161 @@ No real credential/input is requested, no acceptance or blocker state is written
 and no independent verdict is possible from this producing context. Main alone
 reconciles and freshly reroutes. End of this contribution is not semantic
 completion; the unchanged route remains Execution/M07-T05.
+
+## Candidate-local runtime / owned-lifecycle contribution — 2026-10-04
+
+### Scope and immutable source
+
+This is implementation and synthetic qualification evidence for the existing
+Execution/M07-T05 obligation, not a semantic Card result or an independent Review.
+Main alone classifies and reconciles the full unchanged Card.
+
+Unpushed source commits, in order:
+
+- `8268e2b7b26d3aa50af379940405244b4a6586cc`: private guarded runtime, actual
+  native creation, effective context, selected process and API lifecycle binding.
+- `c52be1a4b6563388075ab6c64f0584a31e6258be`: actual API request observations
+  before cleanup, proof collision qualification and owned fake process teardown.
+- **Final qualified source: `306f1565dab551c145122f23484f5232d679c90f`**: require
+  actual runtimeInfo.model without falling back to requested model; exact mounted
+  synthetic input translation; argv-derived fake Pi state; lost receipt after
+  one exchange; exact bigint inode identities; generic secret-safe status errors.
+
+The pre-existing report prefix is preserved byte-for-byte: 77474 bytes, SHA256
+`b8937d1b203f702a81633fb2afc99fff688a32da8bf60fbf821252c9a497e0c4`.
+No previous contribution or Main correction/classification is rewritten.
+
+### Runtime mechanics implemented
+
+- Controlled env-i launch, private HOME/Paseo/Pi directories and exclusively
+  staged private daemon configuration. Pi uses the declared replacement command;
+  plugins, relay, MCP injection and browser tools are disabled. No ambient
+  endpoint, caller, executable, agent-directory or auth selector is adopted.
+- Shipped canonical guard gains a narrow candidate-owned private-config mode.
+  Fixed Meta/Contributor/max/native-shape checks run before its owned bridge.
+  Native-shape export remains metadata, never execution or provenance evidence.
+- Supported prompt-free workspace and agent creation: no initialPrompt. Modern
+  creationLifecycle support is mandatory; requested IDs and creation keys are
+  written before acquisition, then acknowledged IDs must match. No legacy
+  fallback, ambiguous title/prefix lookup or automatic workspace env is used.
+- The connected server identity is checked against actual daemon readback.
+  Actual snapshots must expose the acquired IDs, workspace, cwd, Pi provider,
+  actual runtimeInfo.model and effective thinking. Requested model alone cannot
+  substitute for unavailable effective state.
+- The daemon-selected wrapper checks the actual Pi entrypoint bytes and dedicated
+  auth inheritance in memory, recording only a boolean. Actual PID/PPID, process
+  start times, parent Node executable and Pi RPC/model/thinking argv are verified
+  before send and after completion. The API message ID is retained before its
+  single send and checked in the fixture's actually received request envelope.
+- Private references are atomic before/after effects; config/reference/binding
+  replacement is rejected, including identical-byte replacement. Bigint dev/ino
+  identities avoid Number rounding. Process proofs reject extra fields. The
+  observer binds every admitted event to actual process, test, agent, workspace
+  and server, preserving the previously qualified abort/opt-in fail-stop barriers.
+- Connect/create/inspect/send have bounded observation; completion and total
+  observation are bounded. Uncertain creation, dispatch or inspection never
+  replays a prompt. UNKNOWN retains usable private requested/acknowledged IDs and
+  readback paths and does not trigger unproven cleanup. Neutral idle/usage is not
+  final completion evidence; qualified aggregated exchange/completion is required.
+- Pinned hooks expose no universal provider request ID: only one exchange is
+  admitted. API creation/message IDs are not misrepresented as provider IDs.
+
+### External-fake qualification and boundaries
+
+The separate external fixture supplies a CLI, TCP daemon and separately spawned
+fake Pi. It executes namespace-translated shipped validator/guard/loader/wrapper/
+bridge/observer plumbing, using exact argv/shell and separate OS processes. Public
+pinned buildPiLaunch and PersistedConfigSchema are imported read-only solely as
+metadata plumbing. The fake Pi derives selected model/thinking from its launch
+argv; the daemon's snapshot comes from that process's RPC state, not a copied
+expected provider/title/usage bag. The genuine-validator fixture translates the
+mounted input pointer to that SAME synthetic file without substituting a key.
+
+Actual create request keys/IDs and message envelope are captured in the fake
+external daemon before cleanup without recording prompt or credential values.
+Reachable negatives cover wrong server/daemon/process/executable bytes, wrong or
+missing agent/workspace/effective model/thinking, wrong agent env/auth/selectors,
+unsupported or unresolved creation, uncertain partial acquisition/inspection,
+config/reference/binding replacement, reference/process-proof collision, observer
+context disagreement, completion failure and receipt loss after one exchange.
+Before-cleanup assertions check no forbidden prompt/transport calls; uncertain
+post-effect controls check exactly one exchange, no replay, retained IDs and no
+Docker removal. Existing targeted omission/mutation/current-isolation/cleanup and
+source-faithful pinned clamp/abort qualifications remain in the executed cohort.
+Fake teardown itself checks retained PID start identity, including after its
+private HOME disappears; failed fake removal does not prematurely stop its daemon.
+
+All launches use env-i with disposable HOME and compile caches. All credentials,
+transports and daemon/Docker/provider boundaries are synthetic or localhost test
+fixtures; no real provider/auth resolver, real inference, credentials admission,
+installed HOME/runtime/harness mutation, live Docker/Tower/host/production, actual
+candidate artifacts/CI/PR/Issue/push or successor work occurred. Synthetic maximum
+support is not real availability evidence. The official pinned Contributor max-null/
+xhigh-clamp negative remains unchanged; no mapping, override, fallback or substitute
+provider/model/thinking was adopted. Ordinary worker/Main settings were not changed
+and no further delegation occurred.
+
+### Exact final gates
+
+Final source was committed and held unchanged throughout background job 8:
+
+| Gate | Executed | Direct exit | Skips |
+| --- | ---: | ---: | ---: |
+| Seven targeted runtime/validator/qualification modules | 77 | 0 | 0 |
+| Eight affected policy/delivery/build/image/runtime/instruction modules | 97 | 0 | 0 |
+| Full Python discovery | 630 | 0 | 0 |
+| Applicable Node catalog suite | 1 | 0 | 0 |
+
+Logs: `/tmp/pud-owned-final306-{targeted,affected,full,node}.log`.
+Job 8 ends with exact source `306f1565dab551c145122f23484f5232d679c90f`,
+all four direct exits zero and aggregate exit zero. No hidden skips were accepted.
+AST/explicit isolated py_compile, Node checks for bridge/observer/external fixture,
+guard/loader shell syntax, exact source diff check and bounded high-confidence
+secret-pattern scan of all 12 changed source/test/doc files pass. Repository
+bytecode is absent. Known synthetic-sensitive strings are absent from final logs;
+these bounded scans are not a complete secret-absence proof.
+
+Earlier exact-source runs are diagnostic failures, not final qualification:
+8268e2b job 6 had 77/630 tests with one stale legacy CLI-env assertion failure;
+c52be1a job 7 had 77/630 tests with 12 fixture cleanup telemetry errors when no RPC
+trace yet existed. Both ran affected 97 and Node 1 successfully. Final correction
+keeps positive request observations mandatory while correctly recognizing no trace
+before RPC acquisition. One short diagnostic named a nonexistent test method and
+exited 1; the corrected late-receipt/completion test passed. None is hidden or
+called acceptance evidence; exact final job 8 supersedes them.
+
+### Frozen delivery identity and remaining full-Card work
+
+Final companion: **16 delivered files**, nine validation-source hashes; digest
+`sha256:f75ba933c2f4b64a3c0050cc81cdbb5ad9a821449ed171505e235a49f0fd428b`.
+The new runtime helpers are actual companion members; existing prepare/build/
+package/delivery/readback enumeration carries their modes/content. Relevant SHA256:
+
+- guard: `80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde`;
+- owned bridge: `83502725c0a065259cffb6af030ffd5680e55b4fe18e4e612c06c6db4773f7e6`;
+- selected-Pi wrapper: `161ee37067cb2ef3750f4253654a4f74514abb953791c24ba6db9fdebcd1f05d`;
+- observer: `993f8d47e226afb1b3cd179bbe3883450cd36eb3ed7257929ec1d02c3ac3a56d`.
+
+Changed payload/source identity is not eligible against an old artifact digest.
+Historical M07-T04 and earlier M07-T05 companion identities are not reused or
+blessed. This contribution's positive full-validator chain is synthetic and does
+NOT establish a genuine positive chain made by actual producers.
+
+**Focused runtime contribution: qualified by the described external-fake evidence.**
+**Full unchanged M07-T05 Card: still INCOMPLETE.** Main's sequential producer-side
+completion remains: claimed Git head versus actual tree/configuration, archive
+byte/format linkage, producer-derived alias, complete prepare/build configuration
+reconstruction and positive actual-producer chain without replacing internal smoke
+aggregation. Actual producer shapes remain authoritative: candidate has no overall
+status; Buildx uses command=build and per-phase status=ok; publication has no
+companion field. These are not manufactured from expected fixture fields.
+
+Current default workflow main was freshly confirmed as
+`d3ab917f02e4de91b7dbb17915c2287c2387333e`; the router invoked as package module with
+project root plus full workstream manifest selects Execution/M07-T05, not Review.
+Board119/22 DONE bindings, M07-T05 in_progress and M08-T01 planned remain untouched.
+Card blob `658fffe1d9d547a1a1525194628cdc2414ccc524` and contract blob
+`54f9ccc3515bf0f8af527fec4ba8871868750c6b` remain unchanged. No result, review,
+blocker/stop, planning, Research, Board or manifest state was created. Main alone
+must classify/reconcile and continue canonical routing; this technical return is
+neither semantic completion nor a workflow stop.
