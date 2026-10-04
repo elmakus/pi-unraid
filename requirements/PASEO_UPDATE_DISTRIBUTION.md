@@ -1,15 +1,28 @@
 # Paseo/Pi Update Distribution — Requirements
 
-Revision: `R1`
+Revision: `R2`
 Status: `approved`
-Updated: `2026-09-28`
-Definition subject: `paseo-update-distribution@10`
-Source Brainstorming: `brainstorming/PASEO_UPDATE_DISTRIBUTION.md`
-Definition Research: `elmakus/project-research:projects/pi-unraid/production_updates/paseo_pi_update_distribution/FINAL_SYNTHESIS.md@f2b0bd9d1a9c4c0635ad73b80e5f87b71a5d12db`
+Updated: `2026-10-04`
+Definition subject: `paseo-update-distribution@11`
+Source Brainstorming: `brainstorming/PASEO_UPDATE_DISTRIBUTION.md`, R11
+Base architecture Research: `elmakus/project-research:projects/pi-unraid/production_updates/paseo_pi_update_distribution/FINAL_SYNTHESIS.md@f2b0bd9d1a9c4c0635ad73b80e5f87b71a5d12db`
+Amendment evidence: `implementation/workstreams/feature-paseo-update-distribution/evidence/M08-T01-definition-reentry-2026-10-04.md` and `implementation/workstreams/feature-paseo-update-distribution/evidence/DEFINITION_R2_COMPLETENESS_2026-10-04.md`
 
 ## Scope and precedence
 
 These requirements define the update/distribution lifecycle for the production Paseo/Pi environment. For this workstream they supersede conflicting update-path provisions in `requirements/PASEO_GUI_RUNTIME.md`, especially PGR-REQ-055, PGR-REQ-061 and the extension-specific blocking implications of PGR-REQ-083. Unrelated runtime/security/persistence requirements from the earlier Paseo GUI Runtime Definition remain inherited.
+
+## R2 validation correction and unchanged boundaries
+
+R2 changes only final validation authority: a guarded real Muse smoke plus Codex-LB checks without inference replace R1's real Codex-LB smoke. ADR-PUD-004 owns this bounded correction and supersedes conflicting smoke-provider/model provisions in earlier PUD/PGR authority; historical plans, Research and GREEN evidence remain records of their original exact subjects.
+
+Every real inference test MUST consume the mandatory environment test policy and use `~/.pi/agent/bin/run-llm-test.sh`: either its guarded CLI launch or its validated `--native-create-agent-args` shape for caller-scoped Paseo native creation. The fixed permitted test profile is `meta/muse-spark-1.3-contributor` with thinking/contribution `max`, with no fallback. This is a test execution constraint, not Project Workflow role-routing authority or a change to ordinary interactive model selection.
+
+Final real-smoke evidence MUST prove that the exact immutable disposable candidate's Paseo/Pi/provider path performed the inference with the required effective profile. A valid launcher configuration, a test against the active production runtime, a test against another image, or an unrelated Muse child is insufficient. Candidate policy/launcher delivery and execution binding must be verified; missing profile, credential, launcher or binding fails closed. A harness extension may preserve the mandatory guard but cannot introduce a bypass, profile override or fallback.
+
+Codex-LB validation is limited to authenticated non-inference catalog/metadata/auth/health integration readback and deterministic protocol fixtures. It MUST NOT send a prompt or invoke an inference endpoint to turn this check into an additional real LLM test. Negative, malformed, unauthorized, missing or unreachable required readback is not GREEN and must be classified proportionally rather than silently skipped.
+
+Credential isolation, GitHub/Tower separation, exact build-once identity, direct state-transition proof, transaction-guard pre-arm, user-triggered cutover and bounded rollback are unchanged. Scope approval does not itself provide a credential, satisfy a smoke gate or authorize a production restart. The old M07 candidate and its fixture-only evidence do not establish the new real-smoke acceptance; any candidate changed to deliver R2 must receive a new immutable build identity and exact affected-gate evidence before promotion.
 
 ## Discovery, registry and candidate resolution
 
@@ -44,8 +57,8 @@ These requirements define the update/distribution lifecycle for the production P
 | PUD-REQ-017 | GitHub-hosted CI MUST own normal discovery, candidate resolution, exact build and deterministic mechanical validation; production secrets MUST NOT be exposed to GitHub-hosted candidate jobs. | MUST |
 | PUD-REQ-018 | The exact tested image MUST be published to GHCR by immutable OCI digest; no rebuild is permitted between accepted build evidence and publication/promotion. | MUST |
 | PUD-REQ-019 | Production update signaling MUST use one serialized mutable accepted channel/tag that points only to a fully accepted immutable digest. Moving the accepted tag MUST be followed by registry digest readback. | MUST |
-| PUD-REQ-020 | Tower MUST perform only Tower-specific disposable validation against the exact GHCR digest, including production-shaped runtime/state checks and the real Codex-LB smoke, without mutating the active production container. | MUST |
-| PUD-REQ-021 | The Codex-LB real smoke MUST use only a dedicated user-supplied API key. Normal agent credentials MUST NOT be provided to the update pipeline. Server-side model forcing/quota policy remains operator-managed; the pipeline only consumes the supplied dedicated secret. | MUST |
+| PUD-REQ-020 | Tower MUST perform only Tower-specific disposable validation against the exact GHCR digest, including production-shaped runtime/state checks, a bounded policy-compliant real Muse smoke through that exact candidate's Paseo/Pi/provider path, and authenticated Codex-LB integration checks without inference, without mutating the active production container. | MUST |
+| PUD-REQ-021 | Validation MUST consume only dedicated operator-provisioned test credentials inside the approved disposable candidate boundary. Normal agent credentials MUST NOT be provided to the update pipeline; no credential may enter GitHub CI, images, Git, logs or evidence. Real inference MUST use the mandatory guarded launcher and fixed Muse Spark/max profile without fallback; Codex-LB credentials MUST be used only for non-inference checks. Credential provisioning/restrictions remain operator-managed; missing or incompatible input blocks acceptance. | MUST |
 | PUD-REQ-022 | Every final candidate MUST pass a bounded whole-environment core startup/invariant smoke, but optional extension/tool feature functionality MUST NOT be expanded into a blocking combinatorial compatibility matrix. | MUST |
 | PUD-REQ-023 | Major versions MUST follow the same discovery/build/validation policy as other stable versions; no separate major-version approval framework is required. | MUST |
 
@@ -70,7 +83,9 @@ Definition acceptance requires downstream Planning to preserve all MUST requirem
 - core Paseo↔Pi compatibility selection;
 - managed registry/install drift prevention;
 - exact-digest build/publish/promote identity;
-- Tower disposable Codex-LB/state-transition validation;
+- exact-candidate Tower disposable runtime/state-transition validation;
+- guarded real Muse smoke with verified effective profile and authenticated non-inference Codex-LB integration checks;
+- dedicated validation credential isolation and fail-closed behavior for missing policy/profile/launcher/candidate binding;
 - stock-button transaction binding or the accepted Update+Verify fallback;
 - current/previous_1/previous_2 known-good ledger;
 - immediate RED rollback and post-GREEN cessation of rollback authority.

@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M08-T01"
-class = "definition_authority"
-summary = "The user explicitly approved R11's bounded validation correction: guarded Muse Spark/max real smoke and non-inference Codex-LB checks. Definition R2 must reconcile PUD-REQ-020/021 and the acceptance decisions before a new material Planning cycle and M08 Card refinement. The prior real-smoke gate remains unsatisfied; production cutover and premium gates were not authorized by this scope approval."
-evidence_path = "implementation/workstreams/feature-paseo-update-distribution/evidence/M08-T01-definition-reentry-2026-10-04.md"
+class = "human_authority"
+summary = "Accepted PUD-REQ-020/021 and P3 M08-T01 require real Codex-LB inference, but the mandatory installed test policy permits only guarded meta/muse-spark-1.3-contributor with max and no fallback. The existing Tower smoke uses direct curl /responses and is not an admissible test path. An explicit decision to reconcile the accepted Definition/acceptance scope is required; continuation authorization does not waive the environment policy or satisfy this gate."
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/evidence/M08-T01-authority-preflight-2026-10-04.md"
