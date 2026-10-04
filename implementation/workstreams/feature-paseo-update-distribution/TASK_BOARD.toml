@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 117
+revision = 118
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -530,8 +530,22 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07
 [[jit_triggers]]
 id = "after-M07-T04-materialize-M07-T05"
 after_card = "M07-T04"
-state = "satisfied"
+state = "consumed"
 condition = "M07-T05 exact-candidate guarded validator and non-inference Codex-LB implementation require the actual independently GREEN M07-T04 source/policy/provider/bundle delivery result. Keep the real gate unsatisfied; materialize only after the exact DONE result and its delivery/profile limitations are refreshed."
+
+[[cards]]
+id = "M07-T05"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T05.md"
+
+[[jit_triggers]]
+id = "after-M07-T05-materialize-M07-T06"
+after_card = "M07-T05"
+state = "waiting"
+condition = "M07-T06 final-gate/first-exposure/legacy transaction compatibility requires the actual independently GREEN M07-T05 validator, dedicated-secret plumbing and typed candidate/policy/profile/fixture-versus-real outcome interface. Materialize only after the exact DONE result is refreshed; fixture success does not satisfy the final real gate."
 
 [[cards]]
 id = "M08-T01"
