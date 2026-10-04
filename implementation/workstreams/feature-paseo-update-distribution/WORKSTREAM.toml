@@ -25,10 +25,6 @@ path = "implementation/workstreams/feature-paseo-update-distribution/TRACKER.tom
 class = "brainstorm"
 path = "implementation/workstreams/feature-paseo-update-distribution/BRAINSTORM.toml"
 
-[research]
-class = "research"
-path = "implementation/workstreams/feature-paseo-update-distribution/RESEARCH.toml"
-
 [definition]
 class = "definition"
 path = "implementation/workstreams/feature-paseo-update-distribution/DEFINITION.toml"
