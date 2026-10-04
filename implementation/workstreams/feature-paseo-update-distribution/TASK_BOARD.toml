@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 107
+revision = 108
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -508,3 +508,21 @@ blob = "21dea73b5f663125cce8642486abc7cbffb506e3"
 [[cards.review_attempts]]
 class = "review_attempt"
 path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T03-R01.toml"
+
+[[cards]]
+id = "M08-T01"
+status = "blocked"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M08-T01.md"
+
+[cards.blocker]
+class = "blocker"
+path = "implementation/workstreams/feature-paseo-update-distribution/blockers/M08-T01.toml"
+
+[[jit_triggers]]
+id = "after-M08-T01-materialize-M08-T02"
+after_card = "M08-T01"
+state = "waiting"
+condition = "Approved P3 M08-T02 final revalidation and exact production guard binding depend on the actual policy-compliant M08-T01 real-smoke result and eligible candidate. Do not materialize its final contract or arm the guard while M08-T01 remains blocked."
