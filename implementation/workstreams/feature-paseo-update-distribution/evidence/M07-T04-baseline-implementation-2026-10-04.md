@@ -1,14 +1,18 @@
 # M07-T04 — Baseline implementation (preserved target + reproducible R2 delivery)
 
-Date: 2026-10-04 (corrected after Main return validations, two rounds)
+Date: 2026-10-04 (corrected after Main return validations, three rounds)
 Card: `M07-T04`
 Initial contribution (retained in Git history): implementation `1991306705f894839529ff619bad4f2b0e6f2755`,
 evidence `bae5214980f6f0ea21fe41fa07ce4a4096147370`.
 First correction (retained): implementation `38d704ac78c40e88dbc4d81851d3bdad4b2337bf`,
 evidence `9c3141601b3dc80ef37165f0c809b1b344bb98ac`.
+Second correction (retained): implementation `808c7a459cd99ba5d7f846a6a4a7bf39c45dcbba`,
+evidence `c483c5fc674fb8a171a11c4ae37fe49370e856a3`.
 Correction basis: Main return validation `0c0337379b51f9ac305b22bba80e169092b2fa8c`
 plus `25d1ff9f3db340dfdafdc9743bfa354055acc34e` (§"Second contribution validation",
-boundaries A/B/C) — stable contract valid, contributions incomplete, no semantic
+boundaries A/B/C) plus `74854dabf4cfbbfcb4d54b941c388fb72bdb4d15`
+(§"Third contribution validation — only actual pipeline binding remains") —
+stable contract valid, contributions incomplete, no semantic
 result or review attempt exists.
 Target observation (refreshed before correction): `main@e9476b4987290767a195a9de2ecd655de5f09605`
 (unchanged). Merge-base: `fc7a470a7330839cbaf8eaf0c2914323981d6901`.
@@ -136,10 +140,31 @@ Explicit frozen companion binding (actual declaration, not copy inference):
   `.pi-unraid-candidate-build-input.json` AND verifies the actual staged copy via
   `verify_companion_binding(stage_dir, companion)` before the record is written —
   a divergent staged payload fails the real entrypoint, not just a helper test.
-  `package_tested_image(..., build_input_path=None)` retains the declaration in the
-  package evidence and checks record presence/shape, candidate linkage and schema
-  BEFORE any docker call (omitted input preserves prior CLI/workflow behavior; new
-  additive `--build-input` flag, no workflow edit).
+- `scripts/paseo_buildx.py` enforces the same binding on the actual R2 build path:
+  `build --build-input <staged record>` runs `verify_prepared_companion` in the
+  resolution/readback phase — record linkage (schema/prepared/candidate), strict
+  declaration shape (schema/source/non-empty files/exact modes key-set/sha256
+  digest) and the ACTUAL staged payload via the candidate builder's verifier —
+  BEFORE builder ensure or any Docker/external action (`EXIT_VALIDATION`, zero
+  calls on missing/malformed/mismatched input). The declared companion is retained
+  in the build record (`companion_bundle` top-level plus resolution detail).
+  Omission leaves an explicitly `unbound-legacy` record that the package gate
+  rejects: the legacy local flow is preserved but mechanically inaccessible as
+  the R2 path; there is no silent default bypass.
+- `package_tested_image` REQUIRES the build-input record (required keyword and
+  required `--build-input` CLI flag; omission is a call/parse failure, never a
+  fallback). Before any docker invocation it checks declaration types/digest/modes,
+  the prepared byte digests against the ACTUAL candidate/handoff inputs, the
+  prepared source-parent/source-ref/source-head provenance against the handoff and
+  invocation, and the build record's retained `companion_bundle` for equality with
+  the prepared declaration (legacy unbound or divergent records rejected).
+  The package evidence always carries the bound `companion_bundle`.
+- `.github/workflows/paseo-candidate-build.yml` wires the existing steps to this
+  required path (narrow argument wiring, no new jobs/topology/trigger): the build
+  step passes `--build-input` (staged record) to `paseo_buildx.py build`, and the
+  preserve step passes the same record to `paseo_candidate_build.py package`.
+  The bound declaration travels the normal artifact handoff via `build-record.json`
+  and `tested-image-evidence.json` (both retained in the uploaded handoff dir).
 - `verify_companion_binding(source_root, declared)` fails closed (raises
   `CandidateBuildError`, never preserves the binding) on changed content, added/removed
   files, wrong modes, wrong digest, missing/unsafe source, or malformed declarations.
@@ -215,27 +240,43 @@ host/production action taken.
     installed bundle is `0.87.1`, `node` present: actual `dist/models.js` functions
     return supported `minimal..xhigh` (no `max`) and clamp `max→xhigh`; fixture map
     equals installed map. Zero skips taken; skip branches documented in-test.
-  - Companion binding (`tests/test_paseo_companion_bundle.py`, 14 tests): identity
+  - Companion binding (`tests/test_paseo_companion_bundle.py`, 21 tests): identity
     declares sorted files + `bin→0755`/`0644` modes + digest deterministically and
     secret-free; `verify` accepts the match and rejects changed content, removed file,
-    added file, wrong digest, wrong modes, malformed declarations (6 shapes), missing
+    added file, wrong digest, wrong modes, malformed declarations, missing
     source, and symlink sources; real source bundle binds. Integration against REAL
     entrypoints with mocked Docker only (no image build, no daemon, no production):
     `prepare_context` records the declaration in the staged build-input record and
     enforces the staged copy; post-prepare staged content/file-set mutations each
-    break the binding; `package_tested_image` with a build-input record retains the
-    declaration in package evidence, and missing/malformed/schema/candidate-mismatch
-    declarations fail with zero docker calls (mock asserts not called).
-  - `prepare` integration (`test_paseo_candidate_build_pipeline.py`): staged record
-    carries the declared `companion_bundle` (source/files/modes/digest).
+    break the binding. Real-entrypoint pipeline fixtures (`CompanionBuildEntryTests`)
+    use a synthetic material-change target that passes the GENUINE resolver, with an
+    unmocked prepare and only Docker subprocess calls faked: positive
+    prepare→`buildx build --build-input`→`package` carries one frozen identity through
+    the build record into the package evidence; post-prepare staged content/add/remove
+    mutations, missing record path, false digest, wrong candidate and malformed
+    declarations each fail the real `cmd_build` with `EXIT_VALIDATION` and zero docker
+    calls; a legacy build without `--build-input` still succeeds locally but leaves an
+    explicitly `unbound-legacy` record that the real package gate rejects with zero
+    docker calls. `package_tested_image` REQUIRES the build-input record (call/CLI
+    omission fails with no bypass) and rejects, before any docker call, malformed
+    fields (11 shapes incl. false/malformed digest, wrong source, empty files,
+    modes key-set mismatch, non-prepared status), prepared-digest divergence
+    (tampered candidate bytes re-pointed through the handoff; re-serialized handoff),
+    wrong source-parent/source-ref/source-head linkage, legacy unbound records and
+    build-record/prepared companion mismatch (mock asserts not called).
+  - `prepare`/`package`/workflow integration (`test_paseo_candidate_build_pipeline.py`,
+    10 tests): staged record carries the declared `companion_bundle`; package requires
+    a fully linked build-input and a matching bound record (unverified test phase still
+    refused); CLI/package-call omission of `--build-input` fails (`TypeError`/
+    exit `2`); workflow asserts the staged record feeds BOTH build and package steps.
   - Targeted: `test_llm_test_policy_contract` + `test_m07_t04_policy_delivery` +
     `test_paseo_companion_bundle` + `test_paseo_candidate_build_pipeline` +
-    `test_pi_instruction_plane_contract` → **48/48 GREEN**.
+    `test_pi_instruction_plane_contract` → **56/56 GREEN**.
   - Affected incl. entrypoint/auth-shadow/catalog/Compose/relay/rpc/lifecycle/resolver →
     GREEN (see full run); `node --test tests/codex_lb_dynamic_model_catalog_core_test.mjs`
     → **1/1 GREEN**.
-  - Full: `python3 -m unittest discover -s tests -p 'test_*.py'` → **553/553 GREEN**,
-    zero skips in the corrected modules.
+  - Full: `python3 -m unittest discover -s tests -p 'test_*.py'` → **561/561 GREEN**
+    (553 prior + 8 net new binding fixtures), zero skips in the corrected modules.
   - `git diff --check` → **GREEN**.
   - Secret-safe scans: `config/`+`scripts/`+`docs/`+`contracts/` grep for credential
     patterns → clean; instruction-plane corpus scan (contract test) → clean.
@@ -274,6 +315,15 @@ host/production action taken.
 - Tower validator still performs direct Codex-LB `/responses` inference and can PASS
   without a real Muse smoke (P4 §2 risk 2) — intentionally untouched (M07-T05 scope).
   No final eligibility, credential admission, or production mutation claimed.
+- R2 pipeline binding (third-round gap) is now closed in this baseline: prepared
+  inputs and the actual staged bundle are verified by the real build entrypoint
+  before builder/external actions, retained in the build record, and re-checked
+  against source/candidate/handoff/prepared identity by the real package gate;
+  CI omission is wired out (both steps pass `--build-input`) and omission at any
+  point rejects rather than preserving old behavior. Shipped machine enforcement
+  ends at eligibility binding: exact-candidate effective-profile/wire/inference
+  proof remains M08-T01 after M07-T05 machinery; M07-T05/T06 acceptance/promotion
+  mechanics explicitly unimplemented here.
 - Old M07 candidate `77e29f0d…` fixture rehearsal does not establish R2 acceptance; new
   exact artifact remains M07-T07 scope. No image build/publication performed here.
 - No genuine missing agent-findable facts beyond the above; no fallback, substitution,
@@ -285,10 +335,11 @@ host/production action taken.
 - Implementation commits: to be recorded by Main on commit (bounded source corrections
   in §1–§2 plus this updated evidence file only; no push, PR, Issue, or workflow-state change).
 - Evidence: this file (`implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T04-baseline-implementation-2026-10-04.md`;
-  `bae5214` and `9c31416` bytes retained in Git history).
-- Tests: §3 classification/results (48/48 targeted, 553/553 full + node 1/1, diff-check
-  GREEN; upstream clamp readback executed, zero skips; dispatch snapshots pre-cleanup;
-  fake-only PATH on every host).
+  `bae5214`, `9c31416` and `c483c5f` bytes retained in Git history).
+- Tests: §3 classification/results (56/56 targeted, 561/561 full + node 1/1 +
+  diff-check GREEN; upstream clamp readback executed, zero skips; dispatch
+  snapshots pre-cleanup; fake-only PATH on every host; Docker subprocess calls only
+  faked, real prepare/buildx/package/resolver code on every binding fixture).
 - Preserved target: §1 verbatim + reconciled-contract list, update-system intact;
   delivery/binding provenance §2+§4.
 - Limitations/gaps: §5 (effective-max unverified → M08-T01; validator/gates → M07-T05/T06;
