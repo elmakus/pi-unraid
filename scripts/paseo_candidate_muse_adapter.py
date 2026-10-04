@@ -87,9 +87,8 @@ PRODUCTION_HOMES = (
 )
 
 EFFECTIVE_UNOBSERVABLE_BOUNDARY = (
-    "effective max unobservable on the direct-Meta path "
-    "(pinned Contributor thinkingLevelMap.max=null + unmodified "
-    "max->xhigh clamp); owner M08-T01 after autonomous machinery/rehearsal"
+    'pinned default Contributor max=null is a negative capability fact; '
+    'preflight must block it before dispatch, with no override or fallback'
 )
 
 
@@ -350,8 +349,8 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
         return {
             "returncode": proc.returncode,
             "timeout": False,
-            "stderr": proc.stderr[-2000:] if proc.stderr else "",
-            "stdout": proc.stdout[-2000:] if proc.stdout else "",
+            'stderr': 'guard dispatch failed' if proc.returncode else '',
+            'stdout': '',
             "dispatched": marker.is_file(),
             "dispatch_lines": marker.read_text().splitlines() if marker.is_file() else [],
         }
@@ -448,19 +447,22 @@ def stage_candidate_env(dest: Path) -> Path:
         "ptr=\"${META_API_KEY_FILE:-" + MUSE_SECRET_TARGET + "}\"\n"
         "if [ ! -f \"$ptr\" ]; then echo 'M07-T05 loader: META_API_KEY_FILE unavailable' >&2; exit 42; fi\n"
         "count=0\n"
+        "auth_name='META_API_KEY'\n"
         "val=\"\"\n"
         "while read -r line || [ -n \"$line\" ]; do\n"
         "  case \"$line\" in \"\"|\\#*) continue ;; esac\n"
         "  count=$((count+1))\n"
         "  case \"$line\" in\n"
-        "    " + MUSE_SECRET_ENV_NAME + "=*) val=\"${line#" + MUSE_SECRET_ENV_NAME + "=}\" ;;\n"
-        "    *=*) echo 'M07-T05 loader: unexpected credential entry' >&2; exit 42 ;;\n"
+        "    *=*)\n"
+        "      name=\"${line%%=*}\"\n"
+        "      if [ \"$name\" != \"$auth_name\" ]; then echo 'M07-T05 loader: unexpected credential entry' >&2; exit 42; fi\n"
+        "      val=\"${line#*=}\" ;;\n"
         "    *) val=\"$line\" ;;\n"
         "  esac\n"
         "done < \"$ptr\"\n"
         "if [ \"$count\" -ne 1 ]; then echo 'M07-T05 loader: credential must hold exactly one entry' >&2; exit 42; fi\n"
         "case \"$val\" in \"\"|*[[:space:]]*) echo 'M07-T05 loader: dedicated Muse credential is empty or invalid' >&2; exit 42 ;; esac\n"
-        "export META_API_KEY=\"$val\"\n"
+        "export \"${auth_name}=${val}\"\n"
         "exec \"$@\"\n",
         encoding="utf-8",
     )
@@ -518,11 +520,12 @@ def stage_witness_extension(dest: Path) -> Path:
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(
-        "// M07-T05 witness (test-owned, secret-free, actual payload fields).\n"
+        "// Frozen, opt-in candidate-only observation; never observe ordinary agents.\n"
+        "import fs from 'node:fs';\n"
         "export default function (ctx) {\n"
-        "  const fs = require('node:fs');\n"
-        "  const witness = process.env.M07_T05_WITNESS_FILE || '/tmp/m07-t05-witness.jsonl';\n"
-        "  const testId = process.env.M07_T05_TEST_ID || '';\n"
+        "  const witness = process.env.M07_T05_WITNESS_FILE;\n"
+        "  const testId = process.env.M07_T05_TEST_ID;\n"
+        "  if (!witness || !testId || !witness.startsWith('/') || !/^[A-Za-z0-9_.-]{1,64}$/.test(testId)) return;\n"
         "  function emit(obj) {\n"
         "    const allow = { test_id: String(testId).slice(0,64) };\n"
         "    for (const k of ['model','effort','status','kind']) {\n"
@@ -572,39 +575,44 @@ def write_effective_witness_extension(dest: Path) -> Path:
     return stage_witness_extension(dest)
 
 
-def load_witness_events(path: Path, test_id: str) -> list:
-    """Load and filter witness events for one owned test.
+def parse_witness_readback(text: str, test_id: str) -> list:
+    """Validate the ENTIRE private readback before any aggregation/filtering.
 
-    Returns only events whose ``test_id`` equals the owned test id.
-    Stale (other test), caller (missing/mismatched id), and malformed lines
-    are dropped. Empty → caller must treat as UNKNOWN (no replay).
+    Malformed, mixed-subject and unknown-field rows invalidate the readback;
+    never manufacture a clean event bag by discarding inconvenient evidence.
+    Empty/unavailable readback remains uncertain, not successful.
     """
+    if not isinstance(text, str) or len(text.encode('utf-8')) > 65536:
+        raise AdapterError("witness readback is malformed or exceeds bound")
+    out = []
+    for line in text.splitlines():
+        if not line.strip():
+            raise AdapterError("witness readback contains an empty row")
+        try:
+            doc = json.loads(line)
+        except (ValueError, TypeError):
+            raise AdapterError("witness readback contains malformed JSON") from None
+        if not isinstance(doc, dict) or doc.get('test_id') != test_id:
+            raise AdapterError("witness readback contains a wrong subject")
+        kind = doc.get('kind')
+        fields = {'request': {'test_id', 'kind', 'model', 'effort'},
+                  'response': {'test_id', 'kind', 'status'},
+                  'terminal': {'test_id', 'kind', 'status'}}.get(kind)
+        if fields is None or set(doc) != fields or any(
+                not isinstance(v, str) or not v or len(v) > 128 for v in doc.values()):
+            raise AdapterError("witness readback contains malformed typed facts")
+        out.append(doc)
+        if len(out) > 16:
+            raise AdapterError("witness event bound exceeded")
+    return out
+
+
+def load_witness_events(path: Path, test_id: str) -> list:
     try:
-        lines = Path(path).read_text(encoding="utf-8").splitlines()
+        text = Path(path).read_text(encoding='utf-8')
     except OSError:
         return []
-    out: list = []
-    for ln in lines:
-        ln = ln.strip()
-        if not ln:
-            continue
-        try:
-            doc = json.loads(ln)
-        except (json.JSONDecodeError, ValueError):
-            continue
-        if not isinstance(doc, dict):
-            continue
-        if doc.get("test_id") != test_id:
-            continue
-        filt = {"test_id": test_id}
-        for k in ("model", "effort", "status", "kind"):
-            v = doc.get(k)
-            if isinstance(v, str) and v:
-                filt[k] = v[:128]
-        if filt.get("kind") not in WITNESS_KINDS:
-            continue
-        out.append(filt)
-    return out
+    return parse_witness_readback(text, test_id)
 
 
 def parse_effective_witness_file(path: Path):
@@ -681,7 +689,7 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
     model = next(iter(models)) if models else None
     if model != expected_model:
         return {"gate": "FAIL", "observed": None,
-                "reason": f"wrong witness model: {model!r} vs {expected_model!r}", "replay": False}
+                'reason': 'wrong witnessed model identity', 'replay': False}
     if len(efforts) > 1:
         return {"gate": "FAIL", "observed": None, "reason": "contradictory witness efforts", "replay": False}
     effort = next(iter(efforts)) if efforts else None
@@ -691,7 +699,7 @@ def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dic
     observed = {"provider": FIXED_PROVIDER, "model": model, "thinking": effort}
     if effort != FIXED_THINKING:
         return {"gate": "FAIL", "observed": observed,
-                "reason": f"downgraded on-wire effort: {effort!r} (requested max); "
+                'reason': 'wrong or downgraded on-wire effort (requested max); '
                 + EFFECTIVE_UNOBSERVABLE_BOUNDARY, "replay": False}
     if not resps:
         return {"gate": "UNKNOWN", "observed": observed,
@@ -855,8 +863,14 @@ def observe_daemon_status(exec_run, *, candidate_home: str, expected_version: st
         raise AdapterError("connected daemon server identity is missing")
     if not isinstance(doc.get("daemonNode"), str) or not doc["daemonNode"].startswith("/"):
         raise AdapterError("daemon Node executable identity is missing")
-    if not isinstance(doc.get("providers"), (list, dict)) or not doc["providers"]:
-        raise AdapterError("daemon provider details are unavailable")
+    providers = doc.get('providers')
+    if not isinstance(providers, (list, dict)) or not providers:
+        raise AdapterError('daemon provider details are unavailable')
+    pi_available = ('pi' in providers if isinstance(providers, dict) else
+                    any(p == 'pi' or isinstance(p, dict) and p.get('provider') == 'pi'
+                        and p.get('available') is True for p in providers))
+    if not pi_available:
+        raise AdapterError('connected daemon does not advertise the selected Pi provider')
     return {"home": home, "endpoint": endpoint, "pid": pid, "version": str(version),
             "worker_pid": worker_pid, "server_id": doc["serverId"], "node": doc["daemonNode"]}
 
@@ -874,7 +888,8 @@ def observe_pi_version(exec_run, *, expected_version: str) -> dict:
     path = path[-1].strip() if path else ""
     if not path:
         raise AdapterError("candidate Pi path missing")
-    _require_candidate_local_pi_path(path)
+    if path != '/usr/local/bin/pi':
+        raise AdapterError('Pi resolution does not match the controlled image executable')
     ver = exec_run(["pi", "--version"], timeout=30)
     if getattr(ver, "returncode", 1) != 0:
         raise AdapterBlocked("candidate Pi version unavailable")
@@ -1109,8 +1124,8 @@ def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cw
         return {
             "returncode": proc.returncode,
             "timeout": False,
-            "stderr": proc.stderr[-2000:] if proc.stderr else "",
-            "stdout": proc.stdout[-2000:] if proc.stdout else "",
+            'stderr': 'guard dispatch failed' if proc.returncode else '',
+            'stdout': '',
             "dispatched": dispatched,
             "dispatch_argv": recorded,
             "events": events,

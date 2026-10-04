@@ -138,6 +138,24 @@ def run(argv, *, timeout=300, check=True):
     return p
 
 
+def _positive_absence(proc, identity: str, *, network=False) -> bool:
+    """Docker's exact no-such-object diagnostic, not arbitrary failed inspect.
+
+    Never copy dependency text to evidence. A timeout, permission error,
+    malformed response or generic nonzero result is NOT verified absence.
+    """
+    if getattr(proc, 'returncode', 0) != 1:
+        return False
+    text = (getattr(proc, 'stderr', '') or '').strip()
+    if network:
+        expected = {f'Error response from daemon: network {identity} not found',
+                    f'Error: No such network: {identity}'}
+    else:
+        expected = {f'Error: No such object: {identity}',
+                    f'Error response from daemon: No such container: {identity}'}
+    return text in expected and not (getattr(proc, 'stdout', '') or '').strip()
+
+
 def immutable_ref(repository, digest):
     repository = repository.strip().lower()
     if not REPOSITORY.fullmatch(repository):
@@ -199,7 +217,14 @@ def _load_codex_helper():
     return mod
 
 
-def _secret_file_ok(path: Path, *, what: str) -> None:
+def _secret_file_ok(path: Path, *, what: str, expected_uid: int) -> None:
+    # Reject ordinary auth trees BEFORE stat/content reads. Dedicated input
+    # is provisioned independently, never borrowed from installed agent auth.
+    resolved = path.resolve()
+    for root in (Path.home() / '.pi', Path.home() / '.paseo',
+                 Path('/mnt/user/appdata/pi-unraid/paseo-home')):
+        if resolved == root.resolve() or root.resolve() in resolved.parents:
+            raise ValidationError('ordinary credential/HOME input is forbidden')
     if path.is_symlink():
         raise ValidationError(f"dedicated {what} credential must not be a symlink")
     try:
@@ -210,6 +235,8 @@ def _secret_file_ok(path: Path, *, what: str) -> None:
 
     if not statmod.S_ISREG(st.st_mode):
         raise ValidationError(f"dedicated {what} credential must be a regular file")
+    if st.st_uid != expected_uid:
+        raise ValidationError('dedicated credential must be owned by the candidate UID')
     if statmod.S_IMODE(st.st_mode) & 0o077:
         raise ValidationError(f"dedicated {what} credential must be private (0600/0400)")
 
@@ -242,9 +269,14 @@ def _read_secret_value(path: Path, *, allowed_names: tuple, what: str) -> str:
     return value
 
 
-def _owned_work(work: Path, state_root: Path, *, nonce: str, candidate_id: str) -> bool:
+def _owned_work(work: Path, state_root: Path, *, nonce: str, candidate_id: str,
+                identity: tuple | None = None) -> bool:
     """Work is owned only with matching nonce + candidate identity (not mere file)."""
     try:
+        if work.is_symlink():
+            return False
+        if identity is not None and (work.stat().st_dev, work.stat().st_ino) != identity:
+            return False
         w = work.resolve()
         r = Path(state_root).resolve()
     except OSError:
@@ -254,6 +286,8 @@ def _owned_work(work: Path, state_root: Path, *, nonce: str, candidate_id: str) 
     if not w.name.startswith("candidate-"):
         return False
     try:
+        if (w / '.attempt-nonce').is_symlink() or (w / '.attempt-id').is_symlink():
+            return False
         if (w / ".attempt-nonce").read_text(encoding="utf-8").strip() != nonce:
             return False
         if (w / ".attempt-id").read_text(encoding="utf-8").strip() != candidate_id:
@@ -365,13 +399,21 @@ def _container_owned(obj: dict, work: Path, network: str, *,
 
 
 def _network_owned(net_obj: dict, *, expected_nonce: str,
-                   expected_network_id: str | None = None) -> bool:
+                   expected_network_id: str | None = None,
+                   expected_container_id: str | None = None) -> bool:
     """Network is owned only with the attempt nonce label. Label-less FAILs.
 
     When expected_network_id is supplied (post-acquisition boundary), the
     live network Id must equal the acquired ID; a replaced same-nonce
     network is foreign and fails. """
     try:
+        if (net_obj.get('Driver') != 'bridge' or net_obj.get('Scope') != 'local'
+                or net_obj.get('Internal') is not False or net_obj.get('Ingress') is not False
+                or net_obj.get('Attachable') is not False or net_obj.get('Options') != {}):
+            return False
+        endpoints = net_obj.get('Containers')
+        if not isinstance(endpoints, dict) or set(endpoints) - ({expected_container_id} if expected_container_id else set()):
+            return False
         labels = (net_obj.get("Labels") or {})
         if labels.get("io.pi-unraid.validator-nonce") != expected_nonce:
             return False
@@ -447,6 +489,12 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
     test_id: str | None = None
     owned_test_path: str | None = None
     daemon_ref: dict | None = None
+    acquired_network_id = None
+    mounted_secrets = {}
+    acquisition_uncertain = False
+    image_id = None
+    cleanup_issues = []
+    work_identity = None
     try:
         adap = _load_adapter()
         chelp = _load_codex_helper()
@@ -508,7 +556,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             try:
                 _rmod.validate(cand)
             except Exception as exc:
-                raise ValidationError(f"candidate failed producer validation: {exc}") from exc
+                raise ValidationError('candidate failed frozen producer validation') from exc
             comp = cand.get("components") or {}
             if not isinstance(comp, dict):
                 raise ValidationError("candidate components malformed")
@@ -535,7 +583,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         if publication is not None:
             if not isinstance(publication, dict):
                 raise ValidationError("publication record must be an object")
-            if publication.get("schema_version") != 1:
+            if type(publication.get('schema_version')) is not int or publication.get("schema_version") != 1:
                 raise ValidationError("publication record uses an unsupported schema")
             if publication.get("status") != "published":
                 raise ValidationError("publication record is not a published binding")
@@ -729,9 +777,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if _lbls.get("io.pi-unraid.pi-version") not in (None, str(expected_pi)):
                 raise ValidationError("pulled image Pi label contradicts frozen candidate")
             result["subject"]["image_pi_label"] = _lbls.get("io.pi-unraid.pi-version")
-        if publication is not None and publication.get("image_id") not in (None, image_id):
+        if publication is not None and publication.get("image_id") != image_id:
             raise ValidationError("publication image_id mismatch vs pulled local ID")
-        if tested is not None and tested.get("image_id") not in (None, image_id):
+        if tested is not None and tested.get("image_id") != image_id:
             raise ValidationError("tested-image image_id mismatch vs pulled local ID")
         if build_rec is not None and (build_rec.get("image") or {}).get("id") not in (None, image_id):
             raise ValidationError("build record image mismatch vs pulled local ID")
@@ -753,7 +801,10 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if companion_bundle is not None:
                 if not isinstance(companion_bundle, dict):
                     raise ValidationError("companion binding declaration must be an object")
-                build_mod.verify_companion_binding(src, companion_bundle)
+                try:
+                    build_mod.verify_companion_binding(src, companion_bundle)
+                except build_mod.CandidateBuildError as exc:
+                    raise ValidationError('frozen companion or validation-source binding mismatch') from exc
                 if companion_bundle.get("source_digest") != actual["source_digest"]:
                     raise ValidationError("companion bundle digest mismatch")
             for rec in (build_input, tested):
@@ -789,7 +840,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         secret_resolved = muse_resolved = None
         if codex_secret is not None:
             secret_resolved = Path(codex_secret).resolve()
-            _secret_file_ok(Path(codex_secret), what="Codex-LB")
+            _secret_file_ok(Path(codex_secret), what='Codex-LB', expected_uid=uid)
             try:
                 chelp.validate_base_url(codex_base_url)
                 chelp.validate_model_id(codex_model)
@@ -802,7 +853,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             raise ValidationBlocked("real validation requires dedicated Codex credential")
         if muse_secret is not None:
             muse_resolved = Path(muse_secret).resolve()
-            _secret_file_ok(Path(muse_secret), what="Muse")
+            _secret_file_ok(Path(muse_secret), what='Muse', expected_uid=uid)
             try:
                 adap.read_dedicated_muse_secret(Path(muse_secret))
             except adap.AdapterBlocked as exc:
@@ -819,6 +870,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         root = Path(state_root)
         root.mkdir(parents=True, exist_ok=True)
         work = Path(tempfile.mkdtemp(prefix="candidate-", dir=root))
+        work_identity = (work.stat().st_dev, work.stat().st_ino)
         (work / ".attempt-nonce").write_text(attempt_nonce + "\n", encoding="utf-8")
         (work / ".attempt-id").write_text(digest + "\n", encoding="utf-8")
         try:
@@ -835,11 +887,22 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             except PermissionError as exc:
                 raise ValidationBlocked("cannot establish validator UID:GID ownership") from exc
         owned_test_path = str(work / f"test-{attempt_nonce}.json")
-        acquired_network_id: str | None = None
-        mounted_secrets: dict = {}
+        def retain_acquisition():
+            Path(owned_test_path).write_text(json.dumps({
+                'schema_version': SCHEMA_VERSION, 'test_id': test_id,
+                'attempt_nonce': attempt_nonce, 'image_id': image_id,
+                'container': {'name': name, 'id': created_id},
+                'network': {'name': network, 'id': acquired_network_id},
+                'work_identity': list(work_identity), 'dispatch': {'state': 'not-dispatched'},
+            }, sort_keys=True) + '\n', encoding='utf-8')
+            Path(owned_test_path).chmod(0o600)
+        retain_acquisition()
         # Network: nonce label REQUIRED (label-less always FAIL, fixture or real).
         net_inspect = run(["docker", "network", "inspect", network], check=False)
         if net_inspect.returncode:
+            if not _positive_absence(net_inspect, network, network=True):
+                raise ValidationBlocked('network absence unverified; refusing creation')
+            acquisition_uncertain = True
             created_net = run(["docker", "network", "create", "--label",
                                f"io.pi-unraid.validator-nonce={attempt_nonce}", network])
             try:
@@ -849,6 +912,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if not acquired_network_id:
                 raise ValidationBlocked("network acquisition identity unavailable; failing closed")
             network_created = True
+            acquisition_uncertain = False
+            retain_acquisition()
         else:
             try:
                 nobj = json.loads(net_inspect.stdout or "[]")
@@ -863,21 +928,19 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         # Preexisting container: exact ownership or fail (never rm foreign).
         pre = run(["docker", "inspect", name], check=False)
         if pre.returncode == 0:
-            try:
-                existing = json.loads(pre.stdout)[0]
-            except (json.JSONDecodeError, IndexError, KeyError):
-                existing = {}
-            if not _container_owned(existing, work, network, expected_image_id=image_id, expected_nonce=attempt_nonce):
-                raise ValidationError("same-name container already exists and is not owned by this attempt; refusing it")
-            owned_rm = run(["docker", "rm", "-f", name], check=False)
-            if owned_rm.returncode != 0:
-                raise ValidationBlocked("owned leftover container could not be reclaimed")
+            raise ValidationError('same-name container exists; no acquisition authority to reclaim it')
+        if not _positive_absence(pre, name):
+            raise ValidationBlocked('container absence unverified; refusing creation')
         # --- Container create (secret values NEVER on argv/env; pointers only) ---
-        argv = ["docker", "run", "-d", "--name", name, "--user", f"{uid}:{gid}",
+        # Hold PID 1 without invoking ANY upstream entrypoint/daemon. The
+        # private payload is applied before the only authorized daemon start.
+        argv = ["docker", "run", "-d", '--entrypoint', '/bin/sh', '--no-healthcheck',
+                "--name", name, "--user", f"{uid}:{gid}",
                 "--network", network,
                 "--label", f"io.pi-unraid.validator-nonce={attempt_nonce}",
                 "--label", f"io.pi-unraid.candidate-id={digest}",
                 "--read-only", "--tmpfs", "/tmp:rw,nosuid,nodev", "--tmpfs", "/run:rw,nosuid,nodev",
+                '-e', 'PATH=/usr/local/bin:/usr/bin:/bin', '-e', 'PI_COMMAND=/usr/local/bin/pi',
                 "-e", "TZ=Europe/Zurich", "-e", "HOME=/home/paseo", "-e", "PASEO_HOME=/home/paseo/.paseo",
                 "-v", f"{work / 'home'}:/home/paseo:rw",
                 "-v", f"{work / 'projects'}:/projects:rw",
@@ -891,11 +954,12 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             argv += ["-v", f"{muse_resolved}:{MUSE_SECRET_TARGET}:ro",
                      "-e", f"{MUSE_POINTER_ENV}={MUSE_SECRET_TARGET}"]
             mounted_secrets[MUSE_SECRET_TARGET] = str(muse_resolved)
-        argv.append(ref)
+        argv += [ref, '-c', 'exec sleep infinity']
         joined = " ".join(argv)
         for forbidden in ("/var/run/docker.sock", "unraid-api.key", "/mnt/user/appdata/pi-unraid/paseo-home"):
             if forbidden in joined:
                 raise ValidationError("forbidden production authority")
+        acquisition_uncertain = True
         created_proc = run(argv)
         try:
             created_id = (created_proc.stdout or "").strip().splitlines()[-1].strip() or None
@@ -904,7 +968,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         if not created_id:
             raise ValidationBlocked("container acquisition identity unavailable; failing closed")
         container_created = True
-        obj = wait_for_runtime(name)
+        acquisition_uncertain = False
+        retain_acquisition()
+        obj = wait_for_runtime(created_id)
         # Running image MUST be the pulled ID (no Config.Image/registry fallback).
         if not obj.get("Image") or obj.get("Image") != image_id:
             raise ValidationError("running container image mismatch; fails closed")
@@ -915,7 +981,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         if _live_id != _want_id:
             raise ValidationError("container replacement detected; fails closed")
         # Re-verify exact current ownership BEFORE any exec (ID-bound).
-        cur0 = run(["docker", "inspect", name], check=False)
+        cur0 = run(["docker", "inspect", created_id], check=False)
         if cur0.returncode != 0:
             raise ValidationBlocked("container vanished before exec")
         try:
@@ -955,16 +1021,28 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             # Stage the ONE check program + shared helper + witness extension.
             here = Path(__file__).resolve().parent
             for fname in ("paseo_codex_noninference.py", "paseo_codex_candidate_check.py"):
-                s = here / fname
+                s = src_agent / 'bin' / fname
                 d = dst_agent / "bin" / fname
                 d.parent.mkdir(parents=True, exist_ok=True)
                 d.write_bytes(s.read_bytes())
                 try:
-                    d.chmod(0o644)
+                    d.chmod(0o755)
                 except OSError:
                     pass
-            adap.stage_witness_extension(dst_agent / "extensions" / "m07-t05-witness.js")
-            adap.stage_candidate_env(dst_agent / "bin" / "m07-t05-candidate-env.sh")
+            for source_rel, dest_rel in (
+                    ('extensions/m07-t05-witness.js', 'extensions/m07-t05-witness.js'),
+                    ('bin/m07-t05-candidate-env.sh', 'bin/m07-t05-candidate-env.sh')):
+                source_payload = src_agent / source_rel
+                target_payload = dst_agent / dest_rel
+                target_payload.parent.mkdir(parents=True, exist_ok=True)
+                target_payload.write_bytes(source_payload.read_bytes())
+                target_payload.chmod(0o755 if dest_rel.startswith('bin/') else 0o644)
+            # Every used runtime program is now a frozen declaration member,
+            # not a post-stage host-generated behavior/digest.
+            for rel, declared_sha in companion_bundle.get('validation_sources', {}).items():
+                runtime_file = Path(__file__).resolve().parents[1] / rel
+                if 'sha256:' + hashlib.sha256(runtime_file.read_bytes()).hexdigest() != declared_sha:
+                    raise ValidationError('executing validator source differs from frozen producer declaration')
             (work / "home" / ".pi" / "agent" / "bin" / "run-llm-test.sh").chmod(0o755)
             # Bind staged bytes to reviewed validator source (host-side): every
             # staged behavior-changing file must byte-match its repo source.
@@ -995,9 +1073,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     _decl_files = sorted(companion_bundle.get("files", []))
                     _staged_all = sorted([p.as_posix() for p in _inst.safe_files(dst_agent)])
                     _staged_decl = [p for p in _staged_all if p in set(_decl_files)]
-                    if _staged_decl != _decl_files:
+                    if _staged_all != _decl_files:
                         raise ValidationError("staged companion file set differs from declared binding")
-                    _staged_modes = {p: f"{_inst.managed_mode(Path(p)):04o}" for p in _decl_files}
+                    _staged_modes = {p: f"{(dst_agent / p).stat().st_mode & 0o777:04o}" for p in _decl_files}
                     if _staged_modes != companion_bundle.get("modes"):
                         raise ValidationError("staged companion modes differ from declared binding")
                     _staged_digest = _inst.digest_source(
@@ -1019,6 +1097,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             return run(["docker", "exec", created_id or name] + args, **kw)
 
         def _verify_current_ownership(stage: str) -> dict:
+            if not _owned_work(work, Path(state_root), nonce=attempt_nonce, candidate_id=digest,
+                               identity=work_identity):
+                raise ValidationError('acquired work identity changed; preserve resources')
             cur = run(["docker", "inspect", created_id or name], check=False)
             if cur.returncode != 0:
                 raise ValidationBlocked(f"container vanished before {stage}")
@@ -1032,6 +1113,11 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                                     expected_secret_sources=mounted_secrets or None,
                                     expected_user=f"{uid}:{gid}"):
                 raise ValidationError(f"container ownership unverified before {stage}; preserving")
+            actual_networks = (cur_obj.get('NetworkSettings') or {}).get('Networks')
+            if (not isinstance(actual_networks, dict) or set(actual_networks) != {network}
+                    or not isinstance(actual_networks[network], dict)
+                    or actual_networks[network].get('NetworkID') != acquired_network_id):
+                raise ValidationError('container current network mapping is unverified')
             # Network acquisition identity is also an execution boundary: a
             # replaced same-nonce network fails before further execs.
             if network_created and acquired_network_id is not None:
@@ -1044,7 +1130,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 except (json.JSONDecodeError, IndexError):
                     ncur_obj = {}
                 if not _network_owned(ncur_obj, expected_nonce=attempt_nonce,
-                                       expected_network_id=acquired_network_id):
+                                       expected_network_id=acquired_network_id,
+                                       expected_container_id=created_id):
                     raise ValidationError(f"network ownership unverified before {stage}; preserving")
             return cur_obj
 
@@ -1061,6 +1148,16 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError(f"candidate {what} readback malformed")
             return toks[0], toks[-1]
 
+        # Read back EVERY declared frozen runtime file, including source
+        # loader/observer/Codex payload, with actual modes in the candidate.
+        if companion_bundle is not None and source_root is not None:
+            for rel in companion_bundle['files']:
+                expected_bytes = (Path(source_root) / 'config/pi-agent' / rel).read_bytes()
+                actual_hash, actual_mode = _readback_file('/home/paseo/.pi/agent/' + rel, what='companion file')
+                if actual_hash.removeprefix('sha256:') != hashlib.sha256(expected_bytes).hexdigest():
+                    raise ValidationError('candidate companion content readback mismatch')
+                if actual_mode.zfill(4) != companion_bundle['modes'][rel]:
+                    raise ValidationError('candidate companion actual mode readback mismatch')
         # Guard hash+mode compare (bytes AND mode; profile fields alone prove
         # nothing — a staged policy/guard with identical fields but different
         # bytes or world-writable mode fails here).
@@ -1219,15 +1316,12 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationUnknown("guarded dispatch occurrence unknown; preserving test object")
             # Witness aggregation for THIS owned test (request+response+terminal).
             wr = _exec(["sh", "-c", f"# witness-read\ncat {WITNESS_CANDIDATE_PATH}"], timeout=30, check=False)
-            events = []
-            if wr.returncode == 0 and (wr.stdout or "").strip():
-                for ln in (wr.stdout or "").strip().splitlines():
-                    try:
-                        doc = json.loads(ln)
-                    except (json.JSONDecodeError, ValueError):
-                        continue
-                    if isinstance(doc, dict) and doc.get("test_id") == test_id:
-                        events.append(doc)
+            if wr.returncode != 0:
+                raise ValidationUnknown('witness readback unavailable; preserve owned test')
+            try:
+                events = adap.parse_witness_readback(wr.stdout or '', test_id)
+            except adap.AdapterError as exc:
+                raise ValidationError('owned witness readback is malformed or wrong-subject') from exc
             # Caller-supplied observed dicts are untrusted claims, never proof.
             if isinstance(muse_observed_effective, dict) and events:
                 for e in [x for x in events if x.get("kind") == "request"]:
@@ -1335,10 +1429,15 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                                         expected_user=f"{uid}:{gid}"):
                         # Remove by immutable ID, never a mutable name: a replaced
                         # same-name foreign object is never removed here.
-                        run(["docker", "rm", "-f", created_id or name], check=False)
-            # else: UNKNOWN preserves the container; foreign never removed.
+                        removed = run(['docker', 'rm', '-f', created_id], check=False)
+                        if removed.returncode != 0:
+                            cleanup_issues.append('acquired container removal failed')
+                    else:
+                        cleanup_issues.append('current container ownership unverified; preserved')
+                elif not _positive_absence(cur, created_id):
+                    cleanup_issues.append('container cleanup presence uncertain')
         except (ValidationBlocked, ValidationError, ValidationUnknown):
-            pass
+            cleanup_issues.append('container cleanup observation failed')
         try:
             # Never erase work while a live container still mounts it. A nonzero
             # or failed ownership inspection is UNCERTAIN (not verified absence):
@@ -1349,7 +1448,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 if work is not None and shutil.which("docker"):
                     _lc = run(["docker", "inspect", name], check=False)
                     if _lc.returncode != 0:
-                        _inspect_uncertain = True
+                        _inspect_uncertain = not _positive_absence(_lc, name)
                     else:
                         try:
                             _lobj = json.loads(_lc.stdout)[0]
@@ -1369,11 +1468,14 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 _inspect_uncertain = True
             if _inspect_uncertain:
                 _live_mounts_work = True  # nonzero/failed readback ≠ verified absence
-            if (work is not None and not _is_unknown and not _live_mounts_work and attempt_nonce is not None
-                    and _owned_work(work, Path(state_root), nonce=attempt_nonce, candidate_id=digest)):
-                shutil.rmtree(work, ignore_errors=True)
+            if work is not None and (_live_mounts_work or acquisition_uncertain) and not _is_unknown:
+                cleanup_issues.append('possibly mounted or uncertainly acquired work preserved')
+            if (work is not None and not _is_unknown and not acquisition_uncertain and not _live_mounts_work and attempt_nonce is not None
+                    and _owned_work(work, Path(state_root), nonce=attempt_nonce, candidate_id=digest,
+                                    identity=work_identity)):
+                shutil.rmtree(work)
         except Exception:
-            pass
+            cleanup_issues.append('owned work cleanup failed')
         try:
             if network_created and shutil.which("docker") and not _is_unknown and attempt_nonce is not None:
                 _remove = False
@@ -1386,7 +1488,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         except (json.JSONDecodeError, IndexError):
                             _nobj = {}
                         _remove = _network_owned(_nobj, expected_nonce=attempt_nonce,
-                                                expected_network_id=acquired_network_id)
+                                                expected_network_id=acquired_network_id,
+                                                expected_container_id=created_id)
                     # inspect failure/missing ownership/ID mismatch → preserve.
                 except (ValidationBlocked, ValidationError, ValidationUnknown):
                     _remove = False
@@ -1394,9 +1497,26 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     # Remove by immutable network ID when acquired, else the
                     # verified-owned name; a replaced same-nonce network is
                     # never removed.
-                    run(["docker", "network", "rm", acquired_network_id or network], check=False)
+                    nr = run(['docker', 'network', 'rm', acquired_network_id], check=False)
+                    if nr.returncode != 0:
+                        cleanup_issues.append('acquired network removal failed')
+                elif not _positive_absence(_nc, network, network=True):
+                    cleanup_issues.append('current network ownership unverified; preserved')
         except (ValidationBlocked, ValidationError, ValidationUnknown):
-            pass
+            cleanup_issues.append('network cleanup observation failed')
+        if acquisition_uncertain:
+            cleanup_issues.append('acquisition occurrence uncertain; no retry')
+        result['cleanup'] = {'status': 'PRESERVED' if _is_unknown else
+                             ('INCOMPLETE' if cleanup_issues else 'COMPLETE'),
+                             'issues': sorted(set(cleanup_issues))}
+        if cleanup_issues or _is_unknown:
+            result['real_validation_satisfied'] = False
+            if result.get('status') == 'PASS':
+                result.update(status='BLOCKED', reason='disposable cleanup incomplete',
+                              real_reason='unfinished cleanup cannot satisfy real validation')
+            result['recovery_reference'] = {'work': str(work) if work else None,
+                                            'container_name': name, 'container_id': created_id,
+                                            'network_name': network, 'network_id': acquired_network_id}
         try:
             Path(output).parent.mkdir(parents=True, exist_ok=True)
             Path(output).write_text(json.dumps(result, sort_keys=True, indent=2) + "\n", encoding="utf-8")

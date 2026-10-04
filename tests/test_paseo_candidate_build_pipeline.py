@@ -26,6 +26,13 @@ def digest(raw: bytes) -> str:
     return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
+def validation_sources(source: Path):
+    for rel in BUILD.VALIDATION_SOURCE_FILES:
+        target = source / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_bytes((ROOT / rel).read_bytes())
+
+
 def fixture_companion(root: Path):
     """Build a small deterministic companion source and return its identity."""
     source = root / "companion-source"
@@ -35,6 +42,7 @@ def fixture_companion(root: Path):
     tool = agent / "bin" / "tool.sh"
     tool.write_text("#!/bin/sh\nexit 0\n")
     tool.chmod(0o755)
+    validation_sources(source)
     return BUILD.companion_bundle_identity(source)
 
 
@@ -186,6 +194,7 @@ class CandidateBuildHandoffTests(unittest.TestCase):
             source = root / "source"
             (source / "config").mkdir(parents=True)
             (source / "scripts").mkdir()
+            validation_sources(source)
             (source / "config" / "pi-agent").mkdir(parents=True)
             (source / "config" / "pi-agent" / "AGENTS.md").write_text("# fixture companion\n")
             (source / "Dockerfile").write_text(DOCKERFILE)

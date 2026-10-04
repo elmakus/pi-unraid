@@ -58,6 +58,13 @@ def synthetic_target() -> dict:
     return target
 
 
+def copy_validation_sources(source: Path):
+    for rel in BUILD.VALIDATION_SOURCE_FILES:
+        dest = source / rel
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes((ROOT / rel).read_bytes())
+
+
 def make_source(root: Path) -> Path:
     source = root / "source"
     agent = source / "config" / "pi-agent"
@@ -68,6 +75,7 @@ def make_source(root: Path) -> Path:
     tool.write_text("#!/bin/sh\nexit 0\n")
     tool.chmod(0o755)
     (agent / "policies" / "p.json").write_text("{}\n")
+    copy_validation_sources(source)
     return source
 
 
@@ -255,6 +263,7 @@ class CompanionPrepareIntegrationTests(unittest.TestCase):
         source = root / "source"
         (source / "config").mkdir(parents=True)
         (source / "scripts").mkdir()
+        copy_validation_sources(source)
         (source / "Dockerfile").write_text(_dockerfile_for(accepted))
         (source / "config" / "paseo-candidate.json").write_text(
             json.dumps(accepted, sort_keys=True, indent=2) + "\n"

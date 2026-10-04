@@ -71,8 +71,7 @@ def _companion_bundle():
 
 def _companion_arg():
     c = dict(REAL_COMPANION)
-    return {"schema_version": c["schema_version"], "source": c["source"],
-            "source_digest": c["source_digest"], "files": c["files"], "modes": c["modes"]}
+    return c
 
 
 REAL_COMPANION = _companion_bundle()
@@ -447,11 +446,15 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             return mock.Mock(returncode=0, stdout="", stderr="")
         if argv[:2] == ["docker", "network"]:
             if argv[2] == "inspect":
-                if not state.get("net_exists", False):
-                    return mock.Mock(returncode=1, stdout="", stderr="No such")
+                if not state.get('net_exists', False):
+                    return mock.Mock(returncode=1, stdout='',
+                                     stderr=f'Error response from daemon: network {argv[-1]} not found')
                 import json as _j
                 return mock.Mock(returncode=0, stdout=_j.dumps([{
                     "Id": state.get("replaced_network_id") or state.get("acquired_network_id") or "fake-net-id-1",
+                    'Driver': 'bridge', 'Scope': 'local', 'Internal': False,
+                    'Ingress': False, 'Attachable': False, 'Options': {},
+                    'Containers': {'fake-container-id-123': {}} if state.get('ran') else {},
                     "Labels": {"io.pi-unraid.validator-nonce": state["nonce"]}}]), stderr="")
             if argv[2] == "create":
                 state["net_exists"] = True
@@ -466,8 +469,8 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 return mock.Mock(returncode=0, stdout="", stderr="")
             return mock.Mock(returncode=0, stdout="", stderr="")
         if argv[:2] == ["docker", "inspect"]:
-            if not state.get("ran"):
-                return mock.Mock(returncode=1, stdout="", stderr="No such")
+            if not state.get('ran'):
+                return mock.Mock(returncode=1, stdout='', stderr=f'Error: No such object: {argv[-1]}')
             if state.get("inspect_failure"):
                 return mock.Mock(returncode=1, stdout="", stderr="synthetic inspect transport failure")
             if state.get("fail_cleanup_inspect") and state.get("dispatch_complete"):
@@ -488,6 +491,8 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                    "HostConfig": {"NetworkMode": state.get("network", "pi-unraid-validator"),
                                   "ReadonlyRootfs": True,
                                   "Tmpfs": {"/tmp": "rw,nosuid,nodev", "/run": "rw,nosuid,nodev"}},
+                   'NetworkSettings': {'Networks': {state.get('network', 'pi-unraid-validator'):
+                       {'NetworkID': state.get('acquired_network_id')}}},
                    "Mounts": mounts, "State": {"Status": "running", "Health": {"Status": "healthy"}}}
             return mock.Mock(returncode=0, stdout=json.dumps([obj]), stderr="")
         if argv[:2] == ["docker", "run"]:
@@ -507,7 +512,7 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             full = " ".join(argv)
             work = state.get("work", "")
             # Codex check: run the ACTUAL staged file locally.
-            if "paseo_codex_candidate_check.py" in full:
+            if argv[3:5] == ['python3', '/home/paseo/.pi/agent/bin/paseo_codex_candidate_check.py']:
                 staged = (Path(work) / "home" / ".pi" / "agent" / "bin" / "paseo_codex_candidate_check.py") if work else None
                 # Execute the shipped argv unchanged except namespace mappings.
                 # Derive mounts from docker run; never substitute helper arguments.
@@ -603,7 +608,7 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                                                        "thinkingOptionIds": ["max"]}])
                 return mock.Mock(returncode=0, stdout=json.dumps(models), stderr="")
             if "command -v pi" in payload:
-                return mock.Mock(returncode=0, stdout=(state.get("pi_path") or "/home/paseo/.pi/agent/bin/pi") + "\n", stderr="")
+                return mock.Mock(returncode=0, stdout=(state.get("pi_path") or "/usr/local/bin/pi") + "\n", stderr="")
             if argv[-2:] == ["pi", "--version"] or payload.strip() == "pi --version":
                 return mock.Mock(returncode=0, stdout=pi_version + "\n", stderr="")
             # Native export: run ACTUAL staged guard with --native-create-agent-args.
@@ -696,8 +701,11 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                     return mock.Mock(returncode=0, stdout="", stderr="")
                 return mock.Mock(returncode=1, stdout="", stderr="")
             return mock.Mock(returncode=0, stdout="", stderr="")
-        if argv[:2] == ["docker", "rm"]:
-            return mock.Mock(returncode=0, stdout="", stderr="")
+        if argv[:2] == ['docker', 'rm']:
+            if state.get('remove_failure'):
+                return mock.Mock(returncode=1, stdout='', stderr='synthetic removal failed')
+            state['ran'] = False
+            return mock.Mock(returncode=0, stdout='', stderr='')
         return mock.Mock(returncode=0, stdout="", stderr="")
     return fake
 
@@ -867,7 +875,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                                      companion_bundle=_companion_arg(),
                                      candidate_file=cand_file, muse_secret=muse_sec)
             self.assertEqual(res["status"], "FAIL")
-            self.assertIn("guard hash", res.get("reason", "").lower())
+            self.assertIn('content readback mismatch', res.get('reason', '').lower())
 
     def test_malformed_build_record_fails(self):
         with tempfile.TemporaryDirectory() as td:

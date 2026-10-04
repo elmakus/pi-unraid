@@ -56,6 +56,17 @@ def load_buildx(root: Path):
 
 COMPANION_SOURCE_REL = Path("config/pi-agent")
 COMPANION_SCHEMA_VERSION = 1
+VALIDATION_SOURCE_FILES = (
+    'scripts/paseo_tower_validator.py',
+    'scripts/paseo_candidate_muse_adapter.py',
+    'scripts/paseo_codex_noninference.py',
+    'scripts/paseo_codex_candidate_check.py',
+    'scripts/pi_instruction_plane.py',
+    'scripts/paseo_candidate_build.py',
+    'scripts/resolve-paseo-candidate.py',
+    'scripts/paseo_core_compat.py',
+    'scripts/paseo_independent_resolution.py',
+)
 
 
 def load_instruction_plane():
@@ -100,6 +111,10 @@ def companion_bundle_identity(source_root: Path) -> dict:
         "files": [rel.as_posix() for rel in files],
         "modes": modes,
         "source_digest": digest,
+        # Existing prepared/build/package companion envelope freezes the
+        # host-side validation behavior too; no post-stage digest blessing.
+        "validation_sources": {rel: sha256_file(source_root / rel)
+                               for rel in VALIDATION_SOURCE_FILES},
     }
 
 
@@ -137,6 +152,8 @@ def verify_companion_binding(source_root: Path, declared: dict) -> dict:
         raise CandidateBuildError(f"companion bundle modes changed: {mismatched}")
     if actual["source_digest"] != declared_digest:
         raise CandidateBuildError("companion bundle digest mismatch")
+    if actual['validation_sources'] != declared.get('validation_sources'):
+        raise CandidateBuildError('frozen validation source/configuration mismatch')
     return {
         "status": "bound",
         "source": actual["source"],
@@ -513,6 +530,10 @@ def _require_companion_linkage(
         raise CandidateBuildError("build-input companion declaration modes are malformed")
     if not SHA256.fullmatch(str(digest or "")):
         raise CandidateBuildError("build-input companion declaration digest is malformed")
+    validation = companion.get('validation_sources')
+    if (not isinstance(validation, dict) or set(validation) != set(VALIDATION_SOURCE_FILES)
+            or any(not isinstance(v, str) or not SHA256.fullmatch(v) for v in validation.values())):
+        raise CandidateBuildError('build-input frozen validation source declaration is malformed')
     if build_input.get("candidate_file_sha256") != sha256_bytes(candidate_raw):
         raise CandidateBuildError("build-input prepared candidate digest mismatch")
     if build_input.get("handoff_evidence_sha256") != sha256_bytes(handoff_raw):

@@ -53,8 +53,7 @@ REAL_REPOSITORY = T.REAL_REPOSITORY
 
 def _companion_arg():
     c = T.REAL_COMPANION
-    return {"schema_version": c["schema_version"], "source": c["source"],
-            "source_digest": c["source_digest"], "files": c["files"], "modes": c["modes"]}
+    return dict(c)
 
 
 def _fixture_chain(td: Path, *, image_id):
@@ -303,16 +302,15 @@ class MuseAdapterTests(unittest.TestCase):
                 {"test_id": tid, "kind": "terminal", "status": "done"}]
         self.assertEqual(A.aggregate_witness(evs3, test_id=tid,
                                              expected_model="muse-spark-1.3-contributor")["gate"], "FAIL")
-        # Stale/caller events are dropped by the loader.
+        # Stale/caller events invalidate the ENTIRE private readback.
         with tempfile.TemporaryDirectory() as td:
             wf = Path(td) / "w.jsonl"
             wf.write_text(json.dumps({"test_id": "other", "kind": "request",
                                                 "model": "muse-spark-1.3-contributor", "effort": "max"}) + "\n"
                           + json.dumps({"test_id": tid, "kind": "request",
                                                   "model": "muse-spark-1.3-contributor", "effort": "max"}) + "\n")
-            loaded = A.load_witness_events(wf, tid)
-            self.assertEqual(len(loaded), 1)
-            self.assertEqual(loaded[0]["test_id"], tid)
+            with self.assertRaises(A.AdapterError):
+                A.load_witness_events(wf, tid)
 
     def test_dispatch_guarded_test_prompt_form(self):
         with tempfile.TemporaryDirectory() as td:
@@ -404,7 +402,7 @@ class MuseAdapterTests(unittest.TestCase):
                                             expected_version="0.9.2")
 
         def exec_which(argv, timeout=30):
-            return mock.Mock(returncode=0, stdout="/home/paseo/.pi/agent/bin/pi\n")
+            return mock.Mock(returncode=0, stdout="/usr/local/bin/pi\n")
 
         def exec_ver(argv, timeout=30):
             return mock.Mock(returncode=0, stdout="0.87.1\n")

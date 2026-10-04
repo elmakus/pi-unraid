@@ -50,24 +50,34 @@ running/connected reachable states, worker PID, server identity, Node path and
 provider details. Failed startup and `already_running` cannot prove private auth
 inheritance. Dedicated Meta input is a private file reference, read by the
 candidate-env shell loader into supported `META_API_KEY`, not a raw key in argv
-or `--env`. Nonsecret correlation/file pointers use the guard's supported
+or `--env`. Host input must be privately owned by the candidate UID; ordinary
+`.pi`/`.paseo` and production HOME input roots are rejected before content reads.
+Nonsecret correlation/file pointers use the guard's supported
 `--env` forwarding.
 
-**Remaining startup gap:** Docker currently starts the image before staging;
-this can start an upstream daemon outside the loader. Fail-closed rejection of
-already_running prevents acceptance, but controlled pre-staging startup and
-source-qualified daemon-selected Pi/process provenance are not yet implemented.
-`command -v pi` and version equality alone are not daemon selection proof.
+Docker now overrides the upstream entrypoint with a non-daemon hold process
+(`/bin/sh -c 'exec sleep infinity'`, upstream healthcheck disabled). No upstream
+startup runs before private staging. A controlled PATH and absolute PI_COMMAND
+are supplied to this disposable container; Pi resolution must match
+`/usr/local/bin/pi`. Missing selected Pi in daemon status fails before dispatch.
+**Remaining startup gap:** this is not actual daemon-selected process proof.
+Private daemon configuration, descendant-process and agent/workspace correlation
+still need source-faithful end-to-end qualification. Resolution/version and
+expected env/argv alone cannot satisfy those requirements.
 The existing positive fake reconstructs parts of startup/dispatch; it is not a
 source-faithful separate daemon selecting and spawning Pi.
 
+The frozen observer is opt-in: without an explicit test ID and absolute private
+witness reference it registers no handlers and observes no ordinary agents.
 Pi 0.87.1 extension types distinguish provider response (before stream consumption),
 qualified `turn_end.outcome`, low-level `agent_end.messages` and neutral final
 `agent_settled`. The generated observer records neutral `ended` for nonnegative
 agent_end, never success for an empty messages array. The aggregator requires one
 ordered request/response exchange, exact model/max, valid 2xx, qualified completed
 turn and settlement. Mixed, duplicate, contradictory or out-of-order exchanges
-fail; missing qualified completion remains UNKNOWN, without replay. Abort/error
+fail; strict readback rejects every malformed, wrong-subject or unknown-field row
+before aggregation rather than filtering it away. Missing qualified completion
+remains UNKNOWN, without replay. Abort/error
 is not overwritten by settlement. Arbitrary done/success labels are not qualified
 completion. **Remaining observation gap:** independently bound selected provider,
 per-call identity and complete process/agent/workspace proof are not yet established.
@@ -82,12 +92,17 @@ actual pulled image candidate label and candidate Env. In real mode an omitted
 CLI companion declaration derives from the prepared record and is verified,
 never silently skipped.
 
-**Remaining binding gap:** full existing producer/source linkage, frozen
-behavior-changing helper/loader/observer delivery and actual complete file-set,
-content and actual-mode readback are not finished. Current generated helpers are
-staged from validator source outside the declared instruction companion. Hashing
-after staging is not frozen source binding. Fresh downstream artifacts remain
-required; no changed HOME can bless an older image digest.
+The loader, observer and shared Codex programs are now repository-managed
+`config/pi-agent` files in the existing companion file/mode/content declaration.
+The prepare/build/package companion also freezes the nine used validation source
+files as `validation_sources`; verification compares them to the executing
+validator/helper sources, not hashes first manufactured after staging. Staging
+requires the exact declaration file set and actual file modes. Candidate readback
+compares every declared file's hash and actual mode, not only guard/policy fields.
+**Remaining binding gap:** complete producer/source/configuration linkage and
+positive artifact chains from actual producers are not yet qualified. The legacy
+hand-authored chain is not full evidence. Fresh downstream artifacts remain
+required; changed delivery cannot bless an old digest.
 
 ## Codex-LB: non-inference only
 
@@ -108,14 +123,20 @@ Current container checks require exact private-secret and workspace bind mounts,
 no duplicate/extra destinations, exact UID:GID, readonly root and required
 `/tmp`/`/run` tmpfs properties. Each candidate exec rechecks acquired IDs and
 ownership, then addresses the immutable container ID. Owned test references are
-written before possible guarded dispatch. UNKNOWN preserves inspection state and
-never automatically resends.
+written before any network/container acquisition and updated with acquired IDs.
+UNKNOWN preserves inspection state and never automatically resends. Failed inspect
+is not absence: only the exact Docker no-such-object diagnostic qualifies absence
+before creation; generic permission/transport errors block. Work device/inode and
+nonce are rechecked before exec/deletion. Current bridge-network properties,
+endpoint membership and the container's acquired NetworkID are checked before
+exec. Failed removal/uncertain cleanup is explicit (`cleanup=INCOMPLETE`) and
+cannot coexist with complete PASS or `real_validation_satisfied=true`.
 
-**Remaining ownership gap:** positive absence versus failed inspection, partial
-acquisition recovery, complete network/work identity and honest incomplete cleanup
-classification remain unfinished. Unverified/replaced resources and potentially
-mounted work must be preserved. Do not interpret a PASS report as proof of clean
-resource release while these gates remain open.
+**Remaining ownership gap:** source-faithful collision/race/partial/uncertain
+acquisition and cleanup verification is not complete. In particular uncertain
+creation without an acquired ID retains locators but still needs bounded exact
+readback/reconciliation coverage; no blind retry is permitted. Unverified/replaced
+resources and possibly mounted work are preserved.
 
 ## Synthetic verification
 
