@@ -76,6 +76,10 @@ class OwnedRuntimeFixture:
         argv = [self.translate(str(arg)) for arg in argv]
         result = subprocess.run(argv, env={'PATH':str(self.bin)+':/usr/bin:/bin',
             'HOME':str(self.home)}, cwd=self.tmp, text=True, capture_output=True, timeout=timeout)
+        status = self.home / '.paseo/fake-status.json'
+        if status.exists() and not hasattr(self, '_daemon_pid'):
+            self._daemon_pid = json.loads(status.read_text())['pid']
+            self._daemon_start = Path(f'/proc/{self._daemon_pid}/stat').read_text().rsplit(')', 1)[1].split()[19]
         result.stdout = self.restore(result.stdout)
         result.stderr = 'synthetic external failure' if result.returncode else ''
         return result
@@ -97,12 +101,13 @@ class OwnedRuntimeFixture:
         if getattr(self, '_closed', False):
             return
         self._closed = True
-        status = self.home / '.paseo/fake-status.json'
-        if status.exists():
-            pid = json.loads(status.read_text())['pid']
+        pid = getattr(self, '_daemon_pid', None)
+        if pid is not None:
             try:
-                os.killpg(pid, signal.SIGTERM)
-            except ProcessLookupError:
+                current = Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()[19]
+                if current == self._daemon_start:
+                    os.killpg(pid, signal.SIGTERM)
+            except (ProcessLookupError, FileNotFoundError):
                 pass
 
     def run(self):
@@ -167,7 +172,7 @@ class OwnedRuntimeTests(unittest.TestCase):
         for fault in ('wrong_server','process','workspace','wrong_agent','wrong_agent_env',
                       'profile','thinking','auth','selector','workspace_uncertain','create_uncertain','inspection',
                       'config_replacement','reference_replacement','wrong_pi_bytes','extra_proof','create_pending',
-                      'unsupported_creation'):
+                      'unsupported_creation','process_collision'):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory(prefix='pud-owned-') as td:
                 f = OwnedRuntimeFixture(td, {fault:True})
                 try:
@@ -179,6 +184,9 @@ class OwnedRuntimeTests(unittest.TestCase):
                     refs = json.loads((f.home / '.m07-t05/owned.json').read_text())
                     self.assertFalse(refs['replay'])
                     self.assertNotIn('synthetic-sensitive-never-emit', json.dumps(refs))
+                    if fault == 'process_collision':
+                        self.assertEqual((f.home / '.m07-t05/processes' /
+                            (refs['requested_agent_id'] + '.json')).read_text(), 'private unrelated acquisition')
                     self.assertRegex(refs['requested_agent_id'], r'^[0-9a-f-]{36}$')
                     self.assertRegex(refs['requested_workspace_id'], r'^[0-9a-f-]{36}$')
                     if fault not in ('wrong_server','workspace_uncertain','unsupported_creation'):

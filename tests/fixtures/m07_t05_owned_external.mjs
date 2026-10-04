@@ -12,7 +12,7 @@ const statusFile = `${home}/.paseo/fake-status.json`;
 const faultFile = `${home}/fake-fault.json`;
 const fault = fs.existsSync(faultFile) ? JSON.parse(fs.readFileSync(faultFile)) : {};
 const fixed = 'meta/muse-spark-1.3-contributor';
-function record(method) { fs.appendFileSync(`${home}/fake-calls.jsonl`, JSON.stringify({method,pid:process.pid})+'\n'); }
+function record(method, facts={}) { fs.appendFileSync(`${home}/fake-calls.jsonl`, JSON.stringify({method,pid:process.pid,...facts})+'\n'); }
 export async function connectToDaemon() {
   const status = JSON.parse(fs.readFileSync(statusFile));
   const socket = net.createConnection(status.port, '127.0.0.1');
@@ -64,8 +64,14 @@ async function daemon() {
           workspace={id:row.arg.workspaceId,workspaceDirectory:row.arg.source.path};
           if(fault.workspace_uncertain)throw new Error();value={workspace};
         } else if(row.method==='create') {
+          record('create-env', {names:Object.keys(row.arg.env??{}).sort(),
+            initial_prompt:Boolean(row.arg.initialPrompt),agent_id:row.arg.agentId,workspace_id:row.arg.workspaceId});
           if(row.arg.initialPrompt)throw new Error('creation must be non-inference');
           const id=row.arg.agentId;
+          if(fault.process_collision) {
+            const file=`${home}/.m07-t05/processes/${id}.json`;
+            fs.writeFileSync(file,'private unrelated acquisition',{mode:0o600,flag:'wx'});
+          }
           const rpc=await pi({cwd:row.arg.cwd,model:row.arg.model,thinkingOptionId:row.arg.thinkingOptionId,env:row.arg.env},id);
           const agent={id,rpc,cwd:row.arg.cwd}; agents.set(id,agent);
           await rpc.call('get_state');

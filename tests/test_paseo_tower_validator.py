@@ -762,10 +762,14 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             return mock.Mock(returncode=0, stdout="", stderr="")
         if argv[:2] == ['docker', 'rm']:
             if state.get('_owned_runtime'):
-                state['runtime_calls_before_cleanup'] = state['_owned_runtime'].calls()
-                state['_owned_runtime'].close()
+                runtime = state['_owned_runtime']
+                state['runtime_calls_before_cleanup'] = runtime.calls()
+                state['runtime_requests_before_cleanup'] = [json.loads(line) for line in
+                    (runtime.home / 'fake-calls.jsonl').read_text().splitlines()]
             if state.get('remove_failure'):
                 return mock.Mock(returncode=1, stdout='', stderr='synthetic removal failed')
+            if state.get('_owned_runtime'):
+                state['_owned_runtime'].close()
             state['ran'] = False
             return mock.Mock(returncode=0, stdout='', stderr='')
         return mock.Mock(returncode=0, stdout="", stderr="")
@@ -851,22 +855,27 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             self.assertNotIn("fixture-meta-key", blob)
             # Dispatched through the real guard (fake paseo marker + witness).
             self.assertGreaterEqual(len([c for c in calls if c[:2] == ["docker", "exec"]]), 6)
-            # Guard transmitted exactly the three nonsecret --env names (parsed
-            # from the recorded argv, like pinned run.js parseRunEnv); no raw
-            # secret value was transmitted.
-            names = transmitted_env_names(Path(state["bindir"]).parent / "dispatch-argv.txt")
-            self.assertEqual(sorted(names),
-                             ["M07_T05_TEST_ID", "M07_T05_WITNESS_FILE", "META_API_KEY_FILE"])
-            marker_file = Path(state["bindir"]).parent / "dispatch-argv.txt"
-            self.assertNotIn("fixture-meta-key",
-                             marker_file.read_text() if marker_file.is_file() else "")
-            # Owned child bound via supported ls/inspect with effective profile.
-            subj = res.get("subject") or {}
-            child = subj.get("muse_owned_child")
-            self.assertIsNotNone(child)
-            self.assertEqual(child.get("thinking"), "max")
-            self.assertGreater(child.get("tokens", 0), 0)
-            self.assertIn("agent-", child.get("id", ""))
+            # Candidate-only guard now reaches supported native creation with
+            # NO initialPrompt. Capture actual request keys/IDs in the separate
+            # fake daemon before cleanup, not a legacy shell argv/title/usage bag.
+            requests = state['runtime_requests_before_cleanup']
+            create = [row for row in requests if row['method'] == 'create-env']
+            self.assertEqual(len(create), 1)
+            self.assertFalse(create[0]['initial_prompt'])
+            self.assertEqual(create[0]['names'], sorted([
+                'M07_T05_TEST_ID', 'M07_T05_WITNESS_FILE', 'META_API_KEY_FILE',
+                'M07_T05_RUNTIME_BINDING', 'M07_T05_PROCESS_DIR']))
+            self.assertNotIn('fixture-meta-key', json.dumps(requests))
+            subj = res.get('subject') or {}
+            child = subj.get('muse_owned_child')
+            runtime = subj['owned_runtime']
+            self.assertEqual(child['thinking'], 'max')
+            self.assertEqual(child['id'], create[0]['agent_id'])
+            self.assertEqual(child['workspace_id'], create[0]['workspace_id'])
+            self.assertEqual(child['process']['pid'], runtime['process']['pid'])
+            self.assertEqual(child['process']['ppid'], subj['daemon_binding']['worker_pid'])
+            self.assertEqual(state['runtime_calls_before_cleanup'].count('prompt'), 1)
+            self.assertEqual(state['runtime_calls_before_cleanup'].count('fake-transport'), 1)
 
     def test_real_mode_structurally_succeeds_under_fakes(self):
         # Real path exists (not hardcoded false): same fakes, real class.
