@@ -606,3 +606,142 @@ context implemented/repaired the subject and cannot later review it.
 - Returns to Main for classification/reconciliation and later fresh
   independent review; not a workflow stop, result, verdict, DONE, or
   successor permission. This context cannot later review its own subject.
+
+---
+
+## Correction 4 (2026-10-04) — integrated path, qualified completion, complete binding [INCOMPLETE]
+
+Old bytes above stay in Git history. This corrects Main's fourth validation
+(`implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-return-validation-2026-10-04.md`
+§"Fourth contribution", checkpoint `564c6a024ce27d3b3659390940e315e9cf1d9fa0`)
+inside the SAME unchanged Card/technical contract (stable Card blob
+`658fffe1…`, contract blob `54f9ccc3…`, both verified unchanged). Board 119,
+M07-T05 `in_progress`, 22 DONE, no result/attempt. No push. This contribution
+is explicitly INCOMPLETE for the full Card: it delivers the prioritized
+bounded integrated path plus ownership/transport fixes for early Main
+readback, with honest remaining gaps below. No `11/11 closed` claim is made
+and no missing coding is deferred to M08 (M08 owns execution/admission/proof
+only). This context implemented/repaired the subject and cannot later review
+it.
+
+### Recovery and scope
+
+- Legal worktree `/home/paseo/projects/pi-unraid-paseo-update-distribution`,
+  `feat/paseo-update-distribution`, launch HEAD `564c6a0` (Main evidence-only,
+  clean); separate main worktree untouched. Default workflow
+  `elmakus/project_workflow_v2@d3ab917` (verified current) ROUTER →
+  EXECUTION, same obligation. Reread: full stable Card, selective contract,
+  every named authority (PUD R2, PGR R2, ADR-PUD-001/002/004, P4 M07-T05),
+  exact DONE `results/M07-T04.md@6329cf4:c45b3f70` + R01 GREEN, prep
+  reconciliation, and the new Fourth section (owns this correction). The
+optional fourth-probes script was used as diagnostic convenience only.
+- Preserved genuine fourth-round progress (distinct identity types,
+  publication input, byte checks, loader, terminal handlers, pre-dispatch
+  refs, UNKNOWN preservation, ID-bound removal, same-origin checks).
+- Changes (all inside the Card boundary; earlier filename lists never
+  restricted scope): narrow guard extension + companion identity propagation
+  (`config/`), validator/adapter/transport binding and callsites
+  (`scripts/`), faithful CLI/daemon fakes + full-sequence observer harness +
+  fourth-return regressions (`tests/`), implemented-facts docs (`docs/`),
+  this report. No Card/contract/authority/history/result/Review/Board/
+  manifest/state writes; no real inference/auth/credential admission, ordinary
+  auth/HOME access, installed HOME/runtime/harness change, live effects,
+  image build/publication, CI/PR/Issue/push/delegation/successor work.
+
+### Exact source/provenance (recomputed)
+
+- Implementation commit: `56f2728fff2d45be02524eed0128acf9b13d9aee` (unpushed).
+- Guard `sha256:7da865ab7c10e74b1eb4a8b6305508a02031486dcb681d8c371e915bf7ba916c`
+  (`0755`); policy
+  `sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40`
+  (`0644`); companion (10 files)
+  `sha256:34aeccececa9da893be44b27823efe801e09a86a552d0a9dfa6f97d7318b4500`
+  — new propagated identity (old `a51036c5…` remains the historical M07-T04
+  subject only; fixtures carry the recomputed binding; M07-T07 fresh artifact
+  still required; no old-digest eligibility).
+  Candidate file `sha256:b4e0c1e7…` (Paseo 0.9.2 / Pi 0.87.1).
+- Pinned sources read (non-inference, no auth): Paseo 0.9.2 `agent/run.js`
+  (`parseRunEnv` first-`=` split, `createAgent({env})`), `daemon/start.js`
+  + `local-daemon.js` (`env: process.env` inheritance),
+  `daemon/status.js` (localDaemon/connectedDaemon/serverId/workerPid/
+  daemonNode/providers), `agent/run.js` result (`agentId`), `agent/ls.js`
+  + `agent/inspect.js` (`--json`, title/effectiveThinking/usage),
+  server `paseo-env.js` (`createExternalProcessEnv(daemon env,
+  launch.env)`, `META_API_KEY` not denylisted), Pi provider
+  `pi/agent.js` + `cli-runtime.js` + `runtime.js` (`buildPiLaunch` argv/env,
+  `PI_COMMAND` routing), Pi `extensions/types.d.ts` (request/response/
+  turn_end-outcome/agent_end/agent_settled contracts),
+  `agent-session.js` (stopReason→turn outcome; settled outcome-less),
+  `docs/extensions.md` + `docs/sdk.md` (settled final-notification-only),
+  `pi-ai` `providers/meta.ts` (`META_API_KEY` env auth), Meta model data
+  (contributor `max:null`), guard bytes (both shapes, fixed gates intact).
+- Negative facts preserved (contributor `max:null`, `max→xhigh` clamp,
+  unmanaged-HOME override not adopted); presented as specific negatives only.
+
+### Reachable behavior (executing fakes; fake ONLY external effects)
+
+- Guard `--env` triple + correlated title + selector scrub + explicit local
+  workspace through the genuine guard bytes (stub-`paseo` argv proof);
+  transmitted names asserted exactly; raw secrets never in argv.
+- Bring-up (`daemon start` under candidate-env) → status/pid/version → Pi
+  path/version → dispatch (candidate-env + guard) → full observer sequence
+  (request/response/turn_end/agent_end/agent_settled through staged bytes)
+  → `agent ls` unique title match → `agent inspect` provider/model/
+  EFFECTIVE thinking/usage corroboration, all through the genuine validator
+  API/CLI with fake-only Docker/daemon/transport boundaries.
+- Negatives: forged six-record chain (zero docker run/exec), aborted+
+  settled → FAIL, garbage response → FAIL, policy bytes/mode drift → FAIL,
+  post-observation replacement → FAIL/BLOCKED with zero later execs/rm,
+  foreign secret source → FAIL with zero dispatches, replaced network →
+  FAIL/BLOCKED with zero execs/rm, remote/null daemon + foreign Pi → FAIL
+  with zero dispatches, agent-side clamp → FAIL despite witness,
+  encoded `/v1/%72esponses` → check FAIL with zero receiver requests/auth,
+  non-literal endpoint → reject without DNS. Seven old + eleven prior
+  probes stay closed (rerun in-suite).
+
+### Counts/exits (honest, preserved; worker-observed for Main classification)
+
+- Targeted: 41 tests OK, exit 0, 0 skips (6 validator + 35 helper/adapter/
+  matrix/probe: 24 preserved/extended + 11 fourth-return).
+- Affected (8 modules): 72 OK, exit 0. Full: 594 OK, exit 0, 0 skips
+  (`discover -s tests`: 583 prior + 11 new). Node catalog core: 1/1 GREEN,
+  exit 0.
+- Diff: only the seven permitted config/source/test/doc paths + this report;
+  `git diff --check` clean. Secret scans: no high-confidence credential
+  patterns; only `*_API_KEY=` names + synthetic `fixture-*`/`synthetic-*`
+  in disposable temps; no raw secrets/bodies/prompts/tokens/headers/tails.
+- Entry-point classification: every touched inference-capable entrypoint
+  NOT executed as real; synthetic only via fake bindirs (argv-parsing CLI
+  fake), mocked Docker, injected/localhost HTTP, disposable roots, node
+  observer harness + approved non-inference readback. `shutil.which` mock
+  isolation preserved (`_find_node`). No test agent created; no real
+  provider inference.
+
+### Explicit remaining gaps (why INCOMPLETE; owning boundaries)
+
+- Real daemon/Pi/Codex execution with dedicated operator credentials, exact
+  on-wire/daemon-internal delivery proof, and effective-max wire proof
+  remain M08-T01. Fake daemon internals (env merge, Pi spawn, agent
+  registry) simulate documented server behavior; the argv contract,
+  bring-up/observation/inspection sequence, and all byte/mode comparisons
+  execute for real. If any supported pinned realization proves
+  unimplementable, exact source/interface facts above go to Main-owned
+  Research/Planning — no bypass invented, no credentials requested.
+- Corroboration limits: `PI_COMMAND` default resolution (no override
+  pinned); image-Env Pi binding assumes the M03-rendered Env (fixtures
+  fake it; no real image inspected here); buildx/publish/handoff full
+  verifiers not re-run for documented context reasons (record-phase and
+  consistency gates required instead); workspace isolation without ID
+  readback; `ls` title uniqueness rests on per-attempt test-ID nonces.
+- Changed companion needs M07-T07 fresh artifact + affected-gate evidence;
+  M07-T06/M08 excluded. No eligibility/production authorization claimed.
+
+### Return
+
+- Implementation SHA: `56f2728fff2d45be02524eed0128acf9b13d9aee` (unpushed).
+- This report path:
+  `implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-validator-implementation-2026-10-04.md`
+  (report commit/blob below; secret-safe).
+- Returns to Main for classification/reconciliation and later fresh
+  independent review; not a workflow stop, result, verdict, DONE, or
+  successor permission. This context cannot later review its own subject.
