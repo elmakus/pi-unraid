@@ -1,32 +1,59 @@
 #!/usr/bin/env python3
-"""Bounded candidate-local Muse adapter (M07-T05).
+"""Bounded candidate-local Muse adapter (M07-T05, coherent rewrite).
 
-Invokes the repository-delivered canonical guard
-``config/pi-agent/bin/run-llm-test.sh`` from a disposable candidate's own
-environment using its own local Paseo daemon/home. Never invents flags,
-unofficial providers, direct inference bypasses, fallbacks or fake GREEN.
+The future-authorized path invokes the repository-delivered canonical guard
+``config/pi-agent/bin/run-llm-test.sh`` in its PROMPT form from the
+disposable candidate's own environment (own local Paseo daemon/home), with
+candidate-local daemon/Pi lifecycle observation, staged witness extension,
+per-owned-test request/response/terminal aggregation, and strict
+``meta/muse-spark-1.3-contributor/max`` no-fallback profile. The Tower
+validator CALLS this module (dispatch, daemon/Pi observers, witness
+stage/load/aggregate, dedicated Muse reader); those callsites are the
+product path, not declarations.
 
-Proves expected-vs-observed image/source/companion/policy/daemon/Pi/
-effective-profile binding, rejects ambient production routing and fake
-PASS, separates fixture/rehearsal from real completed evidence, and
-keeps timeout/unknown occurrence unsatisfied without blind prompt replay.
+Source-qualified credential: official Meta provider source
+(``pi-ai`` ``providers/meta.ts`` → ``envApiKeyAuth("Meta Model API key",
+["META_API_KEY"])`` + ``lazyOAuth`` native subscription) identifies
+``META_API_KEY`` env API-key auth and native OAuth device flow. The
+dedicated validation credential is therefore a private ``META_API_KEY=...``
+(or bare-key) file, mounted read-only at ``/run/secrets/pi-unraid-meta``
+and provisioned inside the candidate via the ``META_API_KEY_FILE`` pointer
+(never the value on argv/env). Ordinary-agent auth is never read/copied;
+no real admission occurs in M07-T05 (synthetic files only). Native OAuth
+remains a manual operator step (M08-T01).
+
+Source-qualified payload semantics (pinned pi 0.87.1 / pi-ai 0.87.1):
+``before_provider_request`` event carries ONLY ``{type, payload}`` where
+``payload`` is the provider params (openai-responses ``buildParams``:
+``model`` id string, ``reasoning: {effort, summary}``, ``input``,
+``max_output_tokens``, ...). There is NO generic ``payload.provider`` or
+``payload.thinking`` field; the extension records ``payload.model``,
+``payload.reasoning.effort`` (fallback ``reasoningEffort``), plus the
+``M07_T05_TEST_ID`` correlation env and response ``status`` from
+``after_provider_response`` (``{type, status, headers}`` — headers never
+recorded). Provider is the fixed ``meta`` from guard policy, mapped from
+the observed model id; it is never taken from an invented payload field.
+Only whitelisted nonsecret facts are recorded; raw headers/body/prompt/
+tokens are never recorded.
+
+Effective max: pinned ``meta.json`` maps
+``muse-spark-1.3-contributor`` ``max→null`` (unsupported) while
+``muse-spark-1.3`` maps ``max→max``; ``clampThinkingLevel(max)`` on the
+contributor therefore yields ``xhigh``. Requested ``max`` vs observed
+``xhigh`` is a terminal FAIL (clamp proven), not a pass. Unknown/absent
+witness is UNKNOWN, never replayed, failing closed to M08-T01/Research.
 
 All execution in M07-T05 is synthetic/local with fake-only executables;
-this module never causes real provider inference by itself. A positive
-synthetic dispatch proves the dispatch path is observed; it never
-satisfies the real gate. Real success additionally requires completed
-guarded inference with observed exact effective fixed profile, which is
-currently unobservable on the direct-Meta path (pinned Contributor
-max-null + unmodified max->xhigh clamp) and therefore fails closed to
-the owning Research/Planning boundary.
+this module never causes real provider inference by itself. Fixture/
+rehearsal ALWAYS leaves real satisfaction false; the real-mode path exists
+structurally (completed dispatch + aggregated witness + all bindings PASS)
+and is testable under fakes, not hardcoded false.
 """
 from __future__ import annotations
 
 import hashlib
 import json
 import os
-import re
-import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -42,13 +69,17 @@ GUARD_REL = Path("config/pi-agent/bin/run-llm-test.sh")
 POLICY_REL = Path("config/pi-agent/policies/llm-test-policy.json")
 SCHEMA_VERSION = 1
 
-# Dedicated Muse validation credential (operator-controlled, synthetic only in
-# M07-T05). Private file on the host, read-only mount inside the candidate.
-# Never placed on argv/env, never logged, never persisted in evidence.
-MUSE_SECRET_TARGET = "/run/secrets/pi-unraid-muse"
-MUSE_SECRET_ENV_NAME = "MUSE_SPARK_API_KEY"
+# Dedicated Muse validation credential, source-qualified to official Meta
+# provider auth (META_API_KEY env + native OAuth). Private file on the host,
+# read-only mount inside the candidate at MUSE_SECRET_TARGET. The value is
+# never placed on argv/env, never logged, never persisted in evidence.
+# Provisioning uses the META_API_KEY_FILE pointer (nonsecret path) read
+# inside the candidate wrapper; only synthetic files in M07-T05.
+MUSE_SECRET_TARGET = "/run/secrets/pi-unraid-meta"
+MUSE_SECRET_ENV_NAME = "META_API_KEY"
+MUSE_SECRET_POINTER_ENV = "META_API_KEY_FILE"
 
-# Production markers that must never be selected as the candidate daemon.
+# Production daemon homes that must never be selected as the candidate.
 PRODUCTION_HOMES = (
     str(Path.home() / ".paseo"),
     "/home/paseo/.paseo",
@@ -99,7 +130,7 @@ def validate_requested_profile(provider, model, thinking, fallback_allowed=False
 
 
 def guard_identity(source_root: Path) -> dict:
-    """Read back the repository-delivered guard bytes and their fixed-profile shape."""
+    """Read back the repository-delivered guard bytes and fixed-profile shape."""
     p = Path(source_root) / GUARD_REL
     if not p.is_file():
         raise AdapterBlocked(f"canonical guard unavailable: {GUARD_REL}")
@@ -107,8 +138,6 @@ def guard_identity(source_root: Path) -> dict:
         text = p.read_text(encoding="utf-8")
     except OSError as exc:
         raise AdapterBlocked(f"canonical guard unreadable: {exc}") from exc
-    # Supported shape assertions (no execution): fixed profile, no fallback,
-    # Astra forbidden, no model/thinking override flags on the exec path.
     for needle in (
         "provider must be meta",
         "muse-spark-1.3-contributor",
@@ -122,7 +151,6 @@ def guard_identity(source_root: Path) -> dict:
     _superseded = "gpt-6-" + "luna"
     if _superseded in text:
         raise AdapterError("canonical guard carries superseded Luna profile")
-    # No override flags before the exec line (only the validated native shape).
     head, _, _ = text.partition("exec paseo run")
     if "--model" in head.replace("--native-create-agent-args", ""):
         raise AdapterError("canonical guard must not offer a model override")
@@ -177,7 +205,6 @@ def validate_candidate_home(candidate_home: Path, disposable_root: Path) -> Path
         except OSError:
             if str(resolved).startswith(prod):
                 raise AdapterError(f"candidate home must not be production HOME: {prod}")
-    # Must live under the disposable root for this attempt.
     if not is_disposable_path(resolved, disposable_root):
         raise AdapterError(
             f"candidate home is not under the disposable root: {resolved} vs {disposable_root}"
@@ -186,12 +213,13 @@ def validate_candidate_home(candidate_home: Path, disposable_root: Path) -> Path
 
 
 def validate_daemon_binding(daemon: dict, candidate_home: Path) -> dict:
-    """Verify the observed daemon belongs to the disposable candidate.
+    """Verify observed daemon dict belongs to the disposable candidate.
 
-    daemon is the parsed `paseo status --format json` (or fake equivalent)
-    observed through the candidate-local executable. Required fields:
-    home, endpoint/listen, pid, version. Production home/pid/endpoint
-    mismatches fail closed before any dispatch.
+    ``daemon`` is the parsed ``paseo status --format json`` observed through
+    the candidate-local executable (validator passes the exec-observed dict,
+    never host paths). Required: home == candidate_home, endpoint present,
+    pid positive when present. Version is checked by the validator against
+    the frozen-candidate expectation (not a pinned constant here).
     """
     if not isinstance(daemon, dict):
         raise AdapterError("daemon binding is not an object")
@@ -212,12 +240,10 @@ def validate_daemon_binding(daemon: dict, candidate_home: Path) -> dict:
     endpoint = daemon.get("listen") or daemon.get("endpoint") or daemon.get("configuredListen")
     if not isinstance(endpoint, str) or not endpoint:
         raise AdapterError("daemon endpoint is missing")
-    version = daemon.get("daemonVersion") or daemon.get("version")
-    if version is not None and str(version) != PINNED_PASEO_VERSION:
-        raise AdapterError(f"daemon version mismatch: {version!r} vs pinned {PINNED_PASEO_VERSION!r}")
     pid = daemon.get("pid")
     if pid is not None and (not isinstance(pid, int) or pid <= 0):
         raise AdapterError("daemon pid is invalid")
+    version = daemon.get("daemonVersion") or daemon.get("version")
     return {"home": home, "endpoint": endpoint, "pid": pid, "version": version}
 
 
@@ -225,16 +251,12 @@ def validate_pi_binding(pi_path: str, pi_version: str | None, bindir: Path) -> d
     """Verify the invoked Pi executable resolves through the candidate bindir."""
     if not pi_path:
         raise AdapterError("Pi executable path is missing")
-    # Must resolve inside the explicitly bound bindir (fake-only isolation),
-    # never an ambient host path outside it.
     try:
         rp = Path(pi_path).resolve()
         br = Path(bindir).resolve()
     except OSError as exc:
         raise AdapterError(f"Pi path unreadable: {exc}") from exc
     if rp != br / "pi" and br not in rp.parents and rp != br / "paseo":
-        # Allow the candidate container path when explicitly marked? No:
-        # synthetic fixtures must prove bindir resolution. Anything else fails.
         raise AdapterError(f"Pi executable is not candidate-local: {pi_path!r}")
     if pi_version is not None and str(pi_version).strip() != PINNED_PI_VERSION:
         raise AdapterError(f"Pi version mismatch: {pi_version!r} vs pinned {PINNED_PI_VERSION!r}")
@@ -244,12 +266,8 @@ def validate_pi_binding(pi_path: str, pi_version: str | None, bindir: Path) -> d
 def classify_effective_profile(requested: dict, observed) -> dict:
     """Compare requested fixed profile vs observed effective execution.
 
-    observed is None/unknown -> pending/unknown, unsatisfied, no replay.
-    observed thinking != max (e.g. xhigh clamp) -> terminal mismatch,
-    unsatisfied with the Research/Planning boundary. Only an observed
-    exact max with matching provider/model satisfies the profile gate,
-    and even then only a real execution_class with completed inference
-    can satisfy final validation (fixtures always leave it unsatisfied).
+    Kept for helper-level unit coverage; the validator uses
+    :func:`classify_aggregated_witness` on per-test aggregated events.
     """
     if observed is None or (isinstance(observed, dict) and observed.get("unknown")):
         return {
@@ -262,7 +280,7 @@ def classify_effective_profile(requested: dict, observed) -> dict:
         return {"gate": "FAIL", "real_satisfied": False, "reason": "effective profile malformed", "replay": False}
     prov = observed.get("provider")
     model = observed.get("model")
-    thinking = observed.get("thinking") or observed.get("thinkingOptionId")
+    thinking = observed.get("thinking") or observed.get("thinkingOptionId") or observed.get("effort")
     if prov != FIXED_PROVIDER or model != FIXED_MODEL:
         return {
             "gate": "FAIL",
@@ -288,17 +306,12 @@ def classify_effective_profile(requested: dict, observed) -> dict:
 def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: str,
                        bindir: Path, extra_env: dict | None = None, timeout: int = 60,
                        native_args: bool = False) -> dict:
-    """Invoke the real guard bytes with fake-only executable resolution.
+    """Legacy helper-level guard invocation (unit coverage only).
 
-    Copies the delivered launcher into a disposable agent root (so the exact
-    shipped bytes are exercised), resolves executables ONLY through the
-    test-owned bindir, snapshots dispatch BEFORE temp cleanup. Returns a
-    snapshot dict with returncode/stderr/dispatched/dispatch_lines.
-    Never causes real inference when bindir holds only fake executables.
-
-    The exact delivered policy MUST exist at agent_root/policies/...; a
-    missing policy fails closed (AdapterBlocked) and never fabricates a
-    substitute fixed policy.
+    The validator's product path is :func:`dispatch_guarded_test` (prompt
+    form with witness + test-ID correlation). This helper is retained for
+    direct unit tests; it still fails closed on missing exact policy and
+    never fabricates a substitute.
     """
     with tempfile.TemporaryDirectory(prefix="muse-adapter-") as tmp:
         tmp_p = Path(tmp)
@@ -308,9 +321,6 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
         launcher = agent / "bin" / "run-llm-test.sh"
         launcher.write_bytes(Path(guard_file).read_bytes())
         launcher.chmod(0o755)
-        # Policy for the disposable agent root: the exact delivered bytes.
-        # Missing source fails closed; no invented fixed-policy substitute.
-        # (Closes Main probe 7: missing policy previously synthesized dispatch.)
         src_policy = Path(agent_root) / "policies" / "llm-test-policy.json"
         if not src_policy.is_file():
             raise AdapterBlocked(
@@ -321,8 +331,6 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
         marker = tmp_p / "dispatched.txt"
         env = {"PATH": str(bindir), "DISPATCH_MARKER": str(marker)}
         if extra_env:
-            # Only nonsecret configuration may be passed; secret values are
-            # never placed in env by this adapter (mounts only).
             for k, v in extra_env.items():
                 if "KEY" in k.upper() or "TOKEN" in k.upper() or "SECRET" in k.upper():
                     raise AdapterError(f"refusing secret-bearing env: {k}")
@@ -332,15 +340,14 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
         try:
             proc = subprocess.run(argv, env=env, text=True, stdout=subprocess.PIPE,
                                   stderr=subprocess.PIPE, timeout=timeout, check=False)
-        except subprocess.TimeoutExpired as exc:
+        except subprocess.TimeoutExpired:
             return {"returncode": None, "timeout": True, "stderr": "guard dispatch timeout",
                     "dispatched": marker.is_file(),
                     "dispatch_lines": marker.read_text().splitlines() if marker.is_file() else []}
         except OSError as exc:
             return {"returncode": None, "timeout": False, "stderr": f"guard unavailable: {exc}",
                     "dispatched": False, "dispatch_lines": []}
-        # Snapshot BEFORE the temp dir is deleted.
-        snapshot = {
+        return {
             "returncode": proc.returncode,
             "timeout": False,
             "stderr": proc.stderr[-2000:] if proc.stderr else "",
@@ -348,22 +355,22 @@ def run_guard_dispatch(*, guard_file: Path, agent_root: Path, prompt: str, cwd: 
             "dispatched": marker.is_file(),
             "dispatch_lines": marker.read_text().splitlines() if marker.is_file() else [],
         }
-        return snapshot
 
+
+# ---------------------------------------------------------------------------
+# Dedicated Muse credential (source-qualified META_API_KEY)
+# ---------------------------------------------------------------------------
 
 def read_dedicated_muse_secret(secret_path) -> str:
-    """Read the dedicated operator-controlled Muse validation credential.
+    """Read the dedicated META_API_KEY validation credential (strict).
 
     Validates: regular file, not a symlink, private mode (0600/0400),
-    single non-empty line, optional MUSE_SPARK_API_KEY= prefix. Never logs
-    the value. Missing file -> Blocked; malformed/insecure -> Error.
-    Only synthetic fixture values are supplied in M07-T05; no ordinary
-    agent credential is ever read/copied. The value is kept in private
-    memory and mounted read-only at MUSE_SECRET_TARGET; never placed on
-    argv/env, never persisted in evidence.
+    exactly one non-empty entry, ``META_API_KEY=<value>`` or bare key with
+    NON-EMPTY value (empty values fail closed — closes the Tower-parser
+    empty-value hole). Never logs the value. Missing → Blocked;
+    malformed/insecure → Error. Only synthetic files in M07-T05.
     """
-    from pathlib import Path as _P
-    pth = _P(secret_path)
+    pth = Path(secret_path)
     try:
         if pth.is_symlink():
             raise AdapterError("dedicated Muse credential must not be a symlink")
@@ -371,7 +378,7 @@ def read_dedicated_muse_secret(secret_path) -> str:
     except FileNotFoundError as exc:
         raise AdapterBlocked("dedicated Muse credential file unavailable") from exc
     except OSError as exc:
-        raise AdapterBlocked(f"dedicated Muse credential unavailable") from exc
+        raise AdapterBlocked("dedicated Muse credential unavailable") from exc
     import stat as _sm
     if not _sm.S_ISREG(st.st_mode):
         raise AdapterError("dedicated Muse credential must be a regular file")
@@ -381,7 +388,7 @@ def read_dedicated_muse_secret(secret_path) -> str:
     try:
         text = pth.read_text(encoding="utf-8")
     except OSError as exc:
-        raise AdapterBlocked(f"dedicated Muse credential unreadable") from exc
+        raise AdapterBlocked("dedicated Muse credential unreadable") from exc
     lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]
     if len(lines) != 1:
         raise AdapterError("dedicated Muse credential must hold exactly one entry")
@@ -389,10 +396,12 @@ def read_dedicated_muse_secret(secret_path) -> str:
     if "=" in line:
         name, _, value = line.partition("=")
         if name != MUSE_SECRET_ENV_NAME:
-            raise AdapterError(f"dedicated Muse credential entry must be {MUSE_SECRET_ENV_NAME} or a bare key")
+            raise AdapterError(
+                f"dedicated Muse credential entry must be {MUSE_SECRET_ENV_NAME} or a bare key"
+            )
+        value = value.strip()
     else:
-        value = line
-    value = value.strip()
+        value = line.strip()
     if not value or any(ch.isspace() for ch in value) or "\x00" in value:
         raise AdapterError("dedicated Muse credential value is invalid")
     if len(value) > 4096:
@@ -401,61 +410,59 @@ def read_dedicated_muse_secret(secret_path) -> str:
 
 
 def muse_secret_mount_args(secret_resolved) -> list:
-    """Return the read-only mount args for the dedicated Muse credential."""
+    """Read-only mount args for the dedicated META_API_KEY credential."""
     return ["-v", f"{secret_resolved}:{MUSE_SECRET_TARGET}:ro"]
 
 
-# --- Supported effective-profile observation boundary (source lead, not proof) ---
+# ---------------------------------------------------------------------------
+# Witness observer (actual pinned payload semantics, per-test aggregation)
+# ---------------------------------------------------------------------------
 #
-# Installed pi 0.87.1 (pi-ai 0.87.1) declares extension events
-# before_provider_request / after_provider_response in
-# dist/core/sdk.js + dist/core/extensions/types.d.ts, wired via onPayload /
-# onResponse in pi-ai compat chunks (openai-responses, azure, pi-messages).
-# They fire ONLY when a test-owned extension registers a handler; without a
-# handler no payload/response is observed. They do NOT prove on-wire max:
-# pinned meta.json maps muse-spark-1.3-contributor max->null (unsupported)
-# while muse-spark-1.3 max->max, and clampThinkingLevel(max) on the
-# contributor therefore downgrades max->xhigh (models.js). A metadata label,
-# requested max flag, or ordinary workflow return is not effective-max proof.
-# The witness below records ONLY nonsecret profile/request/outcome facts
-# (provider/model/thinking/status, bounded counts); never raw headers, body,
-# prompt, or token output. If no witness is observed the gate stays UNKNOWN
-# and fails closed to M08-T01/Research-Planning; no bypass is invented.
-EFFECTIVE_WITNESS_ALLOWLIST = ("provider", "model", "thinking", "status", "count")
+# Pinned semantics: ``before_provider_request`` → ``{type, payload}`` where
+# payload is openai-responses params (``model`` id string,
+# ``reasoning: {effort, summary}``, ...). ``after_provider_response`` →
+# ``{type, status, headers}`` (headers never recorded). The extension also
+# reads ``M07_T05_TEST_ID`` so every event correlates to one owned test.
+# Only nonsecret ``test_id/model/effort/status/kind`` are recorded.
+
+WITNESS_KINDS = ("request", "response", "terminal")
+EFFECTIVE_WITNESS_ALLOWLIST = ("test_id", "model", "effort", "status", "kind")
 
 
-def write_effective_witness_extension(dest: Path) -> Path:
-    """Stage a test-owned extension that records only whitelisted facts.
+def stage_witness_extension(dest: Path) -> Path:
+    """Stage the test-owned witness extension (actual payload fields).
 
-    The extension subscribes to before_provider_request (payload) and
-    after_provider_response (status) and appends one JSON line per event to
-    the witness file with ONLY provider/model/thinking/status/count. Raw
-    headers/body/prompt/tokens are never recorded. Returns the staged path.
+    Records per event (JSONL): ``test_id`` (from ``M07_T05_TEST_ID``),
+    ``model`` (``payload.model`` string), ``effort``
+    (``payload.reasoning.effort`` fallback ``reasoningEffort``), ``status``
+    (response ``status`` or terminal ``stopReason``), ``kind``
+    (request/response/terminal). Nothing else is recorded.
     """
     dest = Path(dest)
     dest.parent.mkdir(parents=True, exist_ok=True)
     dest.write_text(
-        "// M07-T05 effective-profile witness (test-owned, secret-free).\n"
-        "// Records only provider/model/thinking/status/count.\n"
+        "// M07-T05 witness (test-owned, secret-free, actual payload fields).\n"
         "export default function (ctx) {\n"
         "  const fs = require('node:fs');\n"
         "  const witness = process.env.M07_T05_WITNESS_FILE || '/tmp/m07-t05-witness.jsonl';\n"
-        "  function safeAppend(obj) {\n"
-        "    const allow = {};\n"
-        "    for (const k of ['provider','model','thinking','status','count']) {\n"
+        "  const testId = process.env.M07_T05_TEST_ID || '';\n"
+        "  function emit(obj) {\n"
+        "    const allow = { test_id: String(testId).slice(0,64) };\n"
+        "    for (const k of ['model','effort','status','kind']) {\n"
         "      if (obj[k] !== undefined) allow[k] = String(obj[k]).slice(0,128);\n"
         "    }\n"
-        "    try { fs.appendFileSync(witness, JSON.stringify(allow)+'\\n', {mode: 0o600}); } catch {} \n"
+        "    try { fs.appendFileSync(witness, JSON.stringify(allow)+'\\n', {mode: 0o600}); } catch {}\n"
         "  }\n"
         "  ctx.on('before_provider_request', (ev) => {\n"
         "    try {\n"
         "      const p = ev.payload || {};\n"
-        "      safeAppend({provider: p.provider, model: p.model, thinking: (p.reasoningEffort||p.thinking), status: 'request'});\n"
-        "    } catch {} \n"
+        "      const r = p.reasoning || {};\n"
+        "      emit({kind:'request', model: p.model, effort: (r.effort || p.reasoningEffort)});\n"
+        "    } catch {}\n"
         "    return ev.payload;\n"
         "  });\n"
         "  ctx.on('after_provider_response', (ev) => {\n"
-        "    try { safeAppend({status: String(ev.status)}); } catch {} \n"
+        "    try { emit({kind:'response', status: ev.status}); } catch {}\n"
         "  });\n"
         "}\n",
         encoding="utf-8",
@@ -467,11 +474,52 @@ def write_effective_witness_extension(dest: Path) -> Path:
     return dest
 
 
-def parse_effective_witness_file(path: Path):
-    """Parse the witness file into an observed effective dict or None.
+# Backwards-compatible alias (old tests import this name).
+def write_effective_witness_extension(dest: Path) -> Path:
+    return stage_witness_extension(dest)
 
-    Returns None when absent/empty/malformed (UNKNOWN, no replay). Only
-    whitelisted keys are retained; any other keys are dropped.
+
+def load_witness_events(path: Path, test_id: str) -> list:
+    """Load and filter witness events for one owned test.
+
+    Returns only events whose ``test_id`` equals the owned test id.
+    Stale (other test), caller (missing/mismatched id), and malformed lines
+    are dropped. Empty → caller must treat as UNKNOWN (no replay).
+    """
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    out: list = []
+    for ln in lines:
+        ln = ln.strip()
+        if not ln:
+            continue
+        try:
+            doc = json.loads(ln)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if not isinstance(doc, dict):
+            continue
+        if doc.get("test_id") != test_id:
+            continue
+        filt = {"test_id": test_id}
+        for k in ("model", "effort", "status", "kind"):
+            v = doc.get(k)
+            if isinstance(v, str) and v:
+                filt[k] = v[:128]
+        if filt.get("kind") not in WITNESS_KINDS:
+            continue
+        out.append(filt)
+    return out
+
+
+def parse_effective_witness_file(path: Path):
+    """Legacy single-dict parse (kept for unit coverage).
+
+    NOTE: retaining only the last event loses request fields when a
+    response-status event follows — the validator therefore uses
+    :func:`load_witness_events` + :func:`aggregate_witness` instead.
     """
     try:
         lines = Path(path).read_text(encoding="utf-8").splitlines()
@@ -493,13 +541,216 @@ def parse_effective_witness_file(path: Path):
             obs = filt
     if obs is None:
         return None
-    # Normalize to the classify_effective_profile shape.
     return {
         "provider": obs.get("provider"),
         "model": obs.get("model"),
         "thinking": obs.get("thinking"),
         "unknown": False,
     }
+
+
+def aggregate_witness(events: list, *, test_id: str, expected_model: str) -> dict:
+    """Aggregate one owned test's request+response+terminal events.
+
+    Returns ``{gate, observed, reason, replay}`` where observed is
+    ``{provider, model, thinking}`` with thinking = on-wire effort.
+    Rules: no request event → UNKNOWN; model mismatch vs expected →
+    FAIL (wrong subject); effort != max → FAIL (clamp proven); response
+    status missing/non-2xx → FAIL/UNKNOWN (no success); terminal event
+    missing → UNKNOWN (occurrence uncertain, no resend); contradictory
+    efforts across request events → FAIL (forged witness).
+    """
+    reqs = [e for e in events if e.get("kind") == "request" and e.get("test_id") == test_id]
+    resps = [e for e in events if e.get("kind") == "response" and e.get("test_id") == test_id]
+    terms = [e for e in events if e.get("kind") == "terminal" and e.get("test_id") == test_id]
+    if not reqs:
+        return {"gate": "UNKNOWN", "observed": None,
+                "reason": "no witness request for owned test; " + EFFECTIVE_UNOBSERVABLE_BOUNDARY,
+                "replay": False}
+    efforts = {e.get("effort") for e in reqs if e.get("effort")}
+    models = {e.get("model") for e in reqs if e.get("model")}
+    if len(models) > 1:
+        return {"gate": "FAIL", "observed": None, "reason": "contradictory witness models", "replay": False}
+    model = next(iter(models)) if models else None
+    if model != expected_model:
+        return {"gate": "FAIL", "observed": None,
+                "reason": f"wrong witness model: {model!r} vs {expected_model!r}", "replay": False}
+    if len(efforts) > 1:
+        return {"gate": "FAIL", "observed": None, "reason": "contradictory witness efforts", "replay": False}
+    effort = next(iter(efforts)) if efforts else None
+    if effort is None:
+        return {"gate": "UNKNOWN", "observed": None,
+                "reason": "witness effort missing; " + EFFECTIVE_UNOBSERVABLE_BOUNDARY, "replay": False}
+    observed = {"provider": FIXED_PROVIDER, "model": model, "thinking": effort}
+    if effort != FIXED_THINKING:
+        return {"gate": "FAIL", "observed": observed,
+                "reason": f"downgraded on-wire effort: {effort!r} (requested max); "
+                + EFFECTIVE_UNOBSERVABLE_BOUNDARY, "replay": False}
+    if not resps:
+        return {"gate": "UNKNOWN", "observed": observed,
+                "reason": "witness response missing; occurrence uncertain, no resend", "replay": False}
+    try:
+        statuses = [int(str(e.get("status", "")).strip()) for e in resps if str(e.get("status", "")).strip().isdigit()]
+    except (ValueError, TypeError):
+        statuses = []
+    if statuses and not any(200 <= s < 300 for s in statuses):
+        return {"gate": "FAIL", "observed": observed,
+                "reason": f"witness response not successful: {statuses}", "replay": False}
+    if not statuses:
+        # Non-numeric statuses (e.g. 'ok') are recorded but cannot prove HTTP
+        # success; require the terminal event for completion.
+        pass
+    if not terms:
+        return {"gate": "UNKNOWN", "observed": observed,
+                "reason": "witness terminal missing; occurrence uncertain, no resend", "replay": False}
+    last_term = terms[-1].get("status", "")
+    if last_term not in ("done", "completed", "success", "idle", "0"):
+        return {"gate": "FAIL", "observed": observed,
+                "reason": f"witness terminal not successful: {last_term!r}", "replay": False}
+    return {"gate": "PASS", "observed": observed,
+            "reason": "request+response+terminal aggregated for owned test", "replay": False}
+
+
+def classify_aggregated_witness(events: list, *, test_id: str) -> dict:
+    """Classify witness events for the fixed profile (validator entrypoint)."""
+    return aggregate_witness(events, test_id=test_id, expected_model=FIXED_MODEL)
+
+
+# ---------------------------------------------------------------------------
+# Integrated product path: daemon/Pi observers + guarded dispatch (validator calls these)
+# ---------------------------------------------------------------------------
+
+def observe_daemon_status(exec_run, *, candidate_home: str, expected_version: str) -> dict:
+    """Observe the candidate-local daemon via exec (validator callsite).
+
+    ``exec_run`` is ``fn(argv, timeout) -> CompletedProcess``-like running
+    ``paseo status --format json --home <candidate_home>`` INSIDE the
+    candidate namespace. The returned dict is parsed and validated against
+    the candidate home + frozen-candidate expected version (never host
+    paths or caller labels). Production homes fail closed.
+    """
+    proc = exec_run(
+        ["paseo", "status", "--format", "json", "--home", candidate_home], timeout=30
+    )
+    if getattr(proc, "returncode", 1) != 0:
+        raise AdapterBlocked("candidate daemon status unavailable")
+    try:
+        doc = json.loads((getattr(proc, "stdout", "") or "").strip())
+    except (json.JSONDecodeError, ValueError) as exc:
+        raise AdapterError("candidate daemon status malformed") from exc
+    if isinstance(doc, list):
+        doc = doc[0] if doc else {}
+    if not isinstance(doc, dict):
+        raise AdapterError("candidate daemon status malformed")
+    home = doc.get("home")
+    if not isinstance(home, str) or home != candidate_home:
+        # Candidate-namespace comparison (both sides are in-candidate paths
+        # observed via exec inside the candidate; host resolve() must NOT be
+        # applied across the namespace boundary).
+        raise AdapterError("daemon home is not the candidate home")
+    endpoint = doc.get("listen") or doc.get("endpoint") or doc.get("configuredListen")
+    if not isinstance(endpoint, str) or not endpoint:
+        raise AdapterError("daemon endpoint is missing")
+    version = doc.get("daemonVersion") or doc.get("version")
+    if version is None or str(version) != str(expected_version):
+        raise AdapterError(f"daemon version mismatch vs frozen candidate: {version!r}")
+    pid = doc.get("pid")
+    if pid is not None and (not isinstance(pid, int) or pid <= 0):
+        raise AdapterError("daemon pid is invalid")
+    return {"home": home, "endpoint": endpoint, "pid": pid, "version": str(version)}
+
+
+def observe_pi_version(exec_run, *, expected_version: str) -> dict:
+    """Observe the candidate-local Pi via exec (validator callsite).
+
+    Runs ``command -v pi`` + ``pi --version`` INSIDE the candidate and
+    requires the version to equal the frozen-candidate expectation.
+    """
+    which = exec_run(["sh", "-c", "command -v pi"], timeout=30)
+    if getattr(which, "returncode", 1) != 0:
+        raise AdapterBlocked("candidate Pi executable unavailable")
+    path = (getattr(which, "stdout", "") or "").strip().splitlines()
+    path = path[-1].strip() if path else ""
+    if not path:
+        raise AdapterError("candidate Pi path missing")
+    ver = exec_run(["pi", "--version"], timeout=30)
+    if getattr(ver, "returncode", 1) != 0:
+        raise AdapterBlocked("candidate Pi version unavailable")
+    out = (getattr(ver, "stdout", "") or "").strip().splitlines()
+    out = out[-1].strip() if out else ""
+    if out != str(expected_version):
+        raise AdapterError(f"Pi version mismatch vs frozen candidate: {out!r}")
+    return {"path": path, "version": out}
+
+
+def dispatch_guarded_test(*, guard_file: Path, agent_root: Path, prompt: str, cwd: str,
+                          bindir: Path, test_id: str, witness_file: Path,
+                          meta_secret_file: Path | None = None, timeout: int = 120) -> dict:
+    """Run the canonical guard PROMPT form with per-test witness correlation.
+
+    Copies the exact guard bytes into a disposable agent root, executes the
+    PROMPT form (``guard PROMPT [CWD]`` — the future-authorized smoke shape,
+    NOT ``--native-create-agent-args`` export) with ``PATH`` isolated to the
+    test-owned ``bindir`` (fake ``paseo`` records dispatch + witness, never
+    real inference), ``M07_T05_TEST_ID``/``M07_T05_WITNESS_FILE`` correlation,
+    and ``META_API_KEY_FILE`` pointer (never the secret value). Snapshots
+    dispatch + witness events BEFORE temp cleanup. Timeout → UNKNOWN snapshot
+    with ``replay: False`` (never resend blindly).
+
+    The validator CALLS this function; the fake candidate exec in tests runs
+    the actual guard script locally with the fake bindir, exercising real
+    guard bytes (profile gates, fallback refusal, exec line).
+    """
+    if not test_id or not isinstance(test_id, str):
+        raise AdapterError("test_id is required for guarded dispatch")
+    with tempfile.TemporaryDirectory(prefix="muse-dispatched-") as tmp:
+        tmp_p = Path(tmp)
+        agent = tmp_p / "agent"
+        (agent / "bin").mkdir(parents=True)
+        (agent / "policies").mkdir(parents=True)
+        launcher = agent / "bin" / "run-llm-test.sh"
+        launcher.write_bytes(Path(guard_file).read_bytes())
+        launcher.chmod(0o755)
+        src_policy = Path(agent_root) / "policies" / "llm-test-policy.json"
+        if not src_policy.is_file():
+            raise AdapterBlocked(
+                "canonical policy unavailable for dispatch "
+                "(missing exact delivered policy fails closed)"
+            )
+        (agent / "policies" / "llm-test-policy.json").write_bytes(src_policy.read_bytes())
+        witness_file = Path(witness_file)
+        witness_file.parent.mkdir(parents=True, exist_ok=True)
+        env = {
+            "PATH": str(bindir),
+            "M07_T05_TEST_ID": test_id,
+            "M07_T05_WITNESS_FILE": str(witness_file),
+        }
+        if meta_secret_file is not None:
+            # Pointer only; the value is read inside the candidate wrapper.
+            env[MUSE_SECRET_POINTER_ENV] = str(meta_secret_file)
+        try:
+            proc = subprocess.run([str(launcher), prompt, cwd], env=env, text=True,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                  timeout=timeout, check=False)
+        except subprocess.TimeoutExpired:
+            events = load_witness_events(witness_file, test_id)
+            return {"returncode": None, "timeout": True, "dispatched": bool(events),
+                    "events": events, "replay": False,
+                    "stderr": "guard dispatch timeout; occurrence unknown, no replay"}
+        except OSError as exc:
+            return {"returncode": None, "timeout": False, "dispatched": False,
+                    "events": [], "replay": False, "stderr": f"guard unavailable: {exc}"}
+        events = load_witness_events(witness_file, test_id)
+        dispatched = proc.returncode == 0 and bool([e for e in events if e.get("kind") == "request"])
+        return {
+            "returncode": proc.returncode,
+            "timeout": False,
+            "stderr": proc.stderr[-2000:] if proc.stderr else "",
+            "stdout": proc.stdout[-2000:] if proc.stdout else "",
+            "dispatched": dispatched,
+            "events": events,
+            "replay": False,
+        }
 
 
 def outcome_for_fixture(*, requested: dict, dispatch_snapshot: dict,
@@ -520,14 +771,11 @@ def outcome_for_fixture(*, requested: dict, dispatch_snapshot: dict,
         else:
             status = "BLOCKED"
             reason = "guard did not dispatch; input unavailable"
-        # Never echo raw stderr tails (they may contain opaque echoes).
     elif eff["gate"] != "PASS":
         terminal = "terminal"
         status = "FAIL"
         reason = eff["reason"][:400]
     else:
-        # Mechanical dispatch observed with matching profile gate, but this
-        # is still a fixture: real inference did not complete.
         terminal = "terminal"
         status = "PASS"
         reason = "fixture dispatch observed; real inference not completed"

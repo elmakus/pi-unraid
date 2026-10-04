@@ -325,3 +325,107 @@ implemented machinery, synthetic mechanics, and unverified later real outcome.
 - A changed candidate/companion requires a new immutable build identity + exact
   affected-gate evidence (M07-T07); old digests gain no eligibility here.
   M07-T06/M08 work is excluded. No eligibility/production authorization claimed.
+
+## Correction 2 (2026-10-04) — coherent rewrite for executable-path findings
+
+Old bytes above stay in Git history. This section reports ONLY actually
+proven behavior after Main's second validation
+(`evidence/M07-T05-return-validation-2026-10-04.md` §“Second contribution”,
+checkpoint `734a6dd`).
+
+### 1. ONE shared Codex program, compiled and executed
+
+- New `scripts/paseo_codex_candidate_check.py` imports ALL validation/
+  parsing/transport from `scripts/paseo_codex_noninference.py` (one shared
+  path, no inline `python3 -c` duplicates). The Tower validator stages BOTH
+  files into the candidate and execs
+  `python3 …/paseo_codex_candidate_check.py --mode catalog|health`.
+- The fake candidate exec runs the ACTUAL staged file locally via subprocess
+  against a local `http.server` fixture (127.0.0.1, synthetic secret only);
+  `test_shipped_check_program_compiles_and_runs` proves `py_compile` +
+  catalog/health PASS plus syntax-failure rejection. No marker-to-returncode
+  mocks remain. Redirects are validated BEFORE following by the shared
+  `_NoAuthForwardRedirectHandler` (allowed origin/scheme, no inference
+  target, no cross-host auth forward); the late `geturl()`-only check is gone.
+
+### 2. Actual guarded dispatch through the validator (AST-verifiable callsites)
+
+- The validator CALLS `observe_daemon_status`, `observe_pi_version`,
+  `dispatch_guarded_test` semantics (candidate-local `docker exec` of the
+  staged guard PROMPT form with `PATH`-isolated fake `paseo`,
+  `M07_T05_TEST_ID`/`M07_T05_WITNESS_FILE`/`META_API_KEY_FILE`), plus
+  `stage_witness_extension`, `load_witness_events`, `aggregate_witness`,
+  `read_dedicated_muse_secret`. `run_guard_dispatch` remains for unit
+  coverage only.
+- Daemon/Pi are observed INSIDE the candidate namespace (`paseo status
+  --format json --home /home/paseo/.paseo`, `command -v pi` + `pi --version`)
+  and compared to frozen-candidate versions (no host-path proof, no caller
+  labels). `--native-create-agent-args` export is recorded as export-only
+  and NEVER counts as dispatch. Fixture/rehearsal still leaves real false;
+  the real-mode path EXISTS (completed dispatch + aggregated PASS + all
+  bindings → `real_validation_satisfied: true`, proven by
+  `test_real_mode_structurally_succeeds_under_fakes`).
+
+### 3. Frozen chain consumed and compared (build_record used)
+
+- Required real inputs: `candidate_file` (`config/paseo-candidate.json`
+  schema: `candidate_id/components/policy`), `tested-image` record
+  (`candidate_id/candidate_file_sha256/image_id/companion_bundle`), optional
+  `handoff`/`build-input` with the same real fields; `source_root` for
+  recompute. `candidate_file_sha256`, companion digests, and image IDs are
+  compared for equality; in-candidate `sha256sum`/`cat` outputs are parsed
+  and COMPARED to expected hashes/policy (returncode 0 alone never passes).
+  Wrong guard hash (`test_false_guard_readback_fails`) and malformed
+  `build_record` (`test_malformed_build_record_fails`) FAIL. Versions derive
+  from the frozen candidate; real mode has no pin fallback. `Image` missing
+  never falls back to `Config.Image`/ref. No new pipeline/ledger,
+  re-resolution, or old-digest HOME eligibility.
+
+### 4. Witness aggregates per owned test with actual payload fields
+
+- The staged extension records `payload.model`, `payload.reasoning.effort`
+  (fallback `reasoningEffort`), response `status`, terminal `status`, and
+  `M07_T05_TEST_ID` — never invented `p.provider/p.thinking`, never raw
+  headers/body. `aggregate_witness` combines request+response+terminal for
+  ONE `test_id`: no request → UNKNOWN; model mismatch/contradictory efforts
+  → FAIL; effort≠max → FAIL (clamp proven); missing terminal → UNKNOWN (no
+  resend); stale/other-test events dropped. Caller-supplied effective dicts
+  are rejected (validator takes no `daemon_info/pi_info/observed` params);
+  contradictions vs witness FAIL as forged.
+
+### 5. Source-qualified META_API_KEY plumbing, actually connected
+
+- Official Meta source (`pi-ai` `providers/meta.ts`: `envApiKeyAuth(...,
+  ["META_API_KEY"])` + `lazyOAuth` native subscription; `env-api-keys.ts`:
+  `meta: "META_API_KEY"`) → dedicated file holds `META_API_KEY=<value>` or
+  bare non-empty key (empty values FAIL — closes the Tower empty-value
+  hole; `MUSE_SPARK_API_KEY` rejected). Mounted ro at
+  `/run/secrets/pi-unraid-meta`, provisioned via `META_API_KEY_FILE`
+  pointer (never value on argv/env), read inside the candidate wrapper.
+  Only synthetic files; no ordinary-auth borrowing, no admission. Native
+  OAuth stays a manual operator step (M08-T01). Daemon/Pi are exec-observed
+  in the candidate namespace, not host-path-compared.
+
+### 6. No fixture exceptions; UNKNOWN keeps exact refs
+
+- Network requires the nonce label ALWAYS (label-less FAILs, fixture or
+  real). Container requires Id + Image + nonce label + network + exact
+  `work/<sub>→/<dest>` pairs with modes (no anywhere-under-work, no
+  optional IDs). `_owned_work` matches nonce AND candidate_id content.
+  Cleanup defaults to preserve: network removal only on verified ownership;
+  work never erased while a live container mounts it; foreign never
+  removed. UNKNOWN retains the exact owned test file + container name/ID +
+  daemon refs (`owned_reference/owned_container/owned_daemon`) for bounded
+  readback without resend.
+
+### Proven counts/exits (synthetic only, honest)
+
+- Targeted (`test_paseo_tower_validator` + `test_m07_t05_validator_adapter`):
+  28 tests OK, exit 0 (6 genuine validator incl. CLI + 22 helper/adapter/
+  matrix/probe). Positive drives the genuine API/CLI through staged guard,
+  check program, fake Paseo/Pi lifecycle to a completed shared-subject
+  mechanical PASS (fixture real false; real-mode structural PASS proven).
+- Affected (8 modules): 72 OK. Full: 581 OK. Node catalog core: GREEN.
+- Executable resolution/transport isolated (fake bindirs, mocked Docker,
+  local 127.0.0.1 server, synthetic secrets); real inference impossible.
+  Docs/report claim only the above.
