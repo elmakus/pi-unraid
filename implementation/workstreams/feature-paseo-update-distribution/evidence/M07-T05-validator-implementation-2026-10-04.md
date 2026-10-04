@@ -1091,3 +1091,153 @@ These remain remediable SAME-Card coding obligations. No user input, credential 
 new approval is requested; no canonical stop is asserted. Main retains acceptance,
 reconciliation and Review freezing. This context materially produced the source
 and cannot independently Review it. The canonical route remains Execution/M07-T05.
+
+## Correction 7 — actual context and qualified pretransport rejection [INCOMPLETE]
+
+Producing repair contribution, not independent Review or accepted Card result.
+Source subject: `63823cf0dddb70ba06b9bb3fca6e0cf0416256d9` (unpushed), on the legal
+`feat/paseo-update-distribution` worktree. Launch was clean
+`d575ce3ca455ab471ab0d41a1350dedc1921340a`; Main's Seventh contribution correction
+was consumed unchanged. No delegation or model/thinking change occurred.
+
+**Full M07-T05 is still INCOMPLETE.** This contribution does not fulfill the
+instruction to finish the entire unchanged Card. No genuine non-remediable
+whole-Card blocker or canonical stop is established. The bounded source facts
+and transport fuse below cannot waive the remaining implementation. Main must
+not freeze independent Review or reconcile acceptance from these test counts.
+
+### Recovery and preserved authority
+
+Recovered the project/workstream, canonical Router/Execution/Execution Prep/
+Continuation, full named Card authority, technical contract and exact GREEN
+M07-T04 result/review. Remote readback still yields project main
+`e9476b4987290767a195a9de2ecd655de5f09605`, remote feature
+`8a0553079abac233b4ddc88ef4ce666cfbf3a661`, workflow main
+`d3ab917f02e4de91b7dbb17915c2287c2387333e`. The canonical router, run as its package
+module with the exact manifest locator, returns Execution/M07-T05, handoff none.
+Initial attempts using a nonexistent archive remote, direct-file router imports
+and a short workstream name failed; corrected commands produced these readbacks.
+These invocation errors were not authority changes or blockers.
+
+All 22 DONE result blobs match both their exact commits and HEAD. Board119,
+M07-T05 in_progress and M08-T01 planned remain unchanged. Integration/main is
+clean. No authority, Card/contract, planning/Research, Board/manifest, result,
+review, Main classification or historical evidence prefix was changed. The
+preexisting worker report's 67,799-byte prefix has SHA256
+`a39668933eeff664e16da09c093b156ba509fd9117014fd751530dca07551a6f` and is preserved.
+
+### Implemented repair and limits
+
+- The actual frozen observer reads supported handler context
+  `ctx.model.provider` and `ctx.thinkingLevel`, separately from wire model/effort.
+  Request readback now requires typed actual provider/thinking facts; aggregation
+  cannot infer meta/max from a fixed payload label. Main's codex-lb/max and
+  meta/xhigh contexts with max payloads both fail and invoke abort.
+- Wrong/unobservable profile and failed private observation invoke supported
+  `ctx.abort()`. If context/abort cannot synchronously prove an aborted signal,
+  only the explicitly opted-in test Pi process exits 42. This local fail-stop
+  is not model fallback, real success or a workflow stop.
+- Witness output is restricted to bounded vocabularies, not arbitrary field
+  strings. Opening rejects symlinks, nonregular/wrong-owner/nonprivate files and
+  oversize files. Unprivate/symlink controls preserve their targets and prevent
+  even fake transport. Observer staging copies the actual frozen delivery member
+  instead of an independently maintained generator. Legacy fake fixtures now
+  supply the supported context and a private test-owned witness file; negative
+  context/effort controls remain negative.
+- New transport qualification imports actual pinned ExtensionRunner, Agent and
+  OpenAI Responses implementation, with every transport explicitly replaced by
+  in-memory fake fetch and a disposable synthetic key. No credential store/auth
+  resolver or real provider transport is called. The actual runner catches the
+  throw-only control and the fake transport entry marker is reached once. With
+  supported observer abort, caught rejection yields zero fake fetch calls. Missing
+  signal/broken abort exit the child with 42 before that same reachable marker.
+- A separate isolated synthetic daemon uses actual Paseo PiRpcAgentClient,
+  PiCliRuntime, command replacement and JSONL process code to select/spawn a
+  separate metadata-only fake Pi. Only public official Meta model data is served;
+  effective-level calculation is the unmodified official clamp. Catalog mapping
+  excludes max. An actual created-session runtime readback reports xhigh and
+  updates configuration to xhigh despite requested max. Actual child PID/PPID,
+  argv and disposable synthetic auth inheritance are checked. Only
+  get_available_models/get_state RPCs occur: no prompt, steer or inference RPC.
+
+These qualifications establish the exact unmodified pinned source's negative
+behavior, including the caught-error transport hazard and the repair's barriers.
+They do not prove general impossibility of every supported realization, the full
+candidate's connected server/agent/workspace binding, qualified positive real
+completion or the complete external fake validator harness. No provider override,
+max mapping substitution, fallback or unofficial capability was adopted.
+
+### Exact final verification
+
+Source was committed before final gates and held unchanged throughout them.
+Each launch uses env -i, disposable HOME and explicit disposable compile caches;
+all provider-capable diagnostic calls use external synthetic transports, and
+existing validator execution is wholly mocked/localhost with synthetic secrets.
+The classifications and limits above are part of the evidence, not a real gate.
+
+Final job 7 on exact `63823cf0dddb70ba06b9bb3fca6e0cf0416256d9` records direct exits:
+
+- Six targeted modules: **70 executed, exit 0, zero skips**.
+- Eight affected policy/delivery/companion/build/guard/instruction/runtime/image
+  modules: **72 executed, exit 0, zero skips**.
+- Full classified Python discovery: **623 executed, exit 0, zero skips**.
+- Applicable Node catalog suite: **1 executed, exit 0, zero skips**.
+- AST and explicit isolated py_compile: **7 changed/new Python files**, PASS.
+- Node syntax: observer plus three new fixture programs, PASS; guard/loader shell
+  syntax and diff check PASS. No repository bytecode exists.
+- Bounded high-confidence secret-pattern scan: **12 changed/new source/test/doc
+  files**, PASS; not complete secret-absence proof. Only declared disposable fake
+  credentials occur in these tests, never raw real secrets.
+
+Logs: `/tmp/pud-qualified-final-{targeted,affected,full,node}.log`; job 7 records
+exact subject and all direct exits. Earlier job 5 ran 67 tests and exited 1 with
+one stale observer fixture lacking supported context. It was corrected without
+weakening the terminal-negative assertion. Intermediate stable job 6 passed
+69/72/622/1 before the missing-signal/broken-abort fail-stop addition. Both are
+superseded by exact final job 7; no mixed-source run is called final evidence.
+Six new qualification tests also passed directly before the source commit.
+Git's missing author configuration initially prevented commit; command-local
+worker identity completed it without changing global/repository configuration.
+
+Recomputed companion: 14 files, digest
+`sha256:f45f70254c7dbc252955106b54597132d0b17fc57ad8e48a6ea6a3f4e59457f9`, nine
+validation-source hashes. Observer digest:
+`sha256:a2f5a71b59319f0923db8588d275a3911b49b6f4332e378bca4f9f688a2c5dbf`.
+Fresh later artifacts remain required; these changed payloads cannot bless an old
+OCI digest. No build, resolve, publication, host, CI or production operation ran.
+
+### Source qualification locators
+
+Read-only installed official sources; SHA256 values:
+
+- Pi extensions/runner.js: `67c7ca2d24197ff46cb5f0a49d7c19a76825ab7c66bc942015a484b550396441`.
+- Pi core/agent-session.js: `5ebfae51db5a900596145159428e7cb57d195af9d54a28f41d4ac8ff1bfd5729`.
+- Pi modes/rpc/rpc-mode.js: `bdd94e753e6d19731d9fb9ea370462d095d64f1e78bddd7651320663fa57c4ff`.
+- Pi-agent-core dist/agent.js: `3a890712a7a02fc29754a2af61b758cba43eec97d289e446cd7e432ed0093085`.
+- Pi-ai dist/api/openai-responses.js: `3e95145f94ac2a255d1adc0ae65cf02c2e6d479f7a2dbf5c466db21885c29ec6`.
+- OpenAI client.mjs: `45b54e0c0a779a8b284cc8bcfb41a0a0f1817eac32d9cc585ff71875b62aeb6b`.
+- Paseo pi/agent.js: `7faa688227512c81e8e5ac18b80c7719e85984a8e0b9b7c55f46b3eb15a40ee3`.
+- Paseo pi/cli-runtime.js: `64fe167d66ecd8a6429a8111bc5e289a9be564b08bdc8db9834ecd950c167ca9`.
+- Paseo pi/runtime.js: `8a17e41b8b04f457580334b61831a2d83f6c1ae4bac76d35f73f5cec5739dcd2`.
+- Paseo jsonl-rpc-process.js: `37b4f3f2620c249d520ce1fa65a9f35366eef4c4fb89c1a0cdf13bc84597c12c`.
+
+RPC mode binds no custom abort handler; normal AgentSession.abort synchronously
+calls Agent.abort before awaiting settlement. The SDK checks the signal before
+fetch. Executable synthetic controls exercise actual runner/Agent/SDK behavior;
+these source facts do not claim installed daemon/production validation.
+
+### Still required under the same unchanged Card
+
+Private daemon configuration/selector scrubbing and full connected-server/Pi/
+agent/workspace proof; complete actual-producer and immutable source/configuration
+linkage with genuine positive producer chains; actual creation IDs and uncertainty
+readback updates; per-test/process effective exchange and final-completion binding;
+full separate source-faithful fake daemon/CLI/guard/loader/Pi validator realization;
+and the remaining omission/mutation, collision/race/partial-acquisition/current-
+isolation/cleanup matrix. The old hand-authored positive chain and reconstructed
+full-validator daemon still do not qualify those requirements.
+
+No real credential/input is requested, no acceptance or blocker state is written,
+and no independent verdict is possible from this producing context. Main alone
+reconciles and freshly reroutes. End of this contribution is not semantic
+completion; the unchanged route remains Execution/M07-T05.
