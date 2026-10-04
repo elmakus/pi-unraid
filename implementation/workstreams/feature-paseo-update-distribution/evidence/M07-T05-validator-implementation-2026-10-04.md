@@ -453,3 +453,156 @@ M07-T05 `in_progress`, no result/attempt. No push. All 22 DONE preserved.
   (correction commit/blob below; secret-safe).
 - Returns to Main for classification; not a stop/result/verdict. This
   context cannot later review its own subject.
+
+---
+
+## Correction 3 (2026-10-04) — third-return provenance/lifecycle/completion repair
+
+Old bytes above stay in Git history (`9abd0fc`, `5942df3`, `d937e8f`,
+`81dd999`, `f5a2346`, `7eba384`). This corrects Main's third validation
+(`implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-return-validation-2026-10-04.md`
+§"Third contribution", checkpoint `9d4cdecce3cfe4a492b0fb6310ebafdd4ec0296e`)
+inside the SAME unchanged Card/technical contract. Board 119, M07-T05
+`in_progress`, no result/attempt. No push. All 22 DONE preserved. This
+context implemented/repaired the subject and cannot later review it.
+
+### Recovery and scope
+
+- Legal worktree `/home/paseo/projects/pi-unraid-paseo-update-distribution`,
+  `feat/paseo-update-distribution` (separate main worktree read-only, outside
+  write scope). Launch checkpoint `9d4cdecce3cfe4a492b0fb6310ebafdd4ec0296e`
+  (clean, unpushed); earlier producer quiescent.
+- Recovered independently: `project-recovery` SKILL + bootstrap, `PROJECT.md`,
+  default `elmakus/project_workflow_v2@d3ab917f02e4de91b7dbb17915c2287c2387333e`
+  ROUTER + EXECUTION (single-Card execution, Main-only reconciliation),
+  WORKSTREAM, unchanged `cards/M07-T05.md`, every named authority
+  (`requirements/PASEO_UPDATE_DISTRIBUTION.md` R2,
+  `requirements/PASEO_GUI_RUNTIME.md`, `decisions/ADR_PUD_001/002/004`,
+  `planning/PASEO_UPDATE_DISTRIBUTION_P4.md` M07-T05 section),
+  `contracts/PASEO_R2_CANDIDATE_VALIDATION.md`, prep reconciliation, exact DONE
+  `results/M07-T04.md@6329cf488cebaf955a49cbace71d87613381dc11:c45b3f707b1246e195c9138d027cbb1b05b9b112`
+  with R01 GREEN evidence, plus the full third-return correction section.
+  The prior filename list is not authority to stage unbound code; all changes
+  are minimal source/guard/delivery/binding/argument/test/doc inside the Card.
+- Preserved real improvements from the third contribution (executable shared
+  Codex path, actual guard hash compare, no generic dependency tails) while
+  repairing provenance/auth/observer/lifecycle/completion/ownership machinery
+  and coverage. No new pipeline, ledger, schema authority, or successor.
+- Exclusions honored: no stable Card/contract/authority/history/Main-evidence/
+  result/attempt/Board/manifest/Research/planning/successor writes; no real
+  inference/auth/credential admission, HOME/runtime/harness changes, live
+  Docker/Tower/host/production effects, image build/publication, CI trigger,
+  PR/Issue operations, push, or further delegation. Only classified
+  synthetic/local fixtures and approved non-inference public source/interface
+  readback; fake executables/transports; disposable synthetic credentials.
+
+### Exact source/provenance (recomputed)
+
+- Implementation commit: `f897e03f369a56fb19ea038a7e60ee352f54b7a2` (unpushed):
+  `scripts/paseo_tower_validator.py` (publication binding, strict real chain,
+  adapter observer callsites, loader dispatch, UNKNOWN preservation,
+  ID-bound ownership/cleanup, `--publication-file`, no tested aliasing),
+  `scripts/paseo_candidate_muse_adapter.py` (same-origin helpers, terminal
+  observer handlers, strict daemon/Pi observers, builtin-only Meta loader,
+  loader-based local dispatch),
+  `scripts/paseo_codex_noninference.py` (same-origin redirect enforcement),
+  `tests/test_paseo_tower_validator.py` (distinct-type chain, loader/node-
+  observer harness, `_find_node` which-mock isolation),
+  `tests/test_m07_t05_validator_adapter.py` (redirect/observer/loader/
+  daemon/Pi negatives + 11-probe regressions),
+  `docs/PASEO_CANDIDATE_VALIDATION_M07_T05.md` (Correction 3, implemented
+  facts only). `paseo_codex_noninference.py` transport otherwise preserved.
+- Provenance recomputed: guard
+  `sha256:7fd922da42fcebfb6ed9e83f1f3471ed5365ea7961bec2ca25cdc9fd62827e33`,
+  policy `sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40`,
+  companion `sha256:a51036c56f67012758457ade0c01770e355767ce566cc2fd9e2a84a9cc437119`,
+  candidate file `sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69`
+  (Paseo 0.9.2 / Pi 0.87.1 from frozen components).
+- Pinned public sources read (non-inference, no auth): `pi-ai@0.87.1`
+  `providers/meta.ts` (`envApiKeyAuth(..., ["META_API_KEY"])` + native OAuth),
+  `dist/providers/data/meta.json` (contributor `max:null`, non-contributor
+  `max:max`), `dist/models.js` (clamp/support semantics),
+  `dist/api/openai-responses.js` (effort wire mapping), Paseo 0.9.2
+  `dist/commands/agent/run.js` (only parsed `--env` forwarded to
+  `createAgent.env`), `dist/commands/daemon/status.js` (`localDaemon`,
+  `connectedDaemon`, `serverId`, `workerPid`, `daemonNode`, `providers` +
+  home/listen/version), Pi `dist/core/extensions/types.d.ts`
+  (`before_provider_request{type,payload}`,
+  `after_provider_response{type,status,headers}`,
+  `agent_end{messages}`, `agent_settled{}`), guard bytes (PROMPT +
+  `--native-create-agent-args` shapes, fixed profile, no fallback).
+- Negative facts preserved: Contributor `max:null`, unmodified `max→xhigh`
+  clamp; `modelOverrides` remains unmanaged-HOME-only, not adopted.
+
+### Reachable behavior (executing fakes; fake ONLY external boundaries)
+
+- Distinct-type frozen chain through the genuine validator API+CLI: real
+  candidate bytes (`candidate_id sha256:b4e0…`) + synthetic distinct OCI
+  digest (`sha256:dddd…`) + real-schema handoff/build-input/build-record/
+  tested/publication + staged guard/loader/observer + fake daemon/Pi/Codex
+  lifecycle → mechanical PASS (fixture real false; real-mode structural
+  `real_validation_satisfied: true` proven under fakes).
+- Loader → guard → fake-Paseo (`META_API_KEY` required, exit 42) →
+  request/response events; terminal via the ACTUAL staged observer bytes
+  under node (fake SDK boundary fires `agent_settled`); per-test
+  request+response+terminal aggregation → PASS. No marker-to-returncode
+  mocks; internal plumbing (staged file execution, hash compare, guard
+  gates, loader auth, observer emission) executes for real.
+- Negatives (all fail required gates + assert no disallowed calls before
+  cleanup): publication digest mismatch, tested-only minimal record,
+  forged/malformed handoff/prepared/build records, stopped/unreachable/
+  remote/null-PID daemon + foreign Pi (zero guarded dispatches), empty/
+  wrong-name Muse secret, loader exit 42 on missing/empty pointer, clamp
+  effort FAIL, response-only UNKNOWN, missing terminal UNKNOWN with
+  preserved container + existing owned file, replaced container ID FAIL
+  with no foreign removal, cleanup-race work preservation, cross-port
+  redirect rejection with zero foreign requests/auth, opaque token redaction.
+  Seven old probes stay closed.
+
+### Counts/exits (honest, preserved; worker-observed for Main classification)
+
+- Targeted: 30 tests OK, exit 0, 0 skips (validator 6 + adapter/matrix/probe
+  24: 22 preserved/extended + redirect transport + 11-probe regressions).
+- Affected (8 modules): 72 OK, exit 0. Full: 583 OK, exit 0, 0 skips
+  (`discover -s tests`: 581 prior − 28 old targeted + 30 rebuilt targeted).
+  Node catalog core: 1/1 GREEN, exit 0.
+- Diff: only the six permitted source/test/doc paths + this report; no
+  Card/contract/authority/state/history writes. Secret scans: no
+  high-confidence credential patterns; only `*_API_KEY=` names + synthetic
+  `fixture-*` in disposable temps; no raw secrets/bodies/prompts/tokens.
+- Entry-point classification: every touched inference-capable entrypoint
+  (`run-llm-test.sh` PROMPT/native-args, `paseo run/status`, `pi` as real
+  binaries, validator ex-`/responses` smoke (removed earlier), live
+  harnesses, docker builds, Tower live) — NOT executed as real; executed
+  synthetically only via fake bindirs/mocked Docker/injected HTTP/localhost
+  servers/disposable roots + approved non-inference readback. `PATH`
+  isolated; a `shutil.which` mock-isolation fix (`_find_node`) keeps the
+  node observer reachable under the docker-CLI mock. No test agent created;
+  no real provider inference.
+
+### Limits (not waived; owning boundaries)
+
+- Fixture/rehearsal never satisfies the real gate. Real guarded inference,
+  dedicated credential admission, live daemon bring-up, exact Paseo `--env`
+  on-wire forwarding proof, real Codex-LB reads against operator endpoints,
+  and on-wire max proof remain M08-T01 under the mandatory
+  meta/muse-spark-1.3-contributor/max/no-fallback guard policy (no real test
+  run here). Unsupported/unknown fails closed without fallback or provider
+  bypass; the precise public source facts above are returned for Main-owned
+  proportional Research/Planning if needed — no bypass invented, no
+  complete/deferred-machinery claim.
+- Changed candidate/companion needs a new immutable identity (M07-T07);
+  M07-T06/M08 work excluded. No eligibility/production authorization claimed.
+  Staged ephemeral files (observer/loader/per-attempt copies) are test-owned
+  tooling outside the frozen companion; guard/delivery changes still need a
+  new downstream artifact, never old-digest HOME blessing.
+
+### Return
+
+- Implementation SHA: `f897e03f369a56fb19ea038a7e60ee352f54b7a2` (unpushed).
+- This report path:
+  `implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-validator-implementation-2026-10-04.md`
+  (report commit/blob below; secret-safe).
+- Returns to Main for classification/reconciliation and later fresh
+  independent review; not a workflow stop, result, verdict, DONE, or
+  successor permission. This context cannot later review its own subject.
