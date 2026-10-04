@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 115
+revision = 116
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -522,6 +522,10 @@ class = "result"
 path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T04.md"
 commit = "6329cf488cebaf955a49cbace71d87613381dc11"
 blob = "c45b3f707b1246e195c9138d027cbb1b05b9b112"
+
+[[cards.review_attempts]]
+class = "review_attempt"
+path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07-T04-R01.toml"
 
 [[jit_triggers]]
 id = "after-M07-T04-materialize-M07-T05"

@@ -1,0 +1,22 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M07-T04"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "6329cf488cebaf955a49cbace71d87613381dc11"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T04.md"
+blob = "c45b3f707b1246e195c9138d027cbb1b05b9b112"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T04.md"
+commit = "bbe3e254e1961b14b0a6c64ff302caf4c1cb7515"
+blob = "a4fe351505c4255ed31171a0d02118851ceeeb69"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "R01 is reserved for a fresh independent context that did not author or repair the exact semantic result, its implementation/evidence or stable acceptance surface. Implementation and repair contexts cannot issue this verdict. Main verifies the qualifying return and applies only the exact-subject terminal evidence; no runtime identity substitutes for semantic independence."
