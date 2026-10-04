@@ -59,12 +59,98 @@ class ProducerProofTests(unittest.TestCase):
             self.assertNotIn('fake-transport', state['runtime_calls_before_cleanup'])
             self.assertFalse(any('guarded-dispatch' in str(call) for call in calls))
 
+    def test_actual_validator_rejects_numeric_mount_booleans_before_exec_or_cleanup_removal(self):
+        original = T.make_fake_docker
+        for destination, value in (('/home/paseo', 1), (V.CODEX_SECRET_TARGET, 0)):
+            with self.subTest(destination=destination), tempfile.TemporaryDirectory() as td, T.LocalCodexServer() as server:
+                def boundary(*args, **kwargs):
+                    external = original(*args, **kwargs)
+                    def run(argv, **options):
+                        proc = external(argv, **options)
+                        if argv[:2] == ['docker', 'inspect'] and kwargs['state'].get('ran') and proc.returncode == 0:
+                            docs = json.loads(proc.stdout)
+                            for mount in docs[0]['Mounts']:
+                                if mount['Destination'] == destination:
+                                    mount['RW'] = value
+                            proc.stdout = json.dumps(docs)
+                        return proc
+                    return run
+                with mock.patch.object(T, 'make_fake_docker', side_effect=boundary):
+                    result, calls, state = H._run_validate(Path(td), server_base=server.base)
+                self.assertEqual(result['status'], 'FAIL', result)
+                self.assertFalse(result['real_validation_satisfied'])
+                self.assertFalse(any(call[:2] == ['docker', 'exec'] for call in calls))
+                self.assertFalse(any(call[:2] == ['docker', 'rm'] for call in calls))
+                self.assertTrue(Path(state['work']).exists())
+                self.assertEqual((Path(td) / 'codex.env').read_text(), 'CODEX_LB_API_KEY=fixture-codex\n')
+
+    def test_partial_network_or_container_receipt_loss_retains_references_without_replay(self):
+        original = T.make_fake_docker
+        for effect in ('network', 'container'):
+            with self.subTest(effect=effect), tempfile.TemporaryDirectory() as td, T.LocalCodexServer() as server:
+                def boundary(*args, **kwargs):
+                    external = original(*args, **kwargs)
+                    def run(argv, **options):
+                        proc = external(argv, **options)
+                        if ((effect == 'network' and argv[:3] == ['docker', 'network', 'create'])
+                                or (effect == 'container' and argv[:2] == ['docker', 'run'])):
+                            raise V.ValidationError('synthetic lost receipt after external acquisition')
+                        return proc
+                    return run
+                with mock.patch.object(T, 'make_fake_docker', side_effect=boundary):
+                    result, calls, state = H._run_validate(Path(td), server_base=server.base)
+                self.assertEqual(result['status'], 'UNKNOWN', result)
+                self.assertEqual(result['terminal_class'], 'unknown')
+                self.assertFalse(result['real_validation_satisfied'])
+                self.assertEqual(sum(call[:3] == ['docker','network','create'] for call in calls), 1)
+                self.assertEqual(sum(call[:2] == ['docker','run'] for call in calls), int(effect == 'container'))
+                self.assertFalse(any(call[:2] == ['docker','exec'] for call in calls))
+                self.assertFalse(any(call[:2] == ['docker','rm'] or call[:3] == ['docker','network','rm'] for call in calls))
+                reference = Path(result['owned_reference'])
+                self.assertTrue(reference.exists())
+                acquired = json.loads(reference.read_bytes())
+                self.assertEqual(acquired['network']['name'], 'pi-unraid-validator')
+                self.assertTrue(acquired['attempt_nonce'])
+                self.assertTrue(reference.stat().st_mode & 0o777 == 0o600)
+                self.assertEqual((Path(td) / 'muse.env').read_text(), 'META_API_KEY=fixture-meta\n')
+
+    def test_network_cleanup_failure_retains_private_usable_nonce_and_object_references(self):
+        original = T.make_fake_docker
+        for fault in ('remove', 'inspect'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory() as td, T.LocalCodexServer() as server:
+                def boundary(*args, **kwargs):
+                    external = original(*args, **kwargs)
+                    def run(argv, **options):
+                        state = kwargs['state']
+                        if fault == 'remove' and argv[:3] == ['docker','network','rm']:
+                            kwargs['calls'].append(argv)
+                            return mock.Mock(returncode=1, stdout='', stderr='synthetic network removal failure')
+                        if (fault == 'inspect' and argv[:3] == ['docker','network','inspect']
+                                and state.get('_owned_runtime') and not state.get('ran')):
+                            kwargs['calls'].append(argv)
+                            raise V.ValidationError('synthetic cleanup transport failure')
+                        return external(argv, **options)
+                    return run
+                with mock.patch.object(T, 'make_fake_docker', side_effect=boundary):
+                    result, calls, state = H._run_validate(Path(td), server_base=server.base)
+                self.assertEqual(result['status'], 'BLOCKED', result)
+                self.assertFalse(result['real_validation_satisfied'])
+                self.assertEqual(result['cleanup']['status'], 'INCOMPLETE')
+                self.assertEqual(state['runtime_calls_before_cleanup'].count('prompt'), 1)
+                self.assertEqual(state['runtime_calls_before_cleanup'].count('fake-transport'), 1)
+                work = Path(result['recovery_reference']['work'])
+                self.assertTrue(work.exists())
+                reference = json.loads(Path(result['subject']['owned_test']).read_bytes())
+                self.assertEqual(reference['attempt_nonce'], (work / '.attempt-nonce').read_text().strip())
+                self.assertEqual(reference['network']['id'], result['recovery_reference']['network_id'])
+                self.assertTrue((work / 'home/.m07-t05/owned.json').exists())
+
     def test_source_commit_ref_parent_config_and_archive_mutations_before_effects(self):
         original = T.build_artifact_chain
         for defect in ('head', 'parent', 'ref', 'commit-proof', 'file-map', 'source-bytes',
                        'source-missing', 'source-untracked', 'dockerfile', 'readback',
                        'build-command', 'build-context', 'phase-type', 'smoke-omission',
-                       'archive-bytes', 'archive-format', 'archive-hash', 'candidate-ref',
+                       'archive-bytes', 'archive-missing', 'archive-format', 'archive-hash', 'candidate-ref',
                        'schema-bool', 'prepared-omission'):
             def changed(td, **kwargs):
                 chain = original(td, **kwargs)
@@ -89,6 +175,7 @@ class ProducerProofTests(unittest.TestCase):
                 elif defect == 'phase-type': record['phases']['test']['duration_ms'] = True
                 elif defect == 'smoke-omission': record['phases']['test']['detail']['smokes'].pop()
                 elif defect == 'archive-bytes': (tested_path.parent / 'image.tar').write_bytes(b'not-docker-save')
+                elif defect == 'archive-missing': (tested_path.parent / 'image.tar').unlink()
                 elif defect == 'archive-format': tested['image_archive_format'] = 'oci-layout'
                 elif defect == 'archive-hash': publication['image_archive_sha256'] = 'sha256:' + '0' * 64
                 elif defect == 'candidate-ref': publication['candidate_ref'] = publication['repository'] + ':accepted'

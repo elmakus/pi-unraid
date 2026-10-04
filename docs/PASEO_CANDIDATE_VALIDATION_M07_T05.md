@@ -2,8 +2,9 @@
 
 ## Status and boundaries
 
-**Implementation remains incomplete.** This document describes current source,
-not an accepted result, independent review or real validation. Historical repair
+This document describes the current implementation subject, **not** an accepted
+Card result, independent review or real validation. Main owns acceptance
+classification and workflow reconciliation. Historical repair
 claims are preserved in workstream evidence, not repeated as current guarantees.
 M07-T05 permits source and synthetic/local tests only. No real credential
 admission, provider authentication, inference, installed HOME change, Docker/Tower
@@ -127,7 +128,12 @@ by the observer before transport. Requested workspaces use the pinned protocol's
 `wks_` plus 16 lowercase hex format, independently from UUID agent/request/message
 IDs. The external fixture executes the actual pinned DaemonClient, CreationClient
 and inbound/outbound protocol parsers; only its request transport is fake. Actual
-client selectors reject unrelated receipt requestIds. Synthetic snapshot neutral
+client selectors reject unrelated receipt requestIds. Connected server-info is
+received from the separate daemon socket and parsed by the pinned protocol,
+not copied from the expected local status file; subsequent server replacement
+updates are exercised before and after the single prompt. Reconnect is disabled
+as in the pinned CLI connection implementation, so uncertainty cannot cause an
+automatic request replay. Synthetic snapshot neutral
 fields do not qualify inference: model/thinking/streaming come from the separately
 selected Pi process, while the shipped observer's single correlated completed
 exchange remains mandatory. Only one provider exchange is admitted because
@@ -219,11 +225,17 @@ endpoint membership and the container's acquired NetworkID are checked before
 exec. Failed removal/uncertain cleanup is explicit (`cleanup=INCOMPLETE`) and
 cannot coexist with complete PASS or `real_validation_satisfied=true`.
 
-**Remaining ownership gap:** source-faithful collision/race/partial/uncertain
-acquisition and cleanup verification is not complete. In particular uncertain
-creation without an acquired ID retains locators but still needs bounded exact
-readback/reconciliation coverage; no blind retry is permitted. Unverified/replaced
-resources and possibly mounted work are preserved.
+Reachable external-fake controls cover supported snapshot omissions/types,
+wrong/changed connected server, daemon-selected Pi/auth/ambient bindings,
+private config/reference/process-proof replacement/collision, uncertain creation,
+lost prompt receipt and post-effect inspection. Network/container acquisition
+receipt loss is UNKNOWN with requested names/nonce/private references retained;
+no retry or unproven removal follows. Mount RW must be actual booleans (numeric
+0/1 cannot prove isolation). Cleanup rejects in-use/foreign/replaced networks,
+preserves work and private usable nonce/object references until every external
+removal succeeds, and reports failed/unavailable cleanup as unsatisfied rather
+than orphaning its references. These observations are synthetic/local; they do
+not grant live cleanup or credential authority.
 
 ## Synthetic verification
 

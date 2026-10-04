@@ -192,7 +192,7 @@ console.log(JSON.stringify([
                 f.close()
 
     def test_reachable_mismatch_and_uncertainty_never_replays_or_prompts(self):
-        for fault in ('wrong_server','process','workspace','wrong_agent','wrong_agent_env',
+        for fault in ('wrong_server','server_replacement','process','workspace','wrong_agent','wrong_agent_env',
                       'profile','thinking','auth','selector','workspace_uncertain','create_uncertain','inspection',
                       'config_replacement','reference_replacement','wrong_pi_bytes','extra_proof','create_pending',
                       'unsupported_creation','process_collision','missing_effective_model'):
@@ -218,7 +218,7 @@ console.log(JSON.stringify([
                     f.close()
 
     def test_negative_completion_retains_actual_ids_without_resend(self):
-        for fault in ('completion', 'prompt_uncertain'):
+        for fault in ('completion', 'prompt_uncertain', 'server_replacement_after_prompt'):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory(prefix='pud-owned-') as td:
                 f = OwnedRuntimeFixture(td, {fault: True})
                 try:
@@ -228,7 +228,7 @@ console.log(JSON.stringify([
                     self.assertEqual(f.calls().count('fake-transport'), 1)
                     refs = json.loads((f.home / '.m07-t05/owned.json').read_text())
                     self.assertIsNotNone(refs['agent_id'])
-                    self.assertEqual(refs['dispatch'], 'prompt_sent' if fault == 'completion' else 'prompt_pending')
+                    self.assertEqual(refs['dispatch'], 'prompt_pending' if fault == 'prompt_uncertain' else 'prompt_sent')
                     self.assertFalse(refs['replay'])
                 finally:
                     f.close()

@@ -328,7 +328,7 @@ def _container_owned(obj: dict, work: Path, network: str, *,
     required host source, a swapped operator-input source fails even when
     the destination/mode look right. """
     try:
-        if not isinstance(obj, dict) or not obj.get("Id"):
+        if not isinstance(obj, dict) or not isinstance(obj.get('Id'), str) or not obj.get("Id"):
             return False
         if expected_container_id:
             live = str(obj.get("Id") or "")
@@ -372,8 +372,7 @@ def _container_owned(obj: dict, work: Path, network: str, *,
         for sub, dest in EXPECTED_MOUNT_PAIRS:
             m = by_dest.get(dest)
             if m is None or m.get("RW") is not True:
-                if m is None or m.get("RW") != True:
-                    return False
+                return False
             src = _canonical(str(m.get("Source", "")))
             want = (w / sub).resolve() if (w / sub).exists() else Path(os.path.abspath(str(w / sub))).resolve()
             if src != want:
@@ -382,7 +381,7 @@ def _container_owned(obj: dict, work: Path, network: str, *,
         if set(by_dest) - allowed:
             return False
         for sec in (CODEX_SECRET_TARGET, MUSE_SECRET_TARGET):
-            if sec in by_dest and by_dest[sec].get("RW") != False:
+            if sec in by_dest and by_dest[sec].get("RW") is not False:
                 return False
         if expected_secret_sources:
             for dest, want_src in expected_secret_sources.items():
@@ -418,6 +417,8 @@ def _network_owned(net_obj: dict, *, expected_nonce: str,
         if labels.get("io.pi-unraid.validator-nonce") != expected_nonce:
             return False
         if expected_network_id:
+            if not isinstance(net_obj.get('Id'), str):
+                return False
             live = str(net_obj.get("Id") or "")
             want = str(expected_network_id or "")
             if not live or not want:
@@ -1500,6 +1501,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
     except (ValidationError, ValueError, json.JSONDecodeError) as exc:
         result.update(status="FAIL", reason=_sanitize(str(exc)), terminal_class="terminal")
         result["real_validation_satisfied"] = False
+    except (OSError, TypeError, AttributeError, KeyError, IndexError):
+        result.update(status='FAIL', reason='candidate structural/source readback unavailable',
+                      terminal_class='terminal', real_validation_satisfied=False)
     except ValidationUnknown as exc:
         result.update(status="UNKNOWN", reason="guarded occurrence unknown; no replay",
                       terminal_class="unknown",
@@ -1515,7 +1519,13 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                       owned_daemon=daemon_ref)
         result["real_validation_satisfied"] = False
     finally:
+        if acquisition_uncertain:
+            result.update(status='UNKNOWN', terminal_class='unknown',
+                          reason='acquisition occurrence unknown; no replay',
+                          owned_reference=owned_test_path,
+                          real_validation_satisfied=False)
         _is_unknown = result.get("status") == "UNKNOWN"
+        _work_removable = False
         try:
             if shutil.which("docker") and container_created and work is not None and attempt_nonce is not None and not _is_unknown:
                 cur = run(["docker", "inspect", created_id or name], check=False)
@@ -1575,12 +1585,15 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             if (work is not None and not _is_unknown and not acquisition_uncertain and not _live_mounts_work and attempt_nonce is not None
                     and _owned_work(work, Path(state_root), nonce=attempt_nonce, candidate_id=digest,
                                     identity=work_identity)):
-                shutil.rmtree(work)
+                # Retain private usable refs until ALL external removals have
+                # succeeded. A later network failure must not orphan its nonce.
+                _work_removable = True
         except Exception:
             cleanup_issues.append('owned work cleanup failed')
         try:
             if network_created and shutil.which("docker") and not _is_unknown and attempt_nonce is not None:
                 _remove = False
+                _nc = None
                 try:
                     _nc = run(["docker", "network", "inspect", network], check=False)
                     if _nc.returncode == 0:
@@ -1589,9 +1602,10 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                             _nobj = _nobj[0] if isinstance(_nobj, list) and _nobj else {}
                         except (json.JSONDecodeError, IndexError):
                             _nobj = {}
-                        _remove = _network_owned(_nobj, expected_nonce=attempt_nonce,
+                        _remove = (_network_owned(_nobj, expected_nonce=attempt_nonce,
                                                 expected_network_id=acquired_network_id,
                                                 expected_container_id=created_id)
+                                   and _nobj.get('Containers') == {})
                     # inspect failure/missing ownership/ID mismatch → preserve.
                 except (ValidationBlocked, ValidationError, ValidationUnknown):
                     _remove = False
@@ -1602,10 +1616,19 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     nr = run(['docker', 'network', 'rm', acquired_network_id], check=False)
                     if nr.returncode != 0:
                         cleanup_issues.append('acquired network removal failed')
-                elif not _positive_absence(_nc, network, network=True):
+                elif _nc is None or not _positive_absence(_nc, network, network=True):
                     cleanup_issues.append('current network ownership unverified; preserved')
         except (ValidationBlocked, ValidationError, ValidationUnknown):
             cleanup_issues.append('network cleanup observation failed')
+        if _work_removable and not cleanup_issues and not _is_unknown:
+            try:
+                if _owned_work(work, Path(state_root), nonce=attempt_nonce,
+                               candidate_id=digest, identity=work_identity):
+                    shutil.rmtree(work)
+                else:
+                    cleanup_issues.append('current work ownership unverified; preserved')
+            except OSError:
+                cleanup_issues.append('owned work cleanup failed')
         if acquisition_uncertain:
             cleanup_issues.append('acquisition occurrence uncertain; no retry')
         result['cleanup'] = {'status': 'PRESERVED' if _is_unknown else

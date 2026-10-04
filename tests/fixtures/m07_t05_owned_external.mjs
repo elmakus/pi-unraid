@@ -8,7 +8,7 @@ import readline from 'node:readline';
 import {buildPiLaunch} from '/usr/local/lib/node_modules/@getpaseo/server/dist/server/server/agent/providers/pi/runtime.js';
 import {PersistedConfigSchema} from '/usr/local/lib/node_modules/@getpaseo/server/dist/server/server/persisted-config.js';
 import {DaemonClient} from '/usr/local/lib/node_modules/@getpaseo/client/dist/daemon-client.js';
-import {SessionInboundMessageSchema, SessionOutboundMessageSchema, WorkspaceCreateRequestSchema} from '/usr/local/lib/node_modules/@getpaseo/protocol/dist/messages.js';
+import {SessionInboundMessageSchema, SessionOutboundMessageSchema, WorkspaceCreateRequestSchema, ServerInfoStatusPayloadSchema} from '/usr/local/lib/node_modules/@getpaseo/protocol/dist/messages.js';
 const home = process.env.HOME;
 const statusFile = `${home}/.paseo/fake-status.json`;
 const faultFile = `${home}/fake-fault.json`;
@@ -23,8 +23,16 @@ export async function connectToDaemon(options) {
   const socket = net.createConnection(status.port, '127.0.0.1');
   await new Promise((yes,no)=>{socket.once('connect',yes);socket.once('error',no);});
   let next=0; const pending=new Map();
+  let acknowledge, client;
+  const handshake=new Promise(resolve=>{acknowledge=resolve;});
   readline.createInterface({input:socket}).on('line', line=>{
-    const row=JSON.parse(line), p=pending.get(row.id); pending.delete(row.id);
+    const row=JSON.parse(line);
+    if(row.type==='status') {
+      const info=ServerInfoStatusPayloadSchema.parse(SessionOutboundMessageSchema.parse(row).payload);
+      if(client)client.lastServerInfoMessage=info;
+      acknowledge(info);return;
+    }
+    const p=pending.get(row.id); pending.delete(row.id);
     row.error ? p.reject(new Error('synthetic transport failure')) : p.resolve(row.value);
   });
   socket.on('close',()=>{for(const p of pending.values())p.reject(new Error('synthetic closed'));pending.clear();});
@@ -32,9 +40,10 @@ export async function connectToDaemon(options) {
   // Execute pinned DaemonClient + CreationClient + protocol serialization.
   // Only sendRequest (external transport) is fake; selection/correlation and
   // config normalization remain the actual supported client implementation.
-  const client = new DaemonClient({url:'ws://127.0.0.1:1',clientId:crypto.randomUUID(),reconnect:{enabled:false}});
-  client.lastServerInfoMessage={serverId:fault.wrong_server?'other':status.serverId,version:pinnedVersion,
-    features:{creationLifecycle:!fault.unsupported_creation}};
+  client = new DaemonClient({url:'ws://127.0.0.1:1',clientId:crypto.randomUUID(),reconnect:{enabled:false}});
+  // Connected server info arrives over this daemon's actual fake socket,
+  // not by copying the status-file's expected server identity into the client.
+  client.lastServerInfoMessage=await handshake;
   client.sendRequest=async ({message,select})=>{
     const wire=SessionInboundMessageSchema.parse(message);
     let value, type;
@@ -66,6 +75,7 @@ export async function connectToDaemon(options) {
 async function daemon() {
   const config=PersistedConfigSchema.parse(JSON.parse(fs.readFileSync(`${home}/.paseo/config.json`)));
   const agents=new Map(); let workspace;
+  const serverId=crypto.randomUUID();
   async function pi(session, agentId) {
     const launch=buildPiLaunch({command:['/disallowed/default/pi'],runtimeSettings:{command:{mode:'replace',argv:config.agents.providers.pi.command}},session});
     record('selected-process');
@@ -96,6 +106,9 @@ async function daemon() {
     return result;
   }
   const server=net.createServer(socket=>{
+    socket.write(JSON.stringify({type:'status',payload:{status:'server_info',
+      serverId:fault.wrong_server?'other':serverId,version:pinnedVersion,
+      features:{creationLifecycle:!fault.unsupported_creation}}})+'\n');
     readline.createInterface({input:socket}).on('line',async line=>{
       const row=JSON.parse(line);record(row.method);
       try {
@@ -109,6 +122,8 @@ async function daemon() {
             projectId:crypto.randomUUID(),projectDisplayName:'synthetic directory',projectRootPath:row.arg.source.path,
             projectKind:'directory',workspaceKind:'directory',name:'synthetic directory',
             status:'needs_input',activityAt:null};
+          if(fault.server_replacement)socket.write(JSON.stringify({type:'status',payload:{status:'server_info',
+            serverId:'foreign-replacement',version:pinnedVersion,features:{creationLifecycle:true}}})+'\n');
           if(fault.workspace_uncertain)throw new Error();value={workspace};
         } else if(row.method==='create') {
           record('create-env', {names:Object.keys(row.arg.env??{}).sort(),
@@ -151,6 +166,8 @@ async function daemon() {
           }
           const acquired=agents.get(row.arg.agent);acquired.promptCount=(acquired.promptCount??0)+1;
           value=await acquired.rpc.call('prompt');
+          if(fault.server_replacement_after_prompt)socket.write(JSON.stringify({type:'status',payload:{status:'server_info',
+            serverId:'foreign-replacement',version:pinnedVersion,features:{creationLifecycle:true}}})+'\n');
           if(fault.prompt_uncertain)throw new Error(); // Effect occurred, receipt lost.
         } else if(row.method==='wait') {
           value={status:fault.completion?'timeout':'idle',final:await snapshot(agents.get(row.arg.agent))};
@@ -160,7 +177,7 @@ async function daemon() {
     });
   });
   server.listen(0,'127.0.0.1',()=>{
-    fs.writeFileSync(statusFile,JSON.stringify({port:server.address().port,pid:process.pid,serverId:crypto.randomUUID()}));
+    fs.writeFileSync(statusFile,JSON.stringify({port:server.address().port,pid:process.pid,serverId}));
   });
   process.on('SIGTERM',()=>{for(const a of agents.values())a.rpc.child.kill();server.close(()=>process.exit());});
 }
@@ -219,7 +236,9 @@ async function cli() {
     const status=JSON.parse(fs.readFileSync(statusFile));
     const socket=net.createConnection(status.port,'127.0.0.1');
     socket.on('connect',()=>socket.write(JSON.stringify({id:1,method:'catalog'})+'\n'));
-    readline.createInterface({input:socket}).once('line',line=>{console.log(JSON.stringify(JSON.parse(line).value));socket.destroy();client.close();});
+    readline.createInterface({input:socket}).on('line',line=>{
+      const row=JSON.parse(line);if(row.type==='status')return;
+      console.log(JSON.stringify(row.value));socket.destroy();client.close();});
   } else process.exit(42);
 }
 if(process.argv[2]==='daemon')await daemon();
