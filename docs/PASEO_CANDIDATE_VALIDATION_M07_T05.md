@@ -74,15 +74,18 @@ pointer, exclusively records PID/PPID/start-time/executable-byte facts under the
 actual supported PASEO_AGENT_ID, then execs the fixed Pi executable. It never
 exports an auth value/fingerprint or reads a credential-bearing /proc environment.
 The bridge verifies the connected client's supported server-info, actual agent
-snapshot workspaceId/cwd/provider/runtime model/effective thinking, parent process
+snapshot workspaceId/cwd/provider/actual runtimeInfo.model/effective thinking
+(with no fallback to requested model), parent process
 Node identity, /proc process start times and selected executable argv/bytes before
 sending. CLI inspect does **not** expose workspaceId; no automatic workspace env
 is invented. Private config/reference inode changes fail closed.
 
 The separate external CLI/daemon/Pi fixture now executes the same validator,
 guard, loader, bridge, wrapper and observer path (namespace path translation only).
-Its daemon selects/spawns a separate fake Pi via the actual pinned buildPiLaunch.
-No provider/auth resolver is imported. Actual processes/IDs, rather than canned
+Its daemon selects/spawns a separate fake Pi via the actual pinned buildPiLaunch;
+the fake Pi derives selected state from the exact launch argv. The genuine-validator
+fixture translates the mounted dedicated-input pointer to that same synthetic
+file, never substitutes another credential value. No provider/auth resolver is imported. Actual processes/IDs, rather than canned
 PID/title/usage metadata, supply the runtime controls. This qualifies bounded
 synthetic runtime behavior, not an actual daemon/provider or artifact chain.
 A new, separately classified source-qualification fixture uses the **actual**

@@ -535,7 +535,7 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                               'response': state.get('witness_response', '200'),
                               'effort': state.get('witness_effort', profile.get('effort', paseo_effort)), 'version': pi_version}
                     faults.update(state.get('runtime_fault', {}))
-                    runtime = OwnedRuntimeFixture(root, faults)
+                    runtime = OwnedRuntimeFixture(root, faults, secret_file=muse_secret_host)
                     state['_owned_runtime'] = runtime
                     for rel in ('bin/run-llm-test.sh', 'bin/m07-t05-candidate-env.sh',
                                 'bin/m07-t05-pi-owned.py', 'bin/m07-t05-owned-runtime.mjs',
@@ -764,8 +764,9 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
             if state.get('_owned_runtime'):
                 runtime = state['_owned_runtime']
                 state['runtime_calls_before_cleanup'] = runtime.calls()
-                state['runtime_requests_before_cleanup'] = [json.loads(line) for line in
-                    (runtime.home / 'fake-calls.jsonl').read_text().splitlines()]
+                trace = runtime.home / 'fake-calls.jsonl'
+                state['runtime_requests_before_cleanup'] = ([json.loads(line) for line in
+                    trace.read_text().splitlines()] if trace.exists() else [])
             if state.get('remove_failure'):
                 return mock.Mock(returncode=1, stdout='', stderr='synthetic removal failed')
             if state.get('_owned_runtime'):
@@ -876,6 +877,10 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             self.assertEqual(child['process']['ppid'], subj['daemon_binding']['worker_pid'])
             self.assertEqual(state['runtime_calls_before_cleanup'].count('prompt'), 1)
             self.assertEqual(state['runtime_calls_before_cleanup'].count('fake-transport'), 1)
+            envelopes = [row for row in requests if row['method'] == 'prompt-envelope']
+            self.assertEqual(len(envelopes), 1)
+            self.assertEqual(envelopes[0]['agent_id'], child['id'])
+            self.assertEqual(envelopes[0]['message_id'], runtime['message_id'])
 
     def test_real_mode_structurally_succeeds_under_fakes(self):
         # Real path exists (not hardcoded false): same fakes, real class.

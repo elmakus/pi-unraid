@@ -13,7 +13,9 @@ const faultFile = `${home}/fake-fault.json`;
 const fault = fs.existsSync(faultFile) ? JSON.parse(fs.readFileSync(faultFile)) : {};
 const fixed = 'meta/muse-spark-1.3-contributor';
 function record(method, facts={}) { fs.appendFileSync(`${home}/fake-calls.jsonl`, JSON.stringify({method,pid:process.pid,...facts})+'\n'); }
-export async function connectToDaemon() {
+export async function connectToDaemon(options) {
+  if(options?.target?.kind!=='instance' || options.target.home!==`${home}/.paseo`)
+    throw new Error('synthetic instance target mismatch');
   const status = JSON.parse(fs.readFileSync(statusFile));
   const socket = net.createConnection(status.port, '127.0.0.1');
   await new Promise((yes,no)=>{socket.once('connect',yes);socket.once('error',no);});
@@ -27,7 +29,8 @@ export async function connectToDaemon() {
   return {getLastServerInfoMessage:()=>({serverId:fault.wrong_server?'other':status.serverId,version:'0.9.2',
       features:{creationLifecycle:!fault.unsupported_creation}}),
     createWorkspace:arg=>call('workspace',arg),createAgent:arg=>call('create',arg),fetchAgent:arg=>call('inspect',arg),
-    sendMessage:(agent,text)=>call('prompt',{agent,text}),waitForFinish:agent=>call('wait',{agent}),
+    sendMessage:(agent,text,options)=>call('prompt',{agent,text,messageId:options.messageId}),
+    waitForFinish:agent=>call('wait',{agent}),
     close:async()=>socket.destroy()};
 }
 async function daemon() {
@@ -50,7 +53,8 @@ async function daemon() {
     const state=await a.rpc.call('get_state');
     return {id:fault.wrong_agent?'other':a.id,workspaceId:fault.workspace?'other':workspace.id,
       cwd: a.cwd,provider:'pi',model:state.model.provider+'/'+state.model.id,
-      runtimeInfo:{model:state.model.provider+'/'+state.model.id},effectiveThinkingOptionId:state.thinkingLevel,status:'idle',labels:{}};
+      runtimeInfo:fault.missing_effective_model?undefined:{model:state.model.provider+'/'+state.model.id},
+      effectiveThinkingOptionId:state.thinkingLevel,status:'idle',labels:{}};
   }
   const server=net.createServer(socket=>{
     readline.createInterface({input:socket}).on('line',async line=>{
@@ -58,7 +62,7 @@ async function daemon() {
       try {
         let value;
         if(row.method==='catalog') {
-          const rpc=await pi({cwd:home,model:fixed,thinkingOptionId:'max'},null);
+          const rpc=await pi({cwd:home},null);
           value=await rpc.call('get_available_models');rpc.child.kill();
         } else if(row.method==='workspace') {
           workspace={id:row.arg.workspaceId,workspaceDirectory:row.arg.source.path};
@@ -95,12 +99,13 @@ async function daemon() {
         } else if(row.method==='inspect') {
           if(fault.inspection)throw new Error();value={agent:await snapshot(agents.get(row.arg.agentId))};
         } else if(row.method==='prompt') {
-          if(fault.prompt_uncertain)throw new Error();
+          record('prompt-envelope',{agent_id:row.arg.agent,message_id:row.arg.messageId});
           if(fault.binding_replacement) {
             const file=`${home}/.m07-t05/binding.json`;fs.renameSync(file,`${file}.old`);
             fs.copyFileSync(`${file}.old`,file);fs.chmodSync(file,0o600);
           }
           value=await agents.get(row.arg.agent).rpc.call('prompt');
+          if(fault.prompt_uncertain)throw new Error(); // Effect occurred, receipt lost.
         } else if(row.method==='wait') {
           value={status:fault.completion?'timeout':'idle',final:await snapshot(agents.get(row.arg.agent))};
         } else throw new Error();
@@ -117,8 +122,15 @@ export async function runFakePi() {
   const handlers={};
   const observer=await import(pathToFileURL(`${home}/.pi/agent/extensions/m07-t05-witness.js`));
   observer.default({on:(name,handler)=>handlers[name]=handler});
-  const model={provider:fault.profile?'codex-lb':'meta',id:'muse-spark-1.3-contributor'};
-  const thinking=fault.thinking?'xhigh':'max';
+  // Actual fake-Pi selection comes from the exact shipped launch argv, not
+  // canned expected provider metadata. Synthetic capability is not real proof.
+  const args=process.argv.slice(2);
+  const selected=args.includes('--model')?args[args.indexOf('--model')+1]?.split('/'):undefined;
+  const level=args[args.indexOf('--thinking')+1];
+  if(args.includes('--model') && (!selected || selected.length!==2))process.exit(42);
+  const model={provider:fault.profile?'codex-lb':(selected?.[0]??'meta'),
+    id:selected?.[1]??'muse-spark-1.3-contributor'};
+  const thinking=fault.thinking?'xhigh':(args.includes('--thinking')?level:'max');
   readline.createInterface({input:process.stdin}).on('line',async line=>{
     const row=JSON.parse(line); record('pi:'+row.type);let data;
     if(row.type==='get_state')data={model,thinkingLevel:thinking};
@@ -142,6 +154,7 @@ export async function runFakePi() {
 }
 async function cli() {
   const args=process.argv.slice(3);
+  if(args.includes('--home') && args[args.indexOf('--home')+1]!==`${home}/.paseo`)process.exit(42);
   if(args[0]==='daemon'&&args[1]==='start') {
     const child=spawn(process.execPath,[process.argv[1],'daemon'],{detached:true,env:process.env,stdio:'ignore'});child.unref();
     for(let i=0;i<200&&!fs.existsSync(statusFile);i++)await new Promise(r=>setTimeout(r,10));
@@ -153,7 +166,7 @@ async function cli() {
       listen:`127.0.0.1:${status.port}`,daemonVersion:'0.9.2',localDaemon:'running',connectedDaemon:'reachable',
       serverId:status.serverId,daemonNode:process.execPath,providers:[{provider:'pi',available:true}]}));
   } else if(args[0]==='provider') {
-    const client=await connectToDaemon();
+    const client=await connectToDaemon({target:{kind:'instance',home:`${home}/.paseo`}});
     // Catalog uses the same server-selected wrapper and separate metadata Pi.
     const status=JSON.parse(fs.readFileSync(statusFile));
     const socket=net.createConnection(status.port,'127.0.0.1');

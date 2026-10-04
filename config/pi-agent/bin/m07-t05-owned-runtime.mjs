@@ -16,8 +16,8 @@ function privateJSON(file) {
   } finally { fs.closeSync(fd); }
 }
 function identity(file) {
-  const st = fs.lstatSync(file);
-  requireFact(st.isFile() && !st.isSymbolicLink() && (st.mode & 0o777) === 0o600 && st.uid === process.getuid());
+  const st = fs.lstatSync(file, {bigint: true});
+  requireFact(st.isFile() && !st.isSymbolicLink() && (st.mode & 0o777n) === 0o600n && st.uid === BigInt(process.getuid()));
   return `${st.dev}:${st.ino}`;
 }
 function recorder(file, initial) {
@@ -126,7 +126,7 @@ export async function runOwnedTest(config, connect) {
       const a = read?.agent;
       requireFact(a?.id === state.agent_id && a.workspaceId === state.workspace_id
         && a.cwd === config.cwd && a.provider === 'pi'
-        && (a.runtimeInfo?.model ?? a.model) === fixed && a.effectiveThinkingOptionId === 'max'
+        && a.runtimeInfo?.model === fixed && a.effectiveThinkingOptionId === 'max'
         && !a.labels?.['paseo.parent-agent-id']);
       return a;
     }
@@ -151,7 +151,7 @@ export async function runOwnedTest(config, connect) {
     const binding = {...proof, workspace_id: state.workspace_id, server_id: config.daemon.server_id};
     const bindingFd = fs.openSync(config.binding, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
     try {
-      const st = fs.fstatSync(bindingFd); binding.file_identity = `${st.dev}:${st.ino}`;
+      const st = fs.fstatSync(bindingFd, {bigint: true}); binding.file_identity = `${st.dev}:${st.ino}`;
       fs.writeFileSync(bindingFd, JSON.stringify(binding)); fs.fsyncSync(bindingFd);
     } finally { fs.closeSync(bindingFd); }
     state.process = binding; state.dispatch = 'prompt_pending'; persist(state);

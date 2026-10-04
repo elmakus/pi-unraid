@@ -817,9 +817,9 @@ def _require_candidate_local_endpoint(endpoint: str) -> str:
     try:
         addr = _ip.ip_address(host)
     except ValueError:
-        raise AdapterError(f"daemon endpoint host is not a loopback IP literal: {endpoint!r}") from None
+        raise AdapterError('daemon endpoint host is not a loopback IP literal') from None
     if not (addr.is_loopback or str(addr) in ("0.0.0.0", "::")):
-        raise AdapterError(f"daemon endpoint is not candidate-local: {endpoint!r}")
+        raise AdapterError('daemon endpoint is not candidate-local')
     return endpoint
 
 
@@ -888,16 +888,16 @@ def observe_daemon_status(exec_run, *, candidate_home: str, expected_version: st
     _require_candidate_local_endpoint(endpoint)
     version = doc.get("daemonVersion") or doc.get("version")
     if version is None or str(version) != str(expected_version):
-        raise AdapterError(f"daemon version mismatch vs frozen candidate: {version!r}")
+        raise AdapterError('daemon version mismatch vs frozen candidate')
     pid = doc.get("pid")
     if not isinstance(pid, int) or isinstance(pid, bool) or pid <= 0:
         raise AdapterError("daemon pid is missing or invalid; process identity unverified")
     local_state = doc.get("localDaemon")
     if local_state != "running":
-        raise AdapterError(f"candidate daemon is not running: {local_state!r}")
+        raise AdapterError('candidate daemon is not running')
     connected = doc.get("connectedDaemon")
     if connected != "reachable":
-        raise AdapterError(f"candidate daemon is not reachable: {connected!r}")
+        raise AdapterError('candidate daemon is not reachable')
     worker_pid = doc.get("workerPid")
     if not isinstance(worker_pid, int) or isinstance(worker_pid, bool) or worker_pid <= 0:
         raise AdapterError("daemon worker process identity is missing")
@@ -938,7 +938,7 @@ def observe_pi_version(exec_run, *, expected_version: str) -> dict:
     out = (getattr(ver, "stdout", "") or "").strip().splitlines()
     out = out[-1].strip() if out else ""
     if out != str(expected_version):
-        raise AdapterError(f"Pi version mismatch vs frozen candidate: {out!r}")
+        raise AdapterError('Pi version mismatch vs frozen candidate')
     hashed = exec_run(['sha256sum', path], timeout=30)
     digest = (getattr(hashed, 'stdout', '') or '').split()
     import re

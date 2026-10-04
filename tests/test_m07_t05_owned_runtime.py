@@ -17,7 +17,7 @@ from tests import test_m07_t05_validator_adapter as H
 
 
 class OwnedRuntimeFixture:
-    def __init__(self, root, fault=None):
+    def __init__(self, root, fault=None, secret_file=None):
         self.root = Path(root)
         self.home = self.root / 'home'
         self.bin = self.root / 'bin'
@@ -25,9 +25,12 @@ class OwnedRuntimeFixture:
         self.home.mkdir(exist_ok=True)
         self.tmp = self.root / 'tmp'
         self.tmp.mkdir()
-        self.secret = self.root / 'synthetic-meta'
-        self.secret.write_text('META_API_KEY=synthetic-disposable-only\n')
-        self.secret.chmod(0o600)
+        self.secret = Path(secret_file) if secret_file is not None else self.root / 'synthetic-meta'
+        if secret_file is None:
+            self.secret.write_text('META_API_KEY=synthetic-disposable-only\n')
+            self.secret.chmod(0o600)
+        # Genuine validator fixtures translate the mounted operator-input path
+        # to the SAME synthetic file, never substitute/copy credential values.
         self.maps = [('/usr/local/lib/node_modules/@getpaseo/cli/dist/utils/client.js',
                       str(self.root / 'external.mjs')),
                      ('/home/paseo', str(self.home)), ('/usr/local/bin', str(self.bin)),
@@ -134,14 +137,18 @@ class OwnedRuntimeTests(unittest.TestCase):
             self.assertTrue(any('--candidate-owned' in str(call) for call in calls))
 
     def test_genuine_validator_uncertainty_preserves_ids_and_owned_objects(self):
-        for fault in ('inspection', 'create_uncertain', 'wrong_pi_bytes', 'config_replacement'):
+        for fault in ('inspection', 'create_uncertain', 'wrong_pi_bytes', 'config_replacement', 'prompt_uncertain'):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory(prefix='pud-owned-validator-') as td, T.LocalCodexServer() as server:
                 result, calls, state = H._run_validate(Path(td), server_base=server.base,
                     execution_class='fixture', extra_state={'runtime_fault': {fault: True}})
                 self.assertEqual(result['status'], 'UNKNOWN', result)
                 self.assertFalse(result['real_validation_satisfied'])
                 self.assertFalse(any(call[:2] == ['docker', 'rm'] for call in calls))
-                self.assertNotIn('prompt', state['_owned_runtime'].calls())
+                if fault == 'prompt_uncertain':
+                    self.assertEqual(state['_owned_runtime'].calls().count('prompt'), 1)
+                    self.assertEqual(state['_owned_runtime'].calls().count('fake-transport'), 1)
+                else:
+                    self.assertNotIn('prompt', state['_owned_runtime'].calls())
                 reference = json.loads((Path(state['work']) / 'home/.m07-t05/owned.json').read_text())
                 self.assertRegex(reference['requested_agent_id'], r'^[0-9a-f-]{36}$')
                 self.assertFalse(reference['replay'])
@@ -172,7 +179,7 @@ class OwnedRuntimeTests(unittest.TestCase):
         for fault in ('wrong_server','process','workspace','wrong_agent','wrong_agent_env',
                       'profile','thinking','auth','selector','workspace_uncertain','create_uncertain','inspection',
                       'config_replacement','reference_replacement','wrong_pi_bytes','extra_proof','create_pending',
-                      'unsupported_creation','process_collision'):
+                      'unsupported_creation','process_collision','missing_effective_model'):
             with self.subTest(fault=fault), tempfile.TemporaryDirectory(prefix='pud-owned-') as td:
                 f = OwnedRuntimeFixture(td, {fault:True})
                 try:
@@ -195,17 +202,20 @@ class OwnedRuntimeTests(unittest.TestCase):
                     f.close()
 
     def test_negative_completion_retains_actual_ids_without_resend(self):
-        with tempfile.TemporaryDirectory(prefix='pud-owned-') as td:
-            f = OwnedRuntimeFixture(td, {'completion':True})
-            try:
-                with self.assertRaises(A.AdapterBlocked):
-                    f.run()
-                self.assertEqual(f.calls().count('prompt'), 1)
-                refs = json.loads((f.home / '.m07-t05/owned.json').read_text())
-                self.assertIsNotNone(refs['agent_id'])
-                self.assertEqual(refs['dispatch'], 'prompt_sent')
-            finally:
-                f.close()
+        for fault in ('completion', 'prompt_uncertain'):
+            with self.subTest(fault=fault), tempfile.TemporaryDirectory(prefix='pud-owned-') as td:
+                f = OwnedRuntimeFixture(td, {fault: True})
+                try:
+                    with self.assertRaises(A.AdapterBlocked):
+                        f.run()
+                    self.assertEqual(f.calls().count('prompt'), 1)
+                    self.assertEqual(f.calls().count('fake-transport'), 1)
+                    refs = json.loads((f.home / '.m07-t05/owned.json').read_text())
+                    self.assertIsNotNone(refs['agent_id'])
+                    self.assertEqual(refs['dispatch'], 'prompt_sent' if fault == 'completion' else 'prompt_pending')
+                    self.assertFalse(refs['replay'])
+                finally:
+                    f.close()
 
     def test_request_context_or_replaced_binding_blocks_actual_fake_transport(self):
         for fault in ('request_profile', 'binding_replacement'):

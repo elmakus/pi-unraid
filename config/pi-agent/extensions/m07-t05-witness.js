@@ -17,7 +17,8 @@ export default function (api) {
         if (!st.isFile() || (st.mode & 0o777) !== 0o600 || st.uid !== process.getuid() || st.size > 65536)
           throw new Error('runtime binding unavailable');
         const binding = JSON.parse(fs.readFileSync(bindingFd, 'utf8'));
-        if (binding.file_identity !== `${st.dev}:${st.ino}`
+        const fileIdentity = fs.fstatSync(bindingFd, {bigint: true});
+        if (binding.file_identity !== `${fileIdentity.dev}:${fileIdentity.ino}`
             || binding.pid !== process.pid || binding.ppid !== process.ppid || binding.test_id !== testId
             || binding.agent_id !== process.env.PASEO_AGENT_ID || binding.auth_inherited !== true
             || !/^[A-Za-z0-9_.-]{1,128}$/.test(binding.workspace_id)
