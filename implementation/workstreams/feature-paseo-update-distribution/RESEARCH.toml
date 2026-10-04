@@ -1,30 +1,30 @@
 workstream_id = "feature-paseo-update-distribution"
-state = "active"
+state = "complete"
 origin_role = "execution_prep"
 origin_subject = "M07-T04"
 return_target = "execution_prep:M07-T04"
 return_reconciliation = "pending"
 return_result = ""
-finding = ""
-limitations = "Bounded factual Research before preparing M07-T04 under approved P4/cycle 4. Identify reproducible approved Meta/Muse provider delivery and exact upstream dependency/artifact provenance; reconcile contributor max capability across the official pinned Pi package, its bundled/unbundled model data and the observable runtime catalog. Establish a supported reproducible delivery/profile mechanism or a concrete gap without inferring capability from a model label. Determine supported dedicated credential shapes from public/source metadata only; do not read credential values, admit credentials, run test inference, change source/runtime/provider configuration, create implementation Cards, or claim candidate acceptance. Return secret-safe findings at implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T04-provider-delivery-research-2026-10-04.md for Main-owned Execution Prep reconciliation. The old consumed Brainstorming Research is preserved in Git at cbc7ea3e5782595eff5650f9c940d197e69fc400."
-conflicts = "Unresolved factual observation: the current Paseo catalog advertises meta/muse-spark-1.3-contributor with max, while installed @earendil-works/pi-ai@0.87.1 provider data maps that model's max level to null. Package/source presence or native creation settings alone do not prove effective candidate max behavior. Do not resolve this by changing the mandatory profile, falling back, patching the installed harness, copying normal-agent credentials, or inventing an unofficial provider."
+finding = "Exact corrected report: elmakus/pi-unraid@3f92235a47cf0fad140f3a5e8a782a0b2ce429ca:implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T04-provider-delivery-research-2026-10-04.md@2a44adcabe6b1b2c12bf1e956435629572a85f32. The approved official Pi 0.87.1 package supplies Meta provider delivery and pinned pi-ai dependency provenance. Pi modelOverrides is a documented supported configuration interface; the currently unmanaged contributor-max override lacks frozen candidate provenance, which is resolvable M07-T04 implementation detail, not proof of impossibility. Official direct-Meta catalog data marks contributor max unsupported and the unmodified Pi path clamps max to xhigh. Effective on-wire max and exact-candidate inference remain unverified final gates, not inferred from a catalog label, forced metadata, launcher shape or an ordinary workflow return. Dedicated credential shapes are public metadata only; availability remains deferred operator input under P4."
+limitations = "No test inference, credential access/admission, runtime/source/CI/host mutation or candidate acceptance occurred. Direct-Meta endpoint acceptance/rejection was not tested. The non-contributor cache flip, origin of the unmanaged HOME override and generator-upstream relay metadata remain untraced limitations, not adopted mechanisms. Credentials and scope restrictions are operator-owned and are not requested before autonomous machinery/rehearsal. The original consumed Brainstorming Research remains preserved in Git at cbc7ea3e5782595eff5650f9c940d197e69fc400; the initial returned report remains at d717764e4b6a60b2b3ebc95942fc5cb15c23128c."
+conflicts = "C1/C2: direct-Meta bundled/catalog unsupported max conflicts with the unmanaged local override and OpenRouter model metadata; source weight establishes metadata/clamp behavior, not an endpoint verdict. Issue 9658 records an OpenRouter-downstream 400; the contributor comment concerns OpenRouter metadata and is not a direct-Meta test. C3: relay practitioner reports cannot be transferred to the mandated direct-Meta path. C4: non-contributor cache flip provenance is unknown. Supported configuration-interface provenance may be implemented, but no override, role-runtime success or label can satisfy effective-profile/candidate acceptance. No substitution, fallback or product-policy change resolves these conflicts; final real verification remains M08-T01 under the exact fixed policy."
 
 [[sources]]
 class = "official_upstream"
-status = "pending"
+status = "checked"
 weight = "primary for published artifact, supported provider API and model/profile semantics"
 
 [[sources]]
 class = "project_runtime"
-status = "pending"
+status = "checked"
 weight = "direct for reproducible repository delivery and bounded non-inference source/catalog observations"
 
 [[sources]]
 class = "tracker_discussion"
-status = "pending"
-weight = "supporting for concrete upstream provenance or known capability discrepancies"
+status = "checked"
+weight = "supporting for concrete upstream provenance or known capability discrepancies; never scope authority"
 
 [[sources]]
 class = "practitioner_community"
-status = "pending"
+status = "checked"
 weight = "supporting only; cannot override accepted policy or primary source evidence"
