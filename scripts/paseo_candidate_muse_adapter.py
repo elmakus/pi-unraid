@@ -58,6 +58,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -756,21 +757,82 @@ def stage_private_runtime(home: Path, *, uid: int, gid: int) -> None:
     os.chown(config, uid, gid)
 
 
+APPLIED_REFERENCE = '/home/paseo/.m07-t05/applied.json'
+APPLIED_MANIFEST = '/home/paseo/.m07-t05/applied-manifest.json'
+APPLIED_PROGRAM = '/home/paseo/.pi/agent/bin/m07-t05-applied.py'
+
+
+def stage_applied_interval(home: Path, source: Path, companion: dict, *, nonce: str,
+                           uid: int, gid: int) -> str:
+    """Frozen public source content; no credential values or caller success fields."""
+    code = (source / 'bin/m07-t05-applied.py').read_text()
+    doc = {'schema_version': 1, 'root': '/home/paseo/.pi/agent', 'nonce': nonce,
+           'files': {rel: {'content': (source / rel).read_text(), 'mode': companion['modes'][rel]}
+                     for rel in companion['files']}}
+    file = home / '.m07-t05/applied-manifest.json'
+    fd = os.open(file, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as stream:
+        json.dump(doc, stream, sort_keys=True); stream.flush(); os.fsync(stream.fileno())
+    os.chown(file, uid, gid)
+    return code
+
+
+def start_applied_interval(exec_run, *, nonce: str | None = None):
+    result = exec_run(['python3', APPLIED_PROGRAM, 'start', APPLIED_MANIFEST, APPLIED_REFERENCE])
+    if result.returncode != 0:
+        raise AdapterError('applied interval startup unavailable')
+    try:
+        info = json.loads(result.stdout)
+        if (set(info) != {'schema_version', 'pid', 'start', 'nonce', 'socket', 'manifest_sha256'}
+                or type(info.get('schema_version')) is not int or info['schema_version'] != 1
+                or type(info.get('pid')) is not int or info['pid'] <= 0
+                or not isinstance(info.get('start'), str) or not info['start'].isdigit()
+                or info.get('socket') != APPLIED_REFERENCE + '.sock'
+                or not isinstance(info.get('nonce'), str) or not info['nonce']
+                or (nonce is not None and info['nonce'] != nonce)
+                or not isinstance(info.get('manifest_sha256'), str)
+                or re.fullmatch('[a-f0-9]{64}', info['manifest_sha256']) is None):
+            raise ValueError()
+        return info
+    except (ValueError, TypeError, AttributeError):
+        raise AdapterError('applied interval startup identity unavailable') from None
+
+
+def check_applied_interval(exec_run, code: str, expected: dict):
+    # Execute SOURCE-frozen client code, not the now-applied helper. SO_PEERCRED
+    # and /proc start identity bind the original independent interval observer.
+    pinned_client = code.split("if __name__ == '__main__':", 1)[0] + '\n' + (
+        'expected = ' + repr(expected) + '\n'
+        'assert private(' + repr(APPLIED_REFERENCE) + ') == expected\n'
+        'print(json.dumps(observe(' + repr(APPLIED_REFERENCE) + ')))\n')
+    result = exec_run(['python3', '-c', pinned_client])
+    if result.returncode != 0:
+        raise AdapterError('applied interval changed or unavailable')
+    try:
+        info = json.loads(result.stdout)
+        if info.get('bound') is not True or type(info.get('pid')) is not int:
+            raise ValueError()
+        return info
+    except (ValueError, TypeError, AttributeError):
+        raise AdapterError('applied interval readback unavailable') from None
+
+
 def controlled_candidate_argv(argv: list) -> list:
     """Whitelist only nonsecret selectors. No image/CLI ambient env inheritance."""
     return ['env', '-i', 'HOME=/home/paseo', 'PASEO_HOME=/home/paseo/.paseo',
-            'PATH=/usr/local/bin:/usr/bin:/bin', 'TMPDIR=/tmp', *argv]
+            'PATH=/usr/local/bin:/usr/bin:/bin', 'TMPDIR=/tmp', 'PYTHONDONTWRITEBYTECODE=1', *argv]
 
 
 def dispatch_owned_runtime(exec_run, *, daemon: dict, pi: dict, test_id: str,
-                           witness: str) -> dict:
+                           witness: str, applied_peer: dict | None = None) -> dict:
     """Use the fixed guard native shape, acquire IDs, inspect, then bounded send.
 
     Bridge refs live on the private mounted candidate HOME, usable even when
     dispatch/inspection times out. No title lookup or automatic resend.
     """
     config = {'test_id': test_id, 'daemon': daemon, 'pi': pi, 'cwd': '/tmp',
-              'daemon_config': private_daemon_config(),
+              'daemon_config': private_daemon_config(), 'applied_reference': APPLIED_REFERENCE,
+              'applied_peer': applied_peer,
               'guard': '/home/paseo/.pi/agent/bin/run-llm-test.sh',
               'reference': '/home/paseo/.m07-t05/owned.json',
               'binding': '/home/paseo/.m07-t05/binding.json',

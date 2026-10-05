@@ -316,7 +316,7 @@ def _container_owned(obj: dict, work: Path, network: str, *,
                      expected_image_id: str, expected_nonce: str,
                      expected_container_id: str | None = None,
                      expected_secret_sources: dict | None = None,
-                     expected_user: str = "99:100") -> bool:
+                     expected_user: str = "99:100", expected_applied_mount: bool = False) -> bool:
     """Exact acquisition+current ownership: Id, Image, nonce label, network,
     exact source→destination/mode pairs. All required, no exceptions.
 
@@ -366,6 +366,8 @@ def _container_owned(obj: dict, work: Path, network: str, *,
         if len(by_dest) != len(mounts):
             return False
         required_destinations = {d for _, d in EXPECTED_MOUNT_PAIRS} | set(expected_secret_sources or {})
+        if expected_applied_mount:
+            required_destinations.add('/home/paseo/.pi/agent')
         if set(by_dest) != required_destinations:
             return False
         w = work.resolve()
@@ -377,7 +379,11 @@ def _container_owned(obj: dict, work: Path, network: str, *,
             want = (w / sub).resolve() if (w / sub).exists() else Path(os.path.abspath(str(w / sub))).resolve()
             if src != want:
                 return False
-        allowed = {d for _, d in EXPECTED_MOUNT_PAIRS} | {CODEX_SECRET_TARGET, MUSE_SECRET_TARGET}
+        if expected_applied_mount:
+            payload = by_dest['/home/paseo/.pi/agent']
+            if payload.get('RW') is not False or _canonical(str(payload.get('Source', ''))) != (w / 'home/.pi/agent').resolve():
+                return False
+        allowed = {d for _, d in EXPECTED_MOUNT_PAIRS} | {CODEX_SECRET_TARGET, MUSE_SECRET_TARGET, '/home/paseo/.pi/agent'}
         if set(by_dest) - allowed:
             return False
         for sec in (CODEX_SECRET_TARGET, MUSE_SECRET_TARGET):
@@ -1029,6 +1035,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         # --- Container create (secret values NEVER on argv/env; pointers only) ---
         # Hold PID 1 without invoking ANY upstream entrypoint/daemon. The
         # private payload is applied before the only authorized daemon start.
+        (work / 'home/.pi/agent').mkdir(parents=True, mode=0o700)
         argv = ["docker", "run", "-d", '--entrypoint', '/bin/sh', '--no-healthcheck',
                 "--name", name, "--user", f"{uid}:{gid}",
                 "--network", network,
@@ -1038,6 +1045,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 '-e', 'PATH=/usr/local/bin:/usr/bin:/bin', '-e', 'PI_COMMAND=/usr/local/bin/pi',
                 "-e", "TZ=Europe/Zurich", "-e", "HOME=/home/paseo", "-e", "PASEO_HOME=/home/paseo/.paseo",
                 "-v", f"{work / 'home'}:/home/paseo:rw",
+                "-v", f"{work / 'home/.pi/agent'}:/home/paseo/.pi/agent:ro",
                 "-v", f"{work / 'projects'}:/projects:rw",
                 "-v", f"{work / 'worktrees'}:/worktrees:rw"]
         if codex_secret is not None:
@@ -1086,7 +1094,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         if not _container_owned(cur0obj, work, network, expected_image_id=image_id, expected_nonce=attempt_nonce,
                                 expected_container_id=created_id,
                                 expected_secret_sources=mounted_secrets or None,
-                                expected_user=f"{uid}:{gid}"):
+                                expected_user=f"{uid}:{gid}", expected_applied_mount=True):
             raise ValidationError("container ownership unverified before exec; preserving")
         cfg, host, mounts = cur0obj.get("Config") or {}, cur0obj.get("HostConfig") or {}, cur0obj.get("Mounts") or []
         if cfg.get("User") != f"{uid}:{gid}":
@@ -1183,9 +1191,11 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     raise
                 except Exception as exc:
                     raise ValidationBlocked(f"staged companion unreadable: {exc}") from exc
-            # Native private Pi paths must be writable by the candidate UID,
-            # not merely readable host-staged configuration. This changes only
-            # the acquired disposable HOME; declared file modes/bytes stay exact.
+            # The isolated HOME/control paths use the candidate UID. Declared
+            # payload ownership does NOT grant mutation authority: its distinct
+            # source→destination bind mount is verified read-only at every exec.
+            # Bytes/modes remain declared; the interval watcher additionally
+            # catches privileged external drift and change-and-restore.
             for private_path in [work / 'home/.pi', dst_agent, *dst_agent.rglob('*')]:
                 if private_path.is_symlink():
                     raise ValidationError('private Pi configuration contains a symlink')
@@ -1220,7 +1230,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                                     expected_nonce=attempt_nonce,
                                     expected_container_id=created_id,
                                     expected_secret_sources=mounted_secrets or None,
-                                    expected_user=f"{uid}:{gid}"):
+                                    expected_user=f"{uid}:{gid}", expected_applied_mount=True):
                 raise ValidationError(f"container ownership unverified before {stage}; preserving")
             actual_networks = (cur_obj.get('NetworkSettings') or {}).get('Networks')
             if (not isinstance(actual_networks, dict) or set(actual_networks) != {network}
@@ -1304,8 +1314,30 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         def _candidate_exec(argv, timeout=30):
             return _exec(adap.controlled_candidate_argv(argv), timeout=timeout, check=False)
 
+        applied_code = None
+        result['checks']['applied_payload_interval'] = 'PENDING'
+        def applied_check(*, uncertain=False):
+            if applied_code is None:
+                raise ValidationError('applied interval missing')
+            try:
+                observation = adap.check_applied_interval(_candidate_exec, applied_code, result['subject']['applied_interval'])
+                result['subject']['applied_interval_observation'] = observation
+            except adap.AdapterError as exc:
+                result['checks']['applied_payload_interval'] = 'UNKNOWN' if uncertain else 'FAIL'
+                if uncertain:
+                    raise ValidationUnknown('applied interval uncertain after possible effects; no replay') from exc
+                raise ValidationError('applied companion interval changed or unavailable') from exc
+
         if expected_paseo is not None:
             adap.stage_private_runtime(work / 'home', uid=uid, gid=gid)
+            applied_code = adap.stage_applied_interval(work / 'home', Path(source_root) / 'config/pi-agent',
+                companion_bundle, nonce=attempt_nonce, uid=uid, gid=gid)
+            try:
+                result['subject']['applied_interval'] = adap.start_applied_interval(_candidate_exec, nonce=attempt_nonce)
+            except adap.AdapterError as exc:
+                result['checks']['applied_payload_interval'] = 'FAIL'
+                raise ValidationError('applied interval startup unavailable') from exc
+            applied_check()
             # Source-qualified local bring-up first: `paseo daemon start
             # --home` (pinned daemon/start.js: started|already_running +
             # pid/listen) runs under the staged candidate-env loader, so the
@@ -1334,6 +1366,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationError(_sanitize(str(exc), 200)) from exc
             result["subject"]["pi_binding"] = pi_ref
             result["checks"]["pi_binding"] = "PASS"
+            applied_check()
         # Codex checks via the staged ONE program (actual execution in tests).
         if codex_secret is not None:
             for mode in ("catalog", "health"):
@@ -1382,6 +1415,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 raise ValidationBlocked(_sanitize(str(exc), 200)) from exc
             except adap.AdapterError as exc:
                 raise ValidationError(_sanitize(str(exc), 200)) from exc
+            applied_check()
             result["subject"]["muse_profile_preflight"] = profile_preflight
             result["checks"]["muse_profile_preflight"] = "PASS"
             # Record the owned test BEFORE possible dispatch so UNKNOWN occurrence
@@ -1413,15 +1447,17 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         raise ValidationError('preserved archive changed before guarded dispatch')
                 except _source.CandidateBuildError as exc:
                     raise ValidationError('used source/configuration changed before guarded dispatch') from exc
+            applied_check()
             try:
                 runtime = adap.dispatch_owned_runtime(
                     _candidate_exec, daemon=daemon_ref, pi=pi_ref, test_id=test_id,
-                    witness=WITNESS_CANDIDATE_PATH)
+                    witness=WITNESS_CANDIDATE_PATH, applied_peer=result['subject']['applied_interval'])
             except adap.AdapterBlocked as exc:
                 raise ValidationUnknown('owned runtime uncertain; preserve actual readback refs') from exc
             except adap.AdapterError as exc:
                 raise ValidationError('owned runtime subject mismatch') from exc
             retain_acquisition({'runtime': runtime})
+            applied_check(uncertain=True)
             result['subject']['owned_runtime'] = runtime
             result['subject']['candidate_readback_reference'] = '/home/paseo/.m07-t05/owned.json'
             # Witness aggregation for THIS owned test (request+response+terminal).
@@ -1476,13 +1512,16 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         }
         retain_acquisition(owned_test)
         result["subject"]["owned_test"] = owned_test_path
+        if applied_code is not None:
+            applied_check(uncertain=dispatch_summary is not None)
+            result['checks']['applied_payload_interval'] = 'PASS'
         # Real-mode gate: the path EXISTS structurally (not hardcoded false).
         if real_mode:
             required = ["registry_digest", "image_mapping", "image_config", "frozen_chain", "companion_binding",
                         "policy_binding", "daemon_binding", "pi_binding", "codex_catalog",
                         "codex_auth", "codex_health", "muse_guard_readback",
                         "muse_policy_readback", "muse_dispatch", "muse_effective_profile",
-                        "muse_owned_child", "muse_profile_preflight"]
+                        "muse_owned_child", "muse_profile_preflight", "applied_payload_interval"]
             for k in required:
                 if result["checks"].get(k) != "PASS":
                     raise ValidationBlocked(f"real validation requires {k} PASS")
@@ -1538,7 +1577,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                                         expected_nonce=attempt_nonce,
                                         expected_container_id=created_id,
                                         expected_secret_sources=mounted_secrets or None,
-                                        expected_user=f"{uid}:{gid}"):
+                                        expected_user=f"{uid}:{gid}", expected_applied_mount=True):
                         # Remove by immutable ID, never a mutable name: a replaced
                         # same-name foreign object is never removed here.
                         removed = run(['docker', 'rm', '-f', created_id], check=False)

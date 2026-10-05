@@ -158,6 +158,55 @@ files as `validation_sources`; verification compares them to the executing
 validator/helper sources, not hashes first manufactured after staging. Staging
 requires the exact declaration file set and actual file modes. Candidate readback
 compares every declared file's hash and actual mode, not only guard/policy fields.
+
+### Applied-payload interval (continuing producing contribution)
+
+Checkout/source verification is distinct from verification of what the candidate
+actually uses. The disposable container now has a separately verified, exact
+`/home/paseo/.pi/agent` source→destination **read-only bind** over its otherwise
+writable private HOME. Every execution and removal ownership check requires that
+bind; a missing, swapped, writable or type-confused mount fails closed. No
+upstream startup or healthcheck precedes staging/interval establishment.
+
+The delivered `bin/m07-t05-applied.py` observes the complete declared public
+payload, with expected source content/modes supplied through an exclusive private
+manifest derived from verified frozen producer source. It compares actual bytes,
+file/directory sets, regular-file types, modes and inode/ctime/mtime identities.
+Linux inotify watches members, directories and the root parent before the initial
+snapshot. Modification, replacement, chmod, omission, addition, move, unmount,
+watch loss or overflow irreversibly invalidates the interval, including a write
+followed by restoration. It watches actual execution files, not another checkout.
+
+The original non-inference observer stays alive independently of later applied
+helper bytes. Source-frozen host client code checks `/proc` start identity and
+Unix `SO_PEERCRED`, pins the original acquired reference/nonce and reads its fresh
+kernel-backed observation at startup, after catalog, immediately before owned
+dispatch, after runtime return and at final completion. The private manifest byte
+hash is also held by the observer; modified expectations cannot requalify drift.
+A copied digest, private reference replacement or caller PASS is not acceptance.
+The bridge checks the interval before native metadata export, at creation and
+inspection boundaries, before the one message and after completion. The selected
+Pi wrapper checks before exec; the observer checks before provider transport and
+completion observations, retaining its existing abort/fail-stop semantics.
+Later uncertainty preserves API IDs/private references and leaves the real gate
+false, without message replay or unproven resource removal.
+
+This is runtime interval machinery, not another workflow state store, eligibility
+ledger or pipeline. The new delivery member and changed bridge/wrapper/observer
+bytes naturally change the existing prepare/build/package companion declaration;
+old artifacts cannot qualify the changed payload. `m07-t05-applied.py` only
+observes Linux files/process metadata and a private Unix socket: its start/check
+entrypoints do not cause inference. Tower validation, owned bridge, selected Pi
+exec and provider observer remain inference-capable paths and may only be tested
+through complete external fakes and disposable synthetic inputs here.
+
+The genuine Tower fixture now uses **one mounted applied tree** for both actual
+shipped-program execution and interval observation, instead of a separate
+unobserved six-file executable copy. Public content and private path strings are
+translated only for the synthetic namespace; no expected success/hash is
+manufactured by the fake. The interval algorithm, hashing, kernel watch and peer
+checks run unchanged. Synthetic positive real-branch flags remain mechanical
+coverage only, never evidence that real fixed-max validation is supported.
 The prepared envelope now additionally records the immutable Git commit/tree
 and every source file's content/executable-mode identity, plus the exact staged
 transformation (only Dockerfile/candidate replacement). Preparation verifies HEAD,

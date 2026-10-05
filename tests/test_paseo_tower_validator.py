@@ -485,13 +485,9 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                               'response': state.get('witness_response', '200'),
                               'effort': state.get('witness_effort', profile.get('effort', paseo_effort)), 'version': pi_version}
                     faults.update(state.get('runtime_fault', {}))
-                    runtime = OwnedRuntimeFixture(root, faults, secret_file=muse_secret_host)
+                    runtime = OwnedRuntimeFixture(root, faults, secret_file=muse_secret_host,
+                                                  mounted_home=Path(work) / 'home')
                     state['_owned_runtime'] = runtime
-                    for rel in ('bin/run-llm-test.sh', 'bin/m07-t05-candidate-env.sh',
-                                'bin/m07-t05-pi-owned.py', 'bin/m07-t05-owned-runtime.mjs',
-                                'policies/llm-test-policy.json', 'extensions/m07-t05-witness.js'):
-                        (runtime.agent / rel).write_text(runtime.translate(
-                            (Path(work) / 'home/.pi/agent' / rel).read_text()))
                 result = runtime.execute(argv[3:], timeout=timeout)
                 if 'daemon-bringup' in payload:
                     if state.get('daemon_start_exit'):
@@ -515,10 +511,10 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                     state['witness_host'] = json.loads((runtime.home / '.m07-t05/launch.json').read_text())['witness']
                     for filename in ('owned.json', 'binding.json'):
                         source = runtime.home / '.m07-t05' / filename
+                        # The private API reference is already in the one
+                        # mounted HOME; never overwrite it with restored paths.
                         if source.exists():
-                            target = Path(work) / 'home/.m07-t05' / filename
-                            target.write_text(runtime.restore(source.read_text()))
-                            target.chmod(0o600)
+                            source.chmod(0o600)
                 return result
             # Codex check: run the ACTUAL staged file locally.
             if argv[3:5] == ['python3', '/home/paseo/.pi/agent/bin/paseo_codex_candidate_check.py']:

@@ -6,6 +6,7 @@ agent ID. Auth comparison is in-memory against the dedicated pointer only;
 no value or fingerprint of a credential is persisted.
 """
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -26,6 +27,10 @@ def private_read(path):
 
 
 def main():
+    module = importlib.util.spec_from_file_location('applied_interval', '/home/paseo/.pi/agent/bin/m07-t05-applied.py')
+    observer = importlib.util.module_from_spec(module)
+    module.loader.exec_module(observer)
+    observer.observe('/home/paseo/.m07-t05/applied.json')
     # Frozen executable selection, no runtime override/PATH selection.
     executable = '/usr/local/bin/pi'
     pointer = os.environ.get('META_API_KEY_FILE', '/run/secrets/pi-unraid-meta')

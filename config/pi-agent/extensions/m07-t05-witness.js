@@ -1,10 +1,28 @@
 // Frozen, opt-in candidate-only observation; never observe ordinary agents.
 import fs from 'node:fs';
+import {spawnSync} from 'node:child_process';
 export default function (api) {
   const witness = process.env.M07_T05_WITNESS_FILE;
   const testId = process.env.M07_T05_TEST_ID;
   if (!witness || !testId || !witness.startsWith('/') || !/^[A-Za-z0-9_.-]{1,64}$/.test(testId)) return;
+  function applied() {
+    if (!process.env.M07_T05_RUNTIME_BINDING) return;
+    if (process.env.M07_T05_APPLIED_REFERENCE !== '/home/paseo/.m07-t05/applied.json')
+      throw new Error('applied reference unavailable');
+    const expected = JSON.parse(process.env.M07_T05_APPLIED_PEER || 'null');
+    const actual = JSON.parse(fs.readFileSync(process.env.M07_T05_APPLIED_REFERENCE, 'utf8'));
+    if (!expected || Object.keys(actual).sort().join(',') !== Object.keys(expected).sort().join(',')
+        || !Object.keys(actual).every(key => actual[key] === expected[key]))
+      throw new Error('applied interval peer changed');
+    const read = spawnSync('python3', ['/home/paseo/.pi/agent/bin/m07-t05-applied.py',
+      'check', '/home/paseo/.m07-t05/applied-manifest.json', process.env.M07_T05_APPLIED_REFERENCE],
+      {env: {PATH: '/usr/local/bin:/usr/bin:/bin', HOME: '/home/paseo', PYTHONDONTWRITEBYTECODE: '1'},
+        encoding: 'utf8', timeout: 5000});
+    if (read.status !== 0 || JSON.parse(read.stdout).bound !== true)
+      throw new Error('applied payload interval unavailable');
+  }
   function emit(obj) {
+    applied();
     const row = { test_id: testId };
     // Candidate runtime opt-in binds every event to the actual selected Pi
     // process and supported agent ID. Workspace/server are acquired API facts,
@@ -63,6 +81,7 @@ export default function (api) {
   api.on('before_provider_request', (ev, ctx) => {
     let valid = false;
     try {
+      applied();
       const p = ev?.payload || {};
       const effort = p.reasoning?.effort ?? p.reasoningEffort;
       // Actual supported context, never policy or an inferred model prefix.

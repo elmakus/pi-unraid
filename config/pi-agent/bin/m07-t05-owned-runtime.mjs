@@ -85,7 +85,18 @@ export async function runOwnedTest(config, connect) {
       requireFact(identity(daemonConfig) === daemonConfigIdentity
         && JSON.stringify(privateJSON(daemonConfig)) === JSON.stringify(config.daemon_config));
     }
-    configuration();
+    function applied() {
+      requireFact(config.applied_reference === '/home/paseo/.m07-t05/applied.json' && config.applied_peer);
+      const actual = privateJSON(config.applied_reference);
+      requireFact(Object.keys(actual).sort().join(',') === Object.keys(config.applied_peer).sort().join(',')
+        && Object.keys(actual).every(key => actual[key] === config.applied_peer[key]));
+      const read = spawnSync('python3', ['/home/paseo/.pi/agent/bin/m07-t05-applied.py',
+        'check', '/home/paseo/.m07-t05/applied-manifest.json', config.applied_reference],
+        {env: {PATH: '/usr/local/bin:/usr/bin:/bin', HOME: '/home/paseo', PYTHONDONTWRITEBYTECODE: '1'},
+          encoding: 'utf8', timeout: 5000});
+      requireFact(read.status === 0 && JSON.parse(read.stdout).bound === true);
+    }
+    configuration(); applied();
     const guard = spawnSync('bash', [config.guard, '--native-create-agent-args'], {
       env: {PATH: '/usr/local/bin:/usr/bin:/bin', HOME: '/home/paseo'}, encoding: 'utf8', timeout: 10000});
     requireFact(guard.status === 0);
@@ -95,7 +106,7 @@ export async function runOwnedTest(config, connect) {
     persist = recorder(config.reference, state);
     client = await bounded(connect({target: {kind: 'instance', home: config.daemon.home}, timeout: 10000}));
     function server() {
-      configuration();
+      configuration(); applied();
       const info = client.getLastServerInfoMessage();
       requireFact(info?.serverId === config.daemon.server_id && info?.version === config.daemon.version
         && info?.features?.creationLifecycle === true);
@@ -117,6 +128,8 @@ export async function runOwnedTest(config, connect) {
       workspaceId: state.workspace_id, title: `LLM-TEST:${config.test_id}`,
       env: {M07_T05_TEST_ID: config.test_id, M07_T05_WITNESS_FILE: config.witness,
         M07_T05_RUNTIME_BINDING: config.binding, M07_T05_PROCESS_DIR: config.process_dir,
+        M07_T05_APPLIED_REFERENCE: config.applied_reference,
+        M07_T05_APPLIED_PEER: JSON.stringify(config.applied_peer), PYTHONDONTWRITEBYTECODE: '1',
         META_API_KEY_FILE: '/run/secrets/pi-unraid-meta'}}));
     // NO initialPrompt: actual IDs and effective process readback precede send.
     requireFact(agent.id === state.requested_agent_id); state.agent_id = agent.id; state.dispatch = 'agent_created'; persist(state);

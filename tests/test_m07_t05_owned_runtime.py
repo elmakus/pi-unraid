@@ -17,9 +17,9 @@ from tests import test_m07_t05_validator_adapter as H
 
 
 class OwnedRuntimeFixture:
-    def __init__(self, root, fault=None, secret_file=None):
+    def __init__(self, root, fault=None, secret_file=None, mounted_home=None):
         self.root = Path(root)
-        self.home = self.root / 'home'
+        self.home = Path(mounted_home) if mounted_home is not None else self.root / 'home'
         self.bin = self.root / 'bin'
         self.bin.mkdir()
         self.home.mkdir(exist_ok=True)
@@ -40,12 +40,15 @@ class OwnedRuntimeFixture:
         fixture = T.ROOT / 'tests/fixtures/m07_t05_owned_external.mjs'
         shutil.copyfile(fixture, self.root / 'external.mjs')
         self.agent = self.home / '.pi/agent'
-        for rel in ('bin/run-llm-test.sh', 'bin/m07-t05-candidate-env.sh', 'bin/m07-t05-pi-owned.py',
-                    'bin/m07-t05-owned-runtime.mjs', 'policies/llm-test-policy.json', 'extensions/m07-t05-witness.js'):
+        # One applied tree: genuine Tower fixtures execute the mounted tree,
+        # not a second unobserved six-file copy. Only namespace strings change.
+        source_agent = self.agent if mounted_home is not None else T.ROOT / 'config/pi-agent'
+        sources = [(p.relative_to(source_agent), p.read_text()) for p in source_agent.rglob('*') if p.is_file()]
+        for rel, content in sources:
             target = self.agent / rel
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text(self.translate((T.ROOT / 'config/pi-agent' / rel).read_text()))
-            target.chmod(0o755 if rel.startswith('bin/') else 0o644)
+            target.write_text(self.translate(content))
+            target.chmod(0o755 if rel.parts[0] == 'bin' else 0o644)
         node = T._find_node()
         if node is None:
             raise RuntimeError('Node required; no hidden skip')
@@ -58,9 +61,18 @@ class OwnedRuntimeFixture:
         (self.bin / 'package.json').write_text('{"type":"module"}')
         for p in (self.bin / 'paseo', self.bin / 'pi'):
             p.chmod(0o755)
-        A.stage_private_runtime(self.home, uid=os.getuid(), gid=os.getgid())
+        if mounted_home is None:
+            A.stage_private_runtime(self.home, uid=os.getuid(), gid=os.getgid())
+            import stat
+            source = T.ROOT / 'config/pi-agent'
+            files = sorted(p.relative_to(source).as_posix() for p in source.rglob('*') if p.is_file())
+            self.applied_code = A.stage_applied_interval(self.home, source,
+                {'files': files, 'modes': {rel: '%04o' % stat.S_IMODE((source / rel).stat().st_mode) for rel in files}},
+                nonce='standalone-synthetic', uid=os.getuid(), gid=os.getgid())
         config = self.home / '.paseo/config.json'
         config.write_text(self.translate(config.read_text()))
+        manifest = self.home / '.m07-t05/applied-manifest.json'
+        manifest.write_text(self.translate(manifest.read_text()))
 
     def translate(self, text):
         import re
@@ -104,6 +116,15 @@ class OwnedRuntimeFixture:
         if getattr(self, '_closed', False):
             return
         self._closed = True
+        reference = self.home / '.m07-t05/applied.json'
+        if reference.exists():
+            try:
+                info = json.loads(reference.read_text())
+                current = Path(f"/proc/{info['pid']}/stat").read_text().rsplit(')', 1)[1].split()[19]
+                if current == info['start']:
+                    os.killpg(info['pid'], signal.SIGTERM)
+            except (ProcessLookupError, FileNotFoundError):
+                pass
         pid = getattr(self, '_daemon_pid', None)
         if pid is not None:
             try:
@@ -114,13 +135,14 @@ class OwnedRuntimeFixture:
                 pass
 
     def run(self):
+        peer = A.start_applied_interval(self.exec)
         daemon = A.ensure_candidate_daemon(self.exec, candidate_home='/home/paseo/.paseo',
             expected_version='0.9.2', env_loader='/home/paseo/.pi/agent/bin/m07-t05-candidate-env.sh',
             meta_pointer='/run/secrets/pi-unraid-meta')
         pi = A.observe_pi_version(self.exec, expected_version='0.87.1')
         A.preflight_candidate_profile(self.exec, candidate_home='/home/paseo/.paseo')
         return A.dispatch_owned_runtime(self.exec, daemon=daemon, pi=pi, test_id='synthetic-owned',
-            witness='/tmp/m07-t05-witness.jsonl')
+            witness='/tmp/m07-t05-witness.jsonl', applied_peer=peer)
 
 
 class OwnedRuntimeTests(unittest.TestCase):
