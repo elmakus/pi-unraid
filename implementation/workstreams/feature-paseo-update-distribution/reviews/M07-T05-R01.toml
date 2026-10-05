@@ -1,0 +1,22 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M07-T05"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "f2496a17b139de6e10c1895d7d54d553cbca9d5b"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T05.md"
+blob = "7a21e90a6d811429a195fa8b0f20a898c2e55dad"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T05.md"
+commit = "977c061788f2ffb772489492f249f394d15ae785"
+blob = "658fffe1d9d547a1a1525194628cdc2414ccc524"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending R01 requires a fresh independent context that did not materially author or repair the exact result, declared implementation or acceptance surface. All producing/repair contexts are excluded. The reviewer must independently recover and challenge these immutable bindings and the full stable acceptance; no verdict or completed independence qualification is claimed by freezing this attempt. Runtime identity is not independence evidence."
