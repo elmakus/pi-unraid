@@ -1586,3 +1586,233 @@ in_progress without result/Review; M08-T01 stays planned. Stable Card blob
 `54f9ccc3515bf0f8af527fec4ba8871868750c6b` remain unchanged. The prior report's
 87,643-byte prefix at d132d995 is retained. Main alone now reconciles this full
 technical contribution and continues canonical routing to a real stop.
+
+## Eleventh producing continuation — applied payload interval and full held-source qualification
+
+This append supersedes any implication that the prior synthetic qualification
+completed the producing obligation. Main's Tenth classification at
+`17b424e888047fffc3cc07b75c00a5f84d1c7ee3` remains INCOMPLETE/not reviewable for
+that prior subject. This is the sole producing worker's full technical return for
+Main's classification, not acceptance, an independent review or a Card verdict.
+The full unchanged M07-T05 contract remains the subject; this is not a drift-only
+or producer-only checkpoint. No result/Review, Board/manifest, Main classification,
+planning/Research, historical DONE subject or successor was changed.
+
+### Exact source and authority
+
+- Qualified source: `35caabffd4156ddd4ae35e7e5587be5e940ccedc`.
+- Applied interval implementation: `39307178e2ab20fa8e978d4b3a62e46149a1334d`.
+- Exact-selector test correction: `35caabffd4156ddd4ae35e7e5587be5e940ccedc`.
+- Legal branch/worktree: `feat/paseo-update-distribution` in
+  `/home/paseo/projects/pi-unraid-paseo-update-distribution`; integration/main was
+  read-only. Source and eventual evidence commits are local and unpushed.
+- The later evidence-only commit is NOT the qualified executable subject.
+- Recovery/current Router/Execution/Continuation, selected WORKSTREAM/pointed
+  records, stable Card/contract, named authorities/P4 and exact independently
+  GREEN M07-T04 dependency were refreshed before producing mutation. Final
+  read-only remote default workflow refresh still gives
+  `d3ab917f02e4de91b7dbb17915c2287c2387333e`. The package-module router freshly
+  returns `execution`, subject `M07-T05`, owner `workflow/EXECUTION.md`, handoff
+  `none`. Runtime/model/session identity supplies no authority.
+
+The old report prefix is retained exactly: 100,097 bytes at `17b424e`, SHA256
+`71994af375a69095b6909c082083254c4154d94161dbf5eefde1753b41e3f3f6`.
+Historical claims and intermediate failures are preserved rather than rewritten.
+
+### What now runs and how it is bound
+
+Main's two new demonstrated gates concerned APPLIED guard/observer bytes, not the
+already proved immutable source checkout. Both exact external-fake reproductions
+now change the actual applied member after provider catalog readback and return
+FAIL, `real_validation_satisfied=false`, zero prompts and zero fake transports.
+The original diagnostic program was exercised without altering its injections;
+these are worker-observed synthetic reproductions, not independent acceptance.
+
+The disposable container gets a distinct exact read-only bind from its acquired
+`home/.pi/agent` into `/home/paseo/.pi/agent`, over the otherwise private writable
+HOME. All product acquisition/execution/removal ownership checks require the exact
+source, destination and boolean false RW. Missing, writable, numeric RW or foreign
+source is rejected before candidate exec; ownership failure grants no removal.
+The non-daemon PID-1 hold and disabled upstream healthcheck remain unchanged.
+Candidate UID ownership no longer supplies write access through the declared
+payload mount. Private controls/API references remain outside that payload.
+
+The new declared `bin/m07-t05-applied.py` is a non-inference Linux observer. Its
+expected public content/modes come from the verified source-bound companion via
+an exclusive private manifest. It registers mutation-only inotify watches on
+members, directories and root parent BEFORE comparing actual bytes, exact file
+and directory sets, regular types, modes and inode/ctime/mtime/size identities.
+A write, chmod, creation, omission, replacement, move, unmount, watch loss or
+queue overflow invalidates the interval irreversibly; equal restored bytes do
+not restore validity. Reads alone do not invalidate. It observes the actual
+applied execution tree rather than another checkout or copied expected hash.
+
+The original independent watcher remains alive even if later applied helper
+bytes change. Host checks execute captured SOURCE-frozen client code, pin the
+original acquired reference/nonce, verify process start identity plus Unix
+SO_PEERCRED, and obtain fresh actual observation. A replaced private reference or
+caller PASS cannot borrow the original peer. The watcher also holds and compares
+its manifest byte hash so changed expectations cannot requalify drift. Its
+observation lifetime is bounded (180 seconds); expiry/disconnection never passes.
+The machinery is private per-attempt runtime state, not a workflow authority,
+eligibility store, pipeline or ledger.
+
+Checks span initial staging/startup, daemon/Pi observation, catalog completion,
+immediately before dispatch, returned runtime and final qualification. The
+bridge checks before native guard metadata export, at creation/inspection
+boundaries, before the single send and after completion. Its actual agent env
+carries the acquired peer/reference, with an exact whitelist assertion and
+bytecode writes disabled. The selected Pi wrapper checks before exec. The shipped
+observer checks before provider transport and completion events while preserving
+its supported abort/explicit opted-in process fail-stop behavior. Post-effect
+interval uncertainty is UNKNOWN, with real gate false, actual requested/acquired
+IDs and private readback retained, no resend and no unproven Docker removal.
+
+The fake Docker fixture was corrected to execute and observe ONE mounted applied
+tree, not its former unobserved six-file executable copy. Namespace string
+translation affects actual public source content and the manifest's expected
+public content equally; hashing, snapshots, inotify and peer checks remain genuine.
+No synthetic validator PASS/hash/profile is supplied by the fake. The separate
+fake daemon and Pi still run through shipped guard/loader/bridge/wrapper/observer
+and actual pinned client/protocol APIs, with external transports/process effects
+only. Private input points to the same disposable synthetic credential file;
+no real credential values, auth or inference were used.
+
+### Full subject retained, fresh artifacts required
+
+The current qualified subject retains and exercises the genuine
+facts-to-candidate -> handoff prepare -> prepared input/source readback -> actual
+Buildx parser/build with genuine smoke dispatch/aggregation -> tested-image
+package -> publish -> Tower validate chain. Producer-generated records flow
+unchanged. Synthetic external Docker save bytes undergo genuine hashes and
+archive/config/rootfs/layer/platform proof; candidate, OCI, local image, archive,
+companion and file identities remain distinct. Typed immutable Git/tree/ref,
+configuration, executing-source and preserved artifact readbacks are rechecked
+before effects, with no hand-authored successful producer records or mocked
+internal acceptance. The complete existing producer-proof cohort remains included.
+
+Supported `wks_` workspace IDs, UUID agent/request/message IDs, actual pinned
+CreationClient/DaemonClient request/receipt/inspection/send/readback schemas and
+connected socket server identity remain qualified. Reconnect stays disabled as
+in pinned CLI source. Prompt-free acquisition, selected PID/PPID/start/executable,
+inherited synthetic auth, observed effective model/thinking, separate request,
+response, qualified completion, strict witness parsing, lifecycle uncertainty,
+private usable references, no replay and conservative cleanup remain exercised.
+Codex catalog/auth/health probes remain non-inference and localhost-only in tests.
+
+The companion now has 17 delivery members and nine validation-source hashes,
+with source digest
+`sha256:a8560f7a27a6d9e8226689340370c22e27644c1cabe1d65dfc472403977da713`.
+The canonical guard remains
+`sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde`.
+The new helper and changed bridge/wrapper/observer plus host validation programs
+flow through existing prepare/build/package declarations and invalidate prior
+companion/source/artifacts. No old digest was declared eligible. Real-mode
+required checks now include explicit applied-payload interval PASS; missing,
+changed or uncertain interval leaves the real gate unsatisfied. Fixture PASS
+still always sets `real_validation_satisfied=false`. Positive nominal real
+branches under complete external fakes demonstrate structure only, never real
+validation or permission to perform it.
+
+### Reachable applied-payload controls and effect classification
+
+`tests/test_m07_t05_applied_interval.py` exercises the genuine producer/Tower and
+shipped path, not a hand-authored report validator. Its seven test methods cover:
+
+- unchanged fixture and structurally nominal real-mode positives (one prompt and
+  one transport), plus exact read-only mount argv;
+- post-catalog byte drift of EACH of the 17 declared members, including guard,
+  policy, observer, loader, bridge, wrapper, shared Codex helpers, dynamic catalog
+  extension/core and instruction/skill files; rejection before guarded dispatch,
+  prompt or transport;
+- extra executable, mode drift, omission, identical-byte replacement, symlink,
+  root replacement, parent chmod and write-then-restore;
+- guard-entry inert drift without prompt/transport;
+- completed-exchange drift -> UNKNOWN, one exchange only, retained usable actual
+  workspace/agent and requested IDs, no replay/unproven removal;
+- missing/writable/type-confused/foreign-source payload mount before any exec;
+- replaced interval reference unable to borrow the original peer.
+
+Entrypoint classification for this contribution:
+
+- Tower `validate`/CLI and owned bridge/send are inference-capable; tests route
+  them only through complete external fakes and disposable private inputs.
+- Candidate-env loader and Pi wrapper can select/exec Pi; the observer runs at
+  provider-request time. These are likewise fake-only paths during qualification.
+- Guard candidate-owned and ordinary prompt launches are inference-capable;
+  native shape export alone is metadata-only. Guard/profile policy was not bypassed.
+- New applied helper start/serve/check and source-frozen peer checks perform only
+  file/process/kernel/Unix-socket observation, never auth/provider inference.
+- Genuine producer/build/package/publication paths may invoke external build or
+  transport effects; the producer fixture replaces only those external effects.
+- Tests use env-i, disposable HOME/cache, restricted executable resolution,
+  PYTHONDONTWRITEBYTECODE=1 and disposable PYTHONPYCACHEPREFIX, including compile.
+  No ordinary provider/auth resolver or credential values were read. Historical
+  full-discovery cleanup uses the previously documented external fake that admits
+  only its two exact synthetic Docker removals and rejects everything else.
+
+### Intermediate failures preserved; final coherent gate
+
+Job 9 was a changing-source diagnostic, exit 1: 24 tests in 223.977s, 14 failures
+and four errors. Its complete-companion mismatch failures intersected source
+updates and cached declarations; it is neither final failure nor qualifying
+success. Log: `/tmp/pud-applied-diag.log`; native receipt job-9.log. The two early
+positive probes passed separately but are also diagnostics, not qualification.
+
+Job 10 held `39307178e2ab20fa8e978d4b3a62e46149a1334d` unchanged and clean. It
+exited 1: targeted 95 tests/471.313s and full 648/489.194s each had one failure;
+affected 72/1.869s and Node one test passed. Both failures were the same exact
+agent environment-name assertion that had not yet listed APPLIED_PEER,
+APPLIED_REFERENCE and PYTHONDONTWRITEBYTECODE. The actual genuine validation
+positive passed through the interval; the exact whitelist assertion failed.
+After the frozen run ended, the assertion was updated without loosening it and
+an explicit interval PASS assertion was added. Its direct probe passed one test
+in 4.518s, exit 0. No acceptance code was changed for this correction. Job 10
+remains a failed frozen-source run, not a pass or mixed-source diagnostic.
+
+Final job 11 held `35caabffd4156ddd4ae35e7e5587be5e940ccedc` unchanged from start
+to end, with clean tracked/indexed source before/after and direct exit capture:
+
+| Gate | Count | Time | Direct exit | Skips |
+| --- | ---: | ---: | ---: | ---: |
+| Full targeted M07-T05/Tower cohort, including applied interval | 95 | 473.385s | 0 | 0 |
+| Affected policy/delivery/companion/build/publish/instruction/runtime cohort | 72 | 1.924s | 0 | 0 |
+| Full classified Python discovery | 648 | 494.072s | 0 | 0 |
+| Node dynamic catalog core | 1 | 98.506846ms | 0 | 0 |
+
+Native job 11 exit is 0. Logs are `/tmp/pud-35caabf-{targeted,affected,full,node}.log`
+and the native receipt is job-11.log. The external cleanup-only Docker fake trace
+contains exactly `rm -f paseo-state-candidate-aaaaaaaa` and
+`rm -f paseo-state-previous-bbbbbbbb`, both accepted; no other Docker command was
+admitted. Transient log paths are leads, not durable authority; the exact frozen
+source/tests and this committed evidence provide the durable qualification claim.
+All counts above are worker-observed SYNTHETIC/SOURCE evidence only.
+
+AST/isolated compile, Node/shell syntax, diff check and bounded secret-safe scan
+passed on the ten changed files against `17b424e`; companion verification passed.
+All Board119/22 immutable DONE result bindings, stable Card/contract blobs and
+exact GREEN M07-T04 result/review evidence were rechecked. No suite skip is counted
+as a pass. No source mutation occurred beside the final frozen cohort.
+
+### Precise realization limit and Main-owned classification
+
+The pinned official-source realization facts remain unchanged: Pi 0.87.1 and
+Paseo 0.9.2 Contributor max=null, public supported levels through xhigh, and
+unmodified requested max clamp to xhigh. The existing pinned source/catalog/
+selected-process/transport qualification tests remain in the final cohort.
+Supported real fixed-max realization is NOT established. Synthetic max proves
+mechanics only, not real capability. No override, fallback, model/provider/thinking
+substitution, unofficial capability, real credential/auth/inference or image
+build/publication/live Docker/Tower/host/production/installed runtime effect was
+performed. The precise negative source hashes/interfaces in the previous append
+remain applicable; this is not a whole-Card impossibility assertion or waiver of
+remediable work. Main alone determines the proportional semantic
+Research/Planning classification alongside the unchanged full contract.
+
+M07-T05 remains in_progress without result/Review; M08-T01 planned; Board119/22
+DONE, stable Card `658fffe1d9d547a1a1525194628cdc2414ccc524` and contract
+`54f9ccc3515bf0f8af527fec4ba8871868750c6b` remain exact. This returns the full
+technical implementation contribution, including producer/API/lifecycle/cleanup
+progress and applied temporal binding, for Main's independent classification and
+canonical reconciliation. It makes no independent verdict on the worker's repairs
+and grants no Card GREEN/DONE, successor eligibility or workflow stop.
