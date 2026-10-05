@@ -1399,3 +1399,190 @@ Card blob `658fffe1d9d547a1a1525194628cdc2414ccc524` and contract blob
 blocker/stop, planning, Research, Board or manifest state was created. Main alone
 must classify/reconcile and continue canonical routing; this technical return is
 neither semantic completion nor a workflow stop.
+
+## 2026-10-05 — Full unchanged M07-T05 implementation continuation
+
+This prefix-preserving contribution addresses the full delegated producer/source,
+supported-interface, owned-runtime/lifecycle and final-qualification work, not a
+producer-only checkpoint. It is technical implementation/verification evidence;
+Main alone owns acceptance classification, results, Review and reconciliation.
+No semantic GREEN/DONE or whole-Card impossibility verdict is asserted here.
+
+### Exact unpushed subject and changes
+
+Qualified source: `3955fc132ad4da57d15118142bc94f07685af8ef` on
+`feat/paseo-update-distribution`, legal root
+`/home/paseo/projects/pi-unraid-paseo-update-distribution`.
+The source-only sequence from `942580a720274d57790674c3ec515a6a1ebc5d49` is:
+
+- `4c4db993d7e75495513dfbf71d88f482aba91643` — immutable producer inputs,
+  genuine chain and pinned workspace/client/protocol qualification;
+- `eae0c737168ccbb1e6c06e82198da5ef5c3daacf` — preserved layer reconstruction,
+  source/configuration revalidation and typed report bindings;
+- `dc06b460ec37ce07ee576fd512a98a9f08293c6d` — uncertain ownership, usable
+  cleanup references and connected socket server-info qualification;
+- `a635302a100c33319bd6647aa95caed6ca29acb4` — type-strict source/companion,
+  actual builder/image/cache/candidate configuration;
+- `3955fc132ad4da57d15118142bc94f07685af8ef` — preserved platform/rootfs/layer
+  forgery qualification.
+
+The cumulative source diff has 11 files: the owned bridge; current product doc;
+existing Buildx, candidate-build and Tower-validator programs; separate owned
+external fixture; genuine producer fixture; owned-runtime, producer-proof,
+validator-adapter and Tower-validator tests. No authority, historical DONE,
+planning, Research, result, review, Board/manifest or successor material changed.
+Integration/main stayed read-only at `e9476b4987290767a195a9de2ecd655de5f09605`.
+
+### Implemented and exercised full chain
+
+- Actual `facts_to_candidate -> handoff.prepare -> prepare_context/
+  verify_build_inputs -> build_parser/cmd_build -> genuine smoke dispatch and
+  aggregation -> package_tested_image -> publish -> Tower validate` produces
+  all six files and feeds them unchanged into the positive consumer. External
+  subprocess/Docker/transport effects alone are faked. Docker save emits
+  synthetic bytes consumed by genuine archive/config/layer hash routines.
+  The unused hand-authored positive chain helper was removed.
+- Immutable Git HEAD, single parent, discovery ref ancestry, commit/tree/file
+  contents and executable modes are read against the actual source. Extra,
+  changed, missing or symlinked inputs fail closed. Rendered Dockerfile,
+  staged candidate/tree, complete prepared readback and executing validation/
+  producer source are reconstructed and checked, not trusted as nine hashes.
+  Git reads exclude ambient selectors/global configuration/replacement objects.
+- Buildx retains actual argv/progress/labels/metadata/smoke configuration and
+  frozen prepared source, verifies staged inputs and repeats companion/input
+  readback around genuine smoke dispatch. Actual phase `ok`/command `build`
+  schema and typed durations/builder/cache/image/candidate data are checked.
+  Source/companion schema booleans cannot masquerade as version integer 1.
+- The preserved Docker-save bytes, unique safe manifest/config/layer members,
+  exact tag/config SHA-to-local-ID link, Linux platform metadata, rootfs and
+  layer diff-ID bytes/tar structure are inspected without extraction. Pulled
+  runtime config matches the preserved image config. Publisher-derived
+  candidate alias and six raw record hashes are bound. Candidate ID, OCI
+  digest, local/platform image ID and file/archive/companion hashes stay distinct.
+  Raw records, immutable source/config, companion and archive are reread
+  immediately before inference-capable dispatch.
+- Workspace IDs now use `wks_` plus 16 lowercase hex digits; actual pinned
+  protocol rejects UUID/uppercase alternatives. The separate external socket
+  fixture uses pinned `DaemonClient`, inbound/outbound/Workspace schemas and
+  real SDK receipt selectors, rejects foreign requestIds and exercises modern
+  creationLifecycle. Connected server-info is received and parsed from the
+  daemon socket rather than copied from the expected status file. Server
+  replacement before/after prompt is covered. Reconnect is disabled exactly
+  as in the pinned CLI; no automatic creation replay is permitted.
+- Genuine validator/private guard/loader/wrapper/bridge/observer/non-inference
+  programs run with namespace translation and external fakes. A separate fake
+  daemon launches a separate fake Pi through the actual pinned launch builder;
+  inspected model/thinking comes from its RPC state and process/auth identity
+  from actual separate process observations, not a canned snapshot. Faults
+  cover snapshot omission/type/profile/parent binding, ambient/missing auth
+  selectors, private-reference/config/process-proof collisions/replacement,
+  uncertain creation/prompt/completion/inspection and no-replay retention.
+- Numeric 0/1 cannot prove mount RW booleans. Network/container acquisition
+  receipt loss becomes UNKNOWN with usable requested names/nonce/private refs,
+  no replay and no unproven removal. Cleanup refuses foreign/replaced/in-use
+  networks and retains private work/nonce/object refs until external removals
+  all succeed. Network cleanup removal/inspection failure is unsatisfied and
+  retains references; exactly one exchange is observed, never resent.
+
+`test_m07_t05_producer_proof.py` includes 27 self-consistently relinked
+source/configuration/schema/command/smoke/archive/alias negatives plus four
+relinked platform/rootfs/layer forgeries. These reject before any Tower Docker/
+acquisition/dispatch call. Post-acquisition configuration drift rejects before
+prompt/transport/guarded dispatch. Lifecycle cases assert retained private usable
+IDs and absence of forbidden calls/removals, not merely an exception string.
+
+### Entry-point classification and exact-source gates
+
+Inference-capable/effectful entrypoints: Tower `validate/main`, guarded bridge
+`dispatch`, and the unchanged shipped guard owned-smoke/ordinary launch switches;
+its native-shape export path alone is export-only, not dispatch. The loader/
+wrapper can start the selected Pi and the observer runs at provider-request time;
+tests traverse these shipped programs only into controlled fake processes/fetch.
+Existing Buildx build/smoke, package/save and publish entrypoints are effectful
+and are exercised only with external process/Docker fakes. Bridge acquire/inspect,
+provider-model preflight, version/static checks and authenticated Codex checks are
+non-inference. Actual Pi Agent/ExtensionRunner/provider SDK transport tests replace
+fetch for every branch, including throw-only control; these are synthetic, not
+real LLM tests. No ordinary credential values, real inference/auth, live Docker/
+Tower, real build/publication, CI/PR/Issue operation, push or installed HOME/
+runtime/auth/harness/instruction-plane mutation occurred.
+
+Final gates ran together against held source `3955fc1`, with direct exit capture
+and matching initial/final HEAD plus clean tracked source. Every invocation used
+`env -i`, disposable HOME/cache, restricted executable resolution, isolated
+Python cache prefix and bytecode suppression. Node/python were explicit disposable
+bin symlinks. Full discovery additionally required a disposable external Docker
+fake accepting ONLY `rm -f paseo-state-candidate-aaaaaaaa` and
+`rm -f paseo-state-previous-bbbbbbbb`; every other operation exits 99 and never
+reaches installed Docker. Its trace contains exactly these two accepted calls.
+The unchanged historical state-roundtrip test had omitted a subprocess cleanup
+fake; its project source/test was not modified to conceal that harness limitation.
+
+| Gate | Exact result | Direct exit / skips |
+| --- | --- | --- |
+| Targeted eight modules | 88 tests, 335.839s, OK | 0 / 0 |
+| Affected eight modules | 72 tests, 1.771s, OK | 0 / 0 |
+| Full classified Python discovery | 641 tests, 357.571s, OK | 0 / 0 |
+| Node dynamic catalog core | 1 passed, 137.455223ms | 0 / 0 |
+| AST + isolated explicit compile | 8 changed Python files | 0 |
+| Node syntax | bridge, observer, external socket fixture | 0 |
+| Shell syntax | unchanged guard and candidate loader | 0 |
+| Cumulative diff and bounded high-confidence scan | 11 source files | 0 |
+
+Final local logs: `/tmp/pud-3955fc1-final-{targeted,affected,full,node}.log`;
+combined direct exit/source/cleanup trace receipt is background job 8. Logs are
+convenience diagnostics, not workflow authority. There were no intentional skips
+or exclusions from full discovery, and test counts alone are not acceptance.
+
+Intermediate failures are preserved rather than converted into qualification:
+initial changing-source cohort had 61 tests/128.099s, 11 failures and one error,
+including companion/source mismatches and missing Node resolution; subsequent
+4c4db99/eae0c73/dc06b46/a635302 background outputs intersected later hardening and
+are diagnostics, not exact final qualification. Narrow probes included two wrong
+unittest target names (loader errors); corrected probes passed. Static invocation
+first used a wrong contract path and then a nonexistent `getModel` export; the
+correct root contract and public `metaProvider().getModels()` were checked.
+The first held 3955fc1 full gate had 641 tests/345.744s, exit 1, solely the bare
+Docker cleanup FileNotFoundError described above; targeted 88, affected 72 and
+Node passed. The final complete external fake rerun above supplies the missing
+fake, with no source change. Initial commit author failure was resolved by
+per-command author settings only, not global Git/environment changes.
+
+### Fresh identities, precise supported-realization limit and return boundary
+
+The current companion is 16 delivery files plus nine validation source hashes:
+`sha256:77933b26a3fbd66f32d28020870199010f5edb2de2355853b30bb1dd3d4bac63`.
+Guard remains `sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde`.
+Changed host validation source hashes remain mandatory even where a payload-only
+companion digest is unchanged between hardening commits. Fresh later artifacts
+are required; neither old OCI nor old companion declarations were deemed eligible.
+Positive fixture success remains `real_validation_satisfied=false`; nominal real
+branches under complete external fakes prove structure only, never real evidence.
+
+Read-only official-source metadata recheck: Pi 0.87.1; Paseo client/protocol/server
+0.9.2; `meta/muse-spark-1.3-contributor` has `thinkingLevelMap.max=null`, supported
+levels minimal/low/medium/high/xhigh, and unmodified max clamp returns xhigh.
+Public source SHA256s: pi-ai `providers/meta.js`
+`f0ba7b97a407336f30cfb230c4c32bece9e0fd23b0ebdbdae11503374e5ab44c`;
+pi-ai `models.js` `75fa33149fb608bc4a7b7a0586c8ca8f0024465d580091b0c426c0baf3fbc80a`;
+Paseo protocol `messages.js`
+`3f854defd7fc5472bd0fbead7fde0d97c127d91758545e7ac862f7edab138d20`.
+`tests/fixtures/m07_t05_catalog_{daemon,pi_rpc}.mjs` and
+`m07_t05_transport_qualification.mjs` exercise the actual public mapping,
+selected-process clamp and transport mechanics. Synthetic max demonstrates
+mechanics only. Supported real fixed-max realization has NOT been established;
+these negative facts authorize no override, fallback, silent mapping, substitute
+model/provider/thinking, unofficial capability adoption or waiver of remediable
+work. Main must classify this precise proportional Research/Planning boundary;
+this is not a whole-Card impossibility claim and no real smoke was attempted.
+
+Fresh default workflow remains `d3ab917f02e4de91b7dbb17915c2287c2387333e`;
+package-module router still selects Execution/M07-T05 under `workflow/EXECUTION.md`.
+Board119 all 22 DONE result bindings remain exact; exact M07-T04 result blob
+`c45b3f707b1246e195c9138d027cbb1b05b9b112` and independent review evidence blob
+`dffad8bf2a2e872375c11fbccc74ce53362e6a0d` were refreshed. M07-T05 stays
+in_progress without result/Review; M08-T01 stays planned. Stable Card blob
+`658fffe1d9d547a1a1525194628cdc2414ccc524` and root contract blob
+`54f9ccc3515bf0f8af527fec4ba8871868750c6b` remain unchanged. The prior report's
+87,643-byte prefix at d132d995 is retained. Main alone now reconciles this full
+technical contribution and continues canonical routing to a real stop.
