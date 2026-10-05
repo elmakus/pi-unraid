@@ -793,7 +793,7 @@ class TowerValidatorGenuineTests(unittest.TestCase):
                       "companion_binding", "policy_binding", "daemon_binding", "pi_binding",
                       "codex_catalog", "codex_auth", "codex_health", "muse_guard_readback",
                       "muse_policy_readback", "muse_dispatch", "muse_effective_profile",
-                      "muse_owned_child"):
+                      "muse_owned_child", "applied_payload_interval"):
                 self.assertEqual(res["checks"].get(k), "PASS", k)
             # No inference endpoint in any exec; no secret value in calls/output.
             blob = json.dumps(res) + " ".join(" ".join(c) for c in calls)
@@ -811,7 +811,8 @@ class TowerValidatorGenuineTests(unittest.TestCase):
             self.assertFalse(create[0]['initial_prompt'])
             self.assertEqual(create[0]['names'], sorted([
                 'M07_T05_TEST_ID', 'M07_T05_WITNESS_FILE', 'META_API_KEY_FILE',
-                'M07_T05_RUNTIME_BINDING', 'M07_T05_PROCESS_DIR']))
+                'M07_T05_RUNTIME_BINDING', 'M07_T05_PROCESS_DIR',
+                'M07_T05_APPLIED_REFERENCE', 'M07_T05_APPLIED_PEER', 'PYTHONDONTWRITEBYTECODE']))
             self.assertNotIn('fixture-meta-key', json.dumps(requests))
             subj = res.get('subject') or {}
             child = subj.get('muse_owned_child')
