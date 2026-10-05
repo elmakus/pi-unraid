@@ -792,7 +792,7 @@ def start_applied_interval(exec_run, authority: dict, *, nonce: str | None = Non
     import zlib
     encoded = base64.b64encode(zlib.compress(server.encode())).decode('ascii')
     frozen_server = 'import base64, zlib; exec(zlib.decompress(base64.b64decode(' + repr(encoded) + ')))'
-    launcher = code + '\nprocess = subprocess.Popen([sys.executable, "-c", ' + repr(frozen_server) + '], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)\n' + (
+    launcher = code + '\nprocess = subprocess.Popen([sys.executable, "-I", "-S", "-B", "-c", ' + repr(frozen_server) + '], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)\n' + (
         'if not select.select([process.stdout], [], [], 5)[0]:\n'
         '    process.terminate(); raise ValueError("interval startup unknown")\n'
         'line = process.stdout.readline()\n'
@@ -800,7 +800,7 @@ def start_applied_interval(exec_run, authority: dict, *, nonce: str | None = Non
         'info = json.loads(line)\n'
         'assert info["pid"] == process.pid and info["start"] == stamp(process.pid)\n'
         'print(json.dumps(info))\n')
-    result = exec_run(['python3', '-c', launcher])
+    result = exec_run(['python3', '-I', '-S', '-B', '-c', launcher])
     if result.returncode != 0:
         raise AdapterError('applied interval startup unavailable')
     try:
@@ -828,7 +828,7 @@ def check_applied_interval(exec_run, authority: dict, expected: dict):
         'expected = ' + repr(expected) + '\n'
         'assert private(' + repr(APPLIED_REFERENCE) + ') == expected\n'
         'print(json.dumps(observe(' + repr(APPLIED_REFERENCE) + ')))\n')
-    result = exec_run(['python3', '-c', pinned_client])
+    result = exec_run(['python3', '-I', '-S', '-B', '-c', pinned_client])
     if result.returncode != 0:
         raise AdapterError('applied interval changed or unavailable')
     try:

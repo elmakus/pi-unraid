@@ -173,6 +173,10 @@ in its own trusted invocation, independently of writable candidate inputs. It
 launches the observer **before initial applied readbacks** using source-frozen
 Python `-c` instructions; the acquired child receives the same frozen instructions
 and expectations in `-c`, never an applied script/import or a manifest-as-authority.
+Startup, child and source-frozen clients use Python `-I -S -B`: no writable-cwd,
+PYTHONPATH, user-site or site-customization code, and no bytecode writes. The public
+child source is compressed only to bound exec argument size, then executed from
+memory with the same isolation; no intermediate writable code file is trusted.
 The delivered `bin/m07-t05-applied.py` remains a watched payload member and client,
 not a trusted executable startup path. Its ordinary start/serve modes fail closed.
 The exclusive private manifest must exactly match independently retained source

@@ -50,6 +50,7 @@ class AppliedIntervalTests(unittest.TestCase):
             refs = runtime.home / '.m07-t05/owned.json' if runtime else None
             retained = json.loads(refs.read_text()) if refs and refs.exists() else None
             if runtime:
+                observed['shadow_module_executed_before_cleanup'] = (runtime.tmp / 'shadow-module-executed').exists()
                 runtime.close()
             return result, calls, methods, observed, retained
 
@@ -168,6 +169,23 @@ class AppliedIntervalTests(unittest.TestCase):
                 self.assertNotIn('prompt', methods); self.assertNotIn('fake-transport', methods)
                 self.assertFalse(any('--candidate-owned' in str(c[-1]) for c in calls))
                 self.assertFalse(any('daemon-bringup' in str(c[-1]) for c in calls))
+
+    def test_frozen_instructions_ignore_writable_cwd_python_modules(self):
+        observed = {}
+        def substitute(r):
+            marker = r.tmp / 'shadow-module-executed'
+            for name in ('json', 'subprocess', 'socket', 'hashlib', 'base64', 'zlib'):
+                (r.tmp / (name + '.py')).write_text(
+                    'from pathlib import Path\nPath(' + repr(str(marker)) + ').write_text("substituted")\n'
+                    'raise RuntimeError("external cwd code must never execute")\n')
+            observed['marker'] = marker
+        result, calls, methods, seen, _ = self.exercise(substitute, boundary='bootstrap')
+        self.assertTrue(seen['bootstrap_reached']); self.assertTrue(seen['mutated'])
+        self.assertEqual(result['status'], 'PASS', result.get('reason'))
+        self.assertEqual(methods.count('prompt'), 1); self.assertEqual(methods.count('fake-transport'), 1)
+        self.assertFalse(seen['shadow_module_executed_before_cleanup'])
+        startup = next(c for c in calls if 'interval startup unknown' in str(c[-1]))
+        self.assertIn('-I', startup); self.assertIn('-S', startup); self.assertIn('-B', startup)
 
     def test_bootstrap_transport_uncertainty_never_admits_runtime_effects(self):
         original = T.make_fake_docker
