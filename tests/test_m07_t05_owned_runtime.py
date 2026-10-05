@@ -76,8 +76,26 @@ class OwnedRuntimeFixture:
 
     def translate(self, text):
         import re
+        import base64
+        import zlib
+        # Source-frozen child code travels compressed to bound Docker exec argv.
+        # Translate ONLY namespace paths in that transport envelope too; never
+        # alter checker logic, expectations, hashes or acceptance observations.
+        envelopes = []
+        def envelope(match):
+            try:
+                source = zlib.decompress(base64.b64decode(match.group())).decode('utf8')
+            except (ValueError, zlib.error, UnicodeError):
+                return match.group()
+            encoded = base64.b64encode(zlib.compress(self.translate(source).encode())).decode('ascii')
+            envelopes.append(encoded)
+            return f'__FROZEN_ENVELOPE_{len(envelopes) - 1}__'
+        text = re.sub(r'[A-Za-z0-9+/=]{200,}', envelope, text)
         mapping = dict(self.maps)
-        return re.sub('|'.join(re.escape(k) for k in mapping), lambda m: mapping[m.group()], text)
+        text = re.sub('|'.join(re.escape(k) for k in mapping), lambda m: mapping[m.group()], text)
+        for index, encoded in enumerate(envelopes):
+            text = text.replace(f'__FROZEN_ENVELOPE_{index}__', encoded)
+        return text
 
     def restore(self, text):
         import re
@@ -135,7 +153,7 @@ class OwnedRuntimeFixture:
                 pass
 
     def run(self):
-        peer = A.start_applied_interval(self.exec)
+        peer = A.start_applied_interval(self.exec, self.applied_code)
         daemon = A.ensure_candidate_daemon(self.exec, candidate_home='/home/paseo/.paseo',
             expected_version='0.9.2', env_loader='/home/paseo/.pi/agent/bin/m07-t05-candidate-env.sh',
             meta_pointer='/run/secrets/pi-unraid-meta')

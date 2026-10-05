@@ -71,10 +71,17 @@ def snapshot(root, rows):
     return identities
 
 
-def serve(manifest, reference):
+def serve(manifest, reference, expected, expected_config, expected_digest):
+    # Only the host/source-frozen -c launch supplies authority. The writable
+    # manifest is a readback, not the source of expected instructions/data.
     doc = private(manifest)
-    root = Path(doc['root'])
-    rows = doc['files']
+    if doc != expected or Path(manifest).read_bytes() != json.dumps(expected, sort_keys=True).encode():
+        raise ValueError('bootstrap manifest differs from retained authority')
+    config = Path('/home/paseo/.paseo/config.json')
+    if private(config) != expected_config:
+        raise ValueError('bootstrap configuration differs from retained authority')
+    root = Path(expected['root'])
+    rows = expected['files']
     if root.is_symlink() or not isinstance(rows, dict) or not rows:
         raise ValueError('applied root unavailable')
     libc = ctypes.CDLL(None, use_errno=True)
@@ -84,13 +91,34 @@ def serve(manifest, reference):
     # Mutation-only mask. Reads do not invalidate; writes, chmod, replacement,
     # move/delete/unmount/overflow invalidate irreversibly, even if bytes restored.
     mask = 0x2 | 0x4 | 0x8 | 0x40 | 0x80 | 0x100 | 0x200 | 0x400 | 0x800 | 0x2000
-    parent_wd = libc.inotify_add_watch(fd, os.fsencode(root.parent), mask)
-    if parent_wd < 0:
-        raise ValueError('parent interval watch unavailable')
+    parents = {}
+    for target in (root, Path(manifest), config):
+        wd = libc.inotify_add_watch(fd, os.fsencode(target.parent), mask)
+        if wd < 0:
+            raise ValueError('parent interval watch unavailable')
+        parents.setdefault(wd, set()).add(os.fsencode(target.name))
+    for target in (Path(manifest), config):
+        if target.is_symlink() or libc.inotify_add_watch(fd, os.fsencode(target), mask) < 0:
+            raise ValueError('private input interval watch unavailable')
     for p in [root, *sorted(root.rglob('*'))]:
         if p.is_symlink() or libc.inotify_add_watch(fd, os.fsencode(p), mask) < 0:
             raise ValueError('member interval watch unavailable')
     baseline = snapshot(root, rows)
+    def inputs():
+        identities = []
+        for path, value in ((Path(manifest), expected), (config, expected_config)):
+            before = path.lstat()
+            if private(path) != value:
+                raise ValueError('private interval input changed')
+            after = path.lstat()
+            identity = lambda s: (s.st_dev, s.st_ino, s.st_mode, s.st_uid, s.st_ctime_ns, s.st_mtime_ns, s.st_size)
+            if identity(before) != identity(after):
+                raise ValueError('private interval input raced')
+            identities.append(identity(after))
+        if Path(manifest).read_bytes() != json.dumps(expected, sort_keys=True).encode():
+            raise ValueError('manifest bytes changed')
+        return identities
+    input_baseline = inputs()
     ever_changed = False
     def check():
         nonlocal ever_changed
@@ -107,10 +135,10 @@ def serve(manifest, reference):
                 wd, event, cookie, size = struct.unpack_from('iIII', data, pos)
                 name = data[pos + 16:pos + 16 + size].split(b'\0', 1)[0]
                 pos += 16 + size
-                if wd != parent_wd or name in (b'', os.fsencode(root.name)) or event & (0x4000 | 0x8000 | 0x400 | 0x800):
+                if wd not in parents or name in ({b''} | parents[wd]) or event & (0x4000 | 0x8000 | 0x400 | 0x800):
                     ever_changed = True
         try:
-            if snapshot(root, rows) != baseline:
+            if snapshot(root, rows) != baseline or inputs() != input_baseline:
                 ever_changed = True
         except (OSError, ValueError, KeyError):
             ever_changed = True
@@ -124,7 +152,7 @@ def serve(manifest, reference):
     server.listen(4)
     info = {'schema_version': 1, 'pid': os.getpid(), 'start': stamp(os.getpid()),
             'nonce': doc['nonce'], 'socket': endpoint,
-            'manifest_sha256': hashlib.sha256(Path(manifest).read_bytes()).hexdigest()}
+            'manifest_sha256': expected_digest}
     out = os.open(reference, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     try:
         os.write(out, json.dumps(info).encode()); os.fsync(out)
@@ -144,7 +172,7 @@ def serve(manifest, reference):
                 if peer[1] != os.getuid():
                     continue
                 request = connection.recv(1024)
-                ok = check() and hashlib.sha256(Path(manifest).read_bytes()).hexdigest() == info['manifest_sha256']
+                ok = check()
                 connection.sendall(json.dumps({'bound': ok, 'nonce': doc['nonce'], 'pid': os.getpid()}).encode())
                 if request == b'stop':
                     break
@@ -171,21 +199,11 @@ def observe(reference, stop=False):
 if __name__ == '__main__':
     try:
         mode, manifest, reference = sys.argv[1:]
-        if mode == 'serve':
-            serve(manifest, reference)
-        elif mode == 'start':
-            process = subprocess.Popen([sys.executable, __file__, 'serve', manifest, reference],
-                stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
-                start_new_session=True)
-            if not select.select([process.stdout], [], [], 5)[0]:
-                raise ValueError('interval startup unknown')
-            line = process.stdout.readline()
-            if not line:
-                raise ValueError('interval startup unavailable')
-            info = json.loads(line)
-            if info['pid'] != process.pid or info['start'] != stamp(process.pid):
-                raise ValueError('interval startup identity unavailable')
-            print(json.dumps(info))
+        if mode in ('serve', 'start'):
+            # Starting from an applied file cannot establish bootstrap trust.
+            # The trusted host adapter launches frozen instructions with retained
+            # expectations; this delivered path is client-only.
+            raise ValueError('source-frozen startup required')
         else:
             print(json.dumps(observe(reference, mode == 'stop')))
     except (OSError, ValueError, KeyError, TypeError, IndexError):

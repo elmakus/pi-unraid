@@ -774,11 +774,33 @@ def stage_applied_interval(home: Path, source: Path, companion: dict, *, nonce: 
     with os.fdopen(fd, 'w') as stream:
         json.dump(doc, stream, sort_keys=True); stream.flush(); os.fsync(stream.fileno())
     os.chown(file, uid, gid)
-    return code
+    # Retained in the trusted host invocation, never recovered from candidate
+    # writable inputs or the process under verification. Only public data.
+    return {'code': code, 'manifest': doc, 'config': private_daemon_config()}
 
 
-def start_applied_interval(exec_run, *, nonce: str | None = None):
-    result = exec_run(['python3', APPLIED_PROGRAM, 'start', APPLIED_MANIFEST, APPLIED_REFERENCE])
+def start_applied_interval(exec_run, authority: dict, *, nonce: str | None = None):
+    # Freeze instructions AND expectations into the actual child's -c input.
+    # No applied file/import/__file__ supplies startup behavior. The start
+    # wrapper also executes source-frozen code and checks its acquired child.
+    code = authority['code'].split("if __name__ == '__main__':", 1)[0]
+    digest = hashlib.sha256(json.dumps(authority['manifest'], sort_keys=True).encode()).hexdigest()
+    server = code + '\nserve(' + repr(APPLIED_MANIFEST) + ', ' + repr(APPLIED_REFERENCE) + ', ' + repr(authority['manifest']) + ', ' + repr(authority['config']) + ', ' + repr(digest) + ')\n'
+    # Bound exec argv size independently of public companion text/quoting.
+    # Compression is only transport encoding, not a writable code artifact.
+    import base64
+    import zlib
+    encoded = base64.b64encode(zlib.compress(server.encode())).decode('ascii')
+    frozen_server = 'import base64, zlib; exec(zlib.decompress(base64.b64decode(' + repr(encoded) + ')))'
+    launcher = code + '\nprocess = subprocess.Popen([sys.executable, "-c", ' + repr(frozen_server) + '], stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=True)\n' + (
+        'if not select.select([process.stdout], [], [], 5)[0]:\n'
+        '    process.terminate(); raise ValueError("interval startup unknown")\n'
+        'line = process.stdout.readline()\n'
+        'if not line: raise ValueError("interval startup unavailable")\n'
+        'info = json.loads(line)\n'
+        'assert info["pid"] == process.pid and info["start"] == stamp(process.pid)\n'
+        'print(json.dumps(info))\n')
+    result = exec_run(['python3', '-c', launcher])
     if result.returncode != 0:
         raise AdapterError('applied interval startup unavailable')
     try:
@@ -791,17 +813,18 @@ def start_applied_interval(exec_run, *, nonce: str | None = None):
                 or not isinstance(info.get('nonce'), str) or not info['nonce']
                 or (nonce is not None and info['nonce'] != nonce)
                 or not isinstance(info.get('manifest_sha256'), str)
-                or re.fullmatch('[a-f0-9]{64}', info['manifest_sha256']) is None):
+                or info['manifest_sha256'] != hashlib.sha256(
+                    json.dumps(authority['manifest'], sort_keys=True).encode()).hexdigest()):
             raise ValueError()
         return info
     except (ValueError, TypeError, AttributeError):
         raise AdapterError('applied interval startup identity unavailable') from None
 
 
-def check_applied_interval(exec_run, code: str, expected: dict):
+def check_applied_interval(exec_run, authority: dict, expected: dict):
     # Execute SOURCE-frozen client code, not the now-applied helper. SO_PEERCRED
     # and /proc start identity bind the original independent interval observer.
-    pinned_client = code.split("if __name__ == '__main__':", 1)[0] + '\n' + (
+    pinned_client = authority['code'].split("if __name__ == '__main__':", 1)[0] + '\n' + (
         'expected = ' + repr(expected) + '\n'
         'assert private(' + repr(APPLIED_REFERENCE) + ') == expected\n'
         'print(json.dumps(observe(' + repr(APPLIED_REFERENCE) + ')))\n')

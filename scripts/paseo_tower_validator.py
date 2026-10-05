@@ -1254,6 +1254,37 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     raise ValidationError(f"network ownership unverified before {stage}; preserving")
             return cur_obj
 
+        # Establish the source-frozen interval BEFORE initial applied readbacks.
+        # Those readbacks and every later candidate program now share one
+        # continuously watched acceptance interval, rather than a stale prefix.
+        def _candidate_exec(argv, timeout=30):
+            return _exec(adap.controlled_candidate_argv(argv), timeout=timeout, check=False)
+
+        applied_code = None
+        result['checks']['applied_payload_interval'] = 'PENDING'
+        def applied_check(*, uncertain=False):
+            if applied_code is None:
+                raise ValidationError('applied interval missing')
+            try:
+                observation = adap.check_applied_interval(_candidate_exec, applied_code, result['subject']['applied_interval'])
+                result['subject']['applied_interval_observation'] = observation
+            except adap.AdapterError as exc:
+                result['checks']['applied_payload_interval'] = 'UNKNOWN' if uncertain else 'FAIL'
+                if uncertain:
+                    raise ValidationUnknown('applied interval uncertain after possible effects; no replay') from exc
+                raise ValidationError('applied companion interval changed or unavailable') from exc
+
+        if expected_paseo is not None:
+            adap.stage_private_runtime(work / 'home', uid=uid, gid=gid)
+            applied_code = adap.stage_applied_interval(work / 'home', Path(source_root) / 'config/pi-agent',
+                companion_bundle, nonce=attempt_nonce, uid=uid, gid=gid)
+            try:
+                result['subject']['applied_interval'] = adap.start_applied_interval(_candidate_exec, applied_code, nonce=attempt_nonce)
+            except adap.AdapterError as exc:
+                result['checks']['applied_payload_interval'] = 'FAIL'
+                raise ValidationError('applied interval startup unavailable') from exc
+            applied_check()
+
         # File readback helper: hash AND mode are compared (returncode 0 is
         # NOT readback). Used for guard/policy/launcher bytes below.
         def _readback_file(cand_path: str, *, what: str):
@@ -1311,32 +1342,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         # localDaemon/connectedDaemon/serverId/workerPid/daemonNode/providers
         # plus home/listen/version. Pinned Pi types.d.ts terminal semantics:
         # agent_end/agent_settled (observer) — see adapter.aggregate_witness.
-        def _candidate_exec(argv, timeout=30):
-            return _exec(adap.controlled_candidate_argv(argv), timeout=timeout, check=False)
-
-        applied_code = None
-        result['checks']['applied_payload_interval'] = 'PENDING'
-        def applied_check(*, uncertain=False):
-            if applied_code is None:
-                raise ValidationError('applied interval missing')
-            try:
-                observation = adap.check_applied_interval(_candidate_exec, applied_code, result['subject']['applied_interval'])
-                result['subject']['applied_interval_observation'] = observation
-            except adap.AdapterError as exc:
-                result['checks']['applied_payload_interval'] = 'UNKNOWN' if uncertain else 'FAIL'
-                if uncertain:
-                    raise ValidationUnknown('applied interval uncertain after possible effects; no replay') from exc
-                raise ValidationError('applied companion interval changed or unavailable') from exc
-
         if expected_paseo is not None:
-            adap.stage_private_runtime(work / 'home', uid=uid, gid=gid)
-            applied_code = adap.stage_applied_interval(work / 'home', Path(source_root) / 'config/pi-agent',
-                companion_bundle, nonce=attempt_nonce, uid=uid, gid=gid)
-            try:
-                result['subject']['applied_interval'] = adap.start_applied_interval(_candidate_exec, nonce=attempt_nonce)
-            except adap.AdapterError as exc:
-                result['checks']['applied_payload_interval'] = 'FAIL'
-                raise ValidationError('applied interval startup unavailable') from exc
             applied_check()
             # Source-qualified local bring-up first: `paseo daemon start
             # --home` (pinned daemon/start.js: started|already_running +

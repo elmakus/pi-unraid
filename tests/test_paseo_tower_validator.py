@@ -551,6 +551,12 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                 host_path = cand_path.replace("/home/paseo", (work + "/home") if work else "/nonexistent", 1)
                 try:
                     data = Path(host_path).read_bytes()
+                    # The interval now starts before readbacks. Undo ONLY the
+                    # synthetic namespace translation, never use declared hashes
+                    # or source files to manufacture acceptance of applied drift.
+                    runtime = state.get('_owned_runtime')
+                    if runtime is not None:
+                        data = runtime.restore(data.decode('utf8')).encode('utf8')
                     h = _hl.sha256(data).hexdigest()
                     if break_guard or state.get("break_guard"):
                         h = "0" * 64

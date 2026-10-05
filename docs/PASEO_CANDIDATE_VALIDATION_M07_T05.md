@@ -168,12 +168,23 @@ writable private HOME. Every execution and removal ownership check requires that
 bind; a missing, swapped, writable or type-confused mount fails closed. No
 upstream startup or healthcheck precedes staging/interval establishment.
 
-The delivered `bin/m07-t05-applied.py` observes the complete declared public
-payload, with expected source content/modes supplied through an exclusive private
-manifest derived from verified frozen producer source. It compares actual bytes,
+Tower retains the complete expected public manifest and private daemon configuration
+in its own trusted invocation, independently of writable candidate inputs. It
+launches the observer **before initial applied readbacks** using source-frozen
+Python `-c` instructions; the acquired child receives the same frozen instructions
+and expectations in `-c`, never an applied script/import or a manifest-as-authority.
+The delivered `bin/m07-t05-applied.py` remains a watched payload member and client,
+not a trusted executable startup path. Its ordinary start/serve modes fail closed.
+The exclusive private manifest must exactly match independently retained source
+content/modes/set/nonce, and private daemon configuration must match the fixed
+source-owned configuration. Neither a returned self-hash nor process credentials
+can qualify substituted instructions/expectations. It compares actual bytes,
 file/directory sets, regular-file types, modes and inode/ctime/mtime identities.
 Linux inotify watches members, directories and the root parent before the initial
-snapshot. Modification, replacement, chmod, omission, addition, move, unmount,
+snapshot. The manifest/configuration files and their parent entries are also
+watched and identity-checked; unrelated runtime bookkeeping in their parent
+directories is not treated as payload drift. Modification, replacement, chmod,
+omission, addition, move, unmount,
 watch loss or overflow irreversibly invalidates the interval, including a write
 followed by restoration. It watches actual execution files, not another checkout.
 
@@ -181,8 +192,13 @@ The original non-inference observer stays alive independently of later applied
 helper bytes. Source-frozen host client code checks `/proc` start identity and
 Unix `SO_PEERCRED`, pins the original acquired reference/nonce and reads its fresh
 kernel-backed observation at startup, after catalog, immediately before owned
-dispatch, after runtime return and at final completion. The private manifest byte
-hash is also held by the observer; modified expectations cannot requalify drift.
+dispatch, after runtime return and at final completion. The manifest identity in
+the returned reference is compared to the independently computed host identity;
+it is not the authority for startup. Frozen executing code first validates the
+actual manifest/configuration and full payload, installs kernel watches, snapshots
+and drains pending events before publishing its acquired reference. Modified
+expectations or checker bytes cannot requalify drift. Reads-to-acquisition-to-
+dispatch-to-request-to-completion remain inside that one observed interval.
 A copied digest, private reference replacement or caller PASS is not acceptance.
 The bridge checks the interval before native metadata export, at creation and
 inspection boundaries, before the one message and after completion. The selected
@@ -195,8 +211,8 @@ This is runtime interval machinery, not another workflow state store, eligibilit
 ledger or pipeline. The new delivery member and changed bridge/wrapper/observer
 bytes naturally change the existing prepare/build/package companion declaration;
 old artifacts cannot qualify the changed payload. `m07-t05-applied.py` only
-observes Linux files/process metadata and a private Unix socket: its start/check
-entrypoints do not cause inference. Tower validation, owned bridge, selected Pi
+observes Linux files/process metadata and a private Unix socket: frozen startup
+and delivered check/stop entrypoints do not cause inference. Tower validation, owned bridge, selected Pi
 exec and provider observer remain inference-capable paths and may only be tested
 through complete external fakes and disposable synthetic inputs here.
 
