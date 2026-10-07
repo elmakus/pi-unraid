@@ -1,0 +1,432 @@
+...............................................................................EFFFFFF.....FEEEFFFF.......FFFFF............F......................F...F...................................note: detached CLI records are diagnostic-only; production promotion requires in-process acquisition
+....promotion failed: detached gate records are diagnostic-only and cannot confer production promotion eligibility; production promotion requires in-process trusted acquisition via the acquisition bundle (CLI --final-gate files are diagnostic-only)
+............................................................................................................................{"acquisition": "detached-caller-records", "baseline_local_image_id": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "baseline_oci": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "binding_digest": "sha256:cd1d6f79c6c37e66940c83ed34782ad9c2423d8958a1aef25194d90a0e7f63d2", "candidate_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "candidate_id": "sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80", "candidate_local_image_id": "sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a", "companion_digest": "sha256:67e1543572b6b471da6525899766711812c281a3e40327b003e52ba289ba7199", "eligibility": "diagnostic-only", "execution_class": "real", "guard_binding_digest": "sha256:205431da9362bd1c94adca1303712998506b3822d704f75bf2ae2deed9df42fb", "launcher_digest": "sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde", "policy_digest": "sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40", "predecessor": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "kind": "oci", "repository": "ghcr.io/elmakus/pi-unraid"}, "real_validation_satisfied": true, "repository": "ghcr.io/elmakus/pi-unraid", "required_gates": {"applied_payload_interval": "PASS", "codex_auth": "PASS", "codex_catalog": "PASS", "codex_health": "PASS", "companion_binding": "PASS", "daemon_binding": "PASS", "frozen_chain": "PASS", "image_config": "PASS", "image_mapping": "PASS", "immutable_source_configuration": "PASS", "mount_isolation": "PASS", "muse_dispatch": "PASS", "muse_effective_config": "PASS", "muse_effective_profile": "PASS", "muse_effective_readback": "PASS", "muse_guard_readback": "PASS", "muse_owned_child": "PASS", "muse_policy_readback": "PASS", "muse_profile_preflight": "PASS", "network_isolation": "PASS", "pi_binding": "PASS", "policy_binding": "PASS", "registry_digest": "PASS", "runtime": "PASS", "secret_isolation": "PASS", "state.baseline_clone_isolated": "PASS", "state.candidate_state_mutation": "PASS", "state.direct_skip_path": "PASS", "state.previous_runtime_reopen": "PASS", "uid_gid": "PASS"}, "schema_version": 2, "source_head": "cd9ee0aa19f4516b50fb6401ca58f1f4c2e4cc09", "status": "GREEN"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmpad55qgp4/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+(empty)
+
+--- buildx stderr (progress) ---
+boom......{"record": "/tmp/tmpsgsetl5j/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+{"record": "/tmp/tmpuy65yo3h/record.json", "tag": ""}
+{"record": "/tmp/tmp11oo5pg3/record.json", "tag": ""}
+{"record": "/tmp/tmp9nm3xh7j/record.json", "tag": ""}
+{"record": "/tmp/tmpcn_ua5d6/record.json", "tag": ""}
+--- smoke: image_provenance ---
+ok
+--- smoke: persistence_ownership ---
+ok
+--- smoke: instruction_plane ---
+ok
+--- smoke: global_capabilities ---
+.test refused: record has no successful build phase
+test refused: build record is missing: /tmp/tmpopqylg2l/absent.json
+test refused: build record is not valid JSON: /tmp/tmpopqylg2l/broken.json
+.ok
+{"record": "/tmp/tmp4ta5x8m7/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276", "test": "ok"}
+--- smoke: image_provenance ---
+ok
+--- smoke: persistence_ownership ---
+test failed: smoke failed: persistence_ownership (rc=1): ownership drift
+.--- smoke: image_provenance ---
+ok
+--- smoke: persistence_ownership ---
+ok
+--- smoke: instruction_plane ---
+ok
+--- smoke: global_capabilities ---
+..bounded prune refused: record builder 'pi-unraid-paseo' does not match 'pi-unraid-other'
+.bounded prune refused: record lacks a successful build and test; cleanup runs only after successful build/smoke
+bounded prune refused: record lacks a successful build and test; cleanup runs only after successful build/smoke
+bounded prune refused: record lacks a successful build and test; cleanup runs only after successful build/smoke
+.bounded prune refused: builder name is not an isolated namespace: 'default'
+bounded prune refused: builder name is not an isolated namespace: 'default'
+..............ok
+{"record": "/tmp/tmpiehhynb8/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276", "test": "ok"}
+{"builder": "pi-unraid-paseo", "command": "prune", "duration_ms": 0, "keep_storage": "8GB", "reclaimed": "ok\n", "schema_version": 1}
+{"record": "/tmp/tmpbszrb82b/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+{"record": "/tmp/tmpgyk4yuc4/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+(empty)
+
+--- buildx stderr (progress) ---
+#1 [internal] load build definition from Dockerfile
+#1 DONE 0.0s
+#2 [internal] load metadata for ghcr.io/getpaseo/paseo
+#2 DONE 0.0s
+#3 [1/8] FROM ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136
+#3 CACHED
+#4 [2/8] RUN set -eux; apt-get update; apt-get install -y --no-install-recommends build-essential
+#4 CACHED
+#5 [3/8] RUN set -eux; npm install -g --ignore-scripts playwright@1.63.0
+#5 CACHED
+#6 [4/8] RUN set -eux; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.87.1
+#6 CACHED
+#7 [5/8] RUN set -eux; curl -fsSL https://github.com/cli/cli/releases/download/v2.101.0/gh.tar.gz
+#7 CACHED
+#8 [6/8] RUN set -eux; curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz
+#8 CACHED
+#9 [7/8] RUN set -eux; curl -fsSL https://github.com/docker/compose/releases/download/v5.5.1/docker-compose
+#9 CACHED
+#10 [8/8] WORKDIR /workspace
+#10 CACHED
+#11 exporting to image
+#11 DONE 0.4s
+.build refused: --with-prune requires --with-smoke (cleanup only after successful build/smoke)
+..bounded prune refused: keep-storage bound is invalid: 'all'
+.{"record": "/tmp/tmpbetmsqj7/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+{"record": "/tmp/tmpz6xzs3ur/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmp9auo_t9x/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+..{"record": "/tmp/tmp6banzx_o/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+--- smoke: image_provenance ---
+--- smoke: persistence_ownership ---
+--- smoke: instruction_plane ---
+--- smoke: global_capabilities ---
+.usage: python3 -m unittest prune [-h] --record RECORD [--builder BUILDER]
+                                 [--state-dir STATE_DIR]
+                                 [--keep-storage KEEP_STORAGE]
+python3 -m unittest prune: error: the following arguments are required: --record
+.....usage: paseo_candidate_build.py package [-h] --candidate CANDIDATE
+                                        --handoff-evidence HANDOFF_EVIDENCE
+                                        --build-record BUILD_RECORD --archive
+                                        ARCHIVE --evidence EVIDENCE
+                                        --source-head SOURCE_HEAD
+                                        --build-input BUILD_INPUT
+paseo_candidate_build.py package: error: the following arguments are required: --build-input
+........................................................{"record": "/tmp/tmpit2e4b_8/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+{"record": "/tmp/tmpzm6g0y51/build-record.json", "tag": ""}
+{"record": "/tmp/tmpzm6g0y51/build-record.json", "tag": ""}
+{"record": "/tmp/tmpzm6g0y51/build-record.json", "tag": ""}
+{"record": "/tmp/tmpzm6g0y51/build-record.json", "tag": ""}
+{"record": "/tmp/tmpzi44gk4n/build-record.json", "tag": ""}
+{"record": "/tmp/tmpzi44gk4n/build-record.json", "tag": ""}
+{"record": "/tmp/tmpzi44gk4n/build-record.json", "tag": ""}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmpham6x006/build-record.json", "tag": "pi-unraid:paseo-881b528282d7"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmppo5gdwcg/build-record.json", "tag": "pi-unraid:paseo-881b528282d7"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.......................................................................................................................paseo rpc-workspace error: failure report unwritable ([Errno 2] No such file or directory: '/tmp/tmpht8ls9n7/missing-dir/spawn.json'); payload: {
+  "card": "M06-T01",
+  "error": "original",
+  "full_green_claimed": false,
+  "outcome": "failed",
+  "production_mutation": false,
+  "scope": "disposable"
+}
+
+....................................................................................................................................................FF.FF............................................................
+======================================================================
+ERROR: test_genuine_validator_post_effect_inspection_uncertainty_retains_one_exchange (test_m07_t05_owned_runtime.OwnedRuntimeTests.test_genuine_validator_post_effect_inspection_uncertainty_retains_one_exchange)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_owned_runtime.py", line 350, in test_genuine_validator_post_effect_inspection_uncertainty_retains_one_exchange
+    runtime = state['_owned_runtime']
+              ~~~~~^^^^^^^^^^^^^^^^^^
+KeyError: '_owned_runtime'
+
+======================================================================
+ERROR: test_actual_validator_rejects_numeric_mount_booleans_before_exec_or_cleanup_removal (test_m07_t05_producer_proof.ProducerProofTests.test_actual_validator_rejects_numeric_mount_booleans_before_exec_or_cleanup_removal) (destination='/home/paseo')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 86, in test_actual_validator_rejects_numeric_mount_booleans_before_exec_or_cleanup_removal
+    self.assertTrue(Path(state['work']).exists())
+                         ~~~~~^^^^^^^^
+KeyError: 'work'
+
+======================================================================
+ERROR: test_actual_validator_rejects_numeric_mount_booleans_before_exec_or_cleanup_removal (test_m07_t05_producer_proof.ProducerProofTests.test_actual_validator_rejects_numeric_mount_booleans_before_exec_or_cleanup_removal) (destination='/run/secrets/pi-unraid-codex-lb')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 86, in test_actual_validator_rejects_numeric_mount_booleans_before_exec_or_cleanup_removal
+    self.assertTrue(Path(state['work']).exists())
+                         ~~~~~^^^^^^^^
+KeyError: 'work'
+
+======================================================================
+ERROR: test_changed_configuration_after_acquisition_is_rejected_before_prompt (test_m07_t05_producer_proof.ProducerProofTests.test_changed_configuration_after_acquisition_is_rejected_before_prompt)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 60, in test_changed_configuration_after_acquisition_is_rejected_before_prompt
+    self.assertNotIn('prompt', state['runtime_calls_before_cleanup'])
+                               ~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyError: 'runtime_calls_before_cleanup'
+
+======================================================================
+FAIL: test_genuine_validator_reaches_same_private_guard_and_process_path (test_m07_t05_owned_runtime.OwnedRuntimeTests.test_genuine_validator_reaches_same_private_guard_and_process_path)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_owned_runtime.py", line 192, in test_genuine_validator_reaches_same_private_guard_and_process_path
+    self.assertEqual(result['status'], 'PASS', result)
+AssertionError: 'FAIL' != 'PASS'
+- FAIL
++ PASS
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_genuine_validator_uncertainty_preserves_ids_and_owned_objects (test_m07_t05_owned_runtime.OwnedRuntimeTests.test_genuine_validator_uncertainty_preserves_ids_and_owned_objects) (fault='inspection')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_owned_runtime.py", line 206, in test_genuine_validator_uncertainty_preserves_ids_and_owned_objects
+    self.assertEqual(result['status'], 'UNKNOWN', result)
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_genuine_validator_uncertainty_preserves_ids_and_owned_objects (test_m07_t05_owned_runtime.OwnedRuntimeTests.test_genuine_validator_uncertainty_preserves_ids_and_owned_objects) (fault='create_uncertain')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_owned_runtime.py", line 206, in test_genuine_validator_uncertainty_preserves_ids_and_owned_objects
+    self.assertEqual(result['status'], 'UNKNOWN', result)
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_genuine_validator_uncertainty_preserves_ids_and_owned_objects (test_m07_t05_owned_runtime.OwnedRuntimeTests.test_genuine_validator_uncertainty_preserves_ids_and_owned_objects) (fault='wrong_pi_bytes')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_owned_runtime.py", line 206, in test_genuine_validator_uncertainty_preserves_ids_and_owned_objects
+    self.assertEqual(result['status'], 'UNKNOWN', result)
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_genuine_validator_uncertainty_preserves_ids_and_owned_objects (test_m07_t05_owned_runtime.OwnedRuntimeTests.test_genuine_validator_uncertainty_preserves_ids_and_owned_objects) (fault='config_replacement')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_owned_runtime.py", line 206, in test_genuine_validator_uncertainty_preserves_ids_and_owned_objects
+    self.assertEqual(result['status'], 'UNKNOWN', result)
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_genuine_validator_uncertainty_preserves_ids_and_owned_objects (test_m07_t05_owned_runtime.OwnedRuntimeTests.test_genuine_validator_uncertainty_preserves_ids_and_owned_objects) (fault='prompt_uncertain')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_owned_runtime.py", line 206, in test_genuine_validator_uncertainty_preserves_ids_and_owned_objects
+    self.assertEqual(result['status'], 'UNKNOWN', result)
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_actual_complete_chain_reaches_guarded_fixture_exchange (test_m07_t05_producer_proof.ProducerProofTests.test_actual_complete_chain_reaches_guarded_fixture_exchange)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 37, in test_actual_complete_chain_reaches_guarded_fixture_exchange
+    self.assertEqual(result['status'], 'PASS', result)
+AssertionError: 'FAIL' != 'PASS'
+- FAIL
++ PASS
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_network_cleanup_failure_retains_private_usable_nonce_and_object_references (test_m07_t05_producer_proof.ProducerProofTests.test_network_cleanup_failure_retains_private_usable_nonce_and_object_references) (fault='remove')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 138, in test_network_cleanup_failure_retains_private_usable_nonce_and_object_references
+    self.assertEqual(result['status'], 'BLOCKED', result)
+AssertionError: 'FAIL' != 'BLOCKED'
+- FAIL
++ BLOCKED
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_network_cleanup_failure_retains_private_usable_nonce_and_object_references (test_m07_t05_producer_proof.ProducerProofTests.test_network_cleanup_failure_retains_private_usable_nonce_and_object_references) (fault='inspect')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 138, in test_network_cleanup_failure_retains_private_usable_nonce_and_object_references
+    self.assertEqual(result['status'], 'BLOCKED', result)
+AssertionError: 'FAIL' != 'BLOCKED'
+- FAIL
++ BLOCKED
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_partial_network_or_container_receipt_loss_retains_references_without_replay (test_m07_t05_producer_proof.ProducerProofTests.test_partial_network_or_container_receipt_loss_retains_references_without_replay) (effect='network')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 104, in test_partial_network_or_container_receipt_loss_retains_references_without_replay
+    self.assertEqual(result['status'], 'UNKNOWN', result)
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_partial_network_or_container_receipt_loss_retains_references_without_replay (test_m07_t05_producer_proof.ProducerProofTests.test_partial_network_or_container_receipt_loss_retains_references_without_replay) (effect='container')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_producer_proof.py", line 104, in test_partial_network_or_container_receipt_loss_retains_references_without_replay
+    self.assertEqual(result['status'], 'UNKNOWN', result)
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+ : {'schema_version': 2, 'execution_class': 'fixture', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_failed_absence_does_not_create_any_network_or_container (test_m07_t05_readback_cleanup.ReadbackCleanupTests.test_failed_absence_does_not_create_any_network_or_container)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_readback_cleanup.py", line 105, in test_failed_absence_does_not_create_any_network_or_container
+    self.assertEqual(result['status'], 'BLOCKED', result)
+AssertionError: 'FAIL' != 'BLOCKED'
+- FAIL
++ BLOCKED
+ : {'schema_version': 2, 'execution_class': 'real', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_failed_container_removal_cannot_coexist_with_real_success (test_m07_t05_readback_cleanup.ReadbackCleanupTests.test_failed_container_removal_cannot_coexist_with_real_success)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_readback_cleanup.py", line 70, in test_failed_container_removal_cannot_coexist_with_real_success
+    self.assertEqual(result['status'], 'BLOCKED', result)
+AssertionError: 'FAIL' != 'BLOCKED'
+- FAIL
++ BLOCKED
+ : {'schema_version': 2, 'execution_class': 'real', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_hold_entrypoint_prevents_upstream_start_before_staging (test_m07_t05_readback_cleanup.ReadbackCleanupTests.test_hold_entrypoint_prevents_upstream_start_before_staging)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_readback_cleanup.py", line 86, in test_hold_entrypoint_prevents_upstream_start_before_staging
+    self.assertEqual(result['status'], 'PASS', result)
+AssertionError: 'FAIL' != 'PASS'
+- FAIL
++ PASS
+ : {'schema_version': 2, 'execution_class': 'real', 'terminal_class': 'terminal', 'status': 'FAIL', 'immutable_ref': 'ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'repository': 'ghcr.io/elmakus/pi-unraid', 'checks': {}, 'subject': {'repository': 'ghcr.io/elmakus/pi-unraid', 'expected_digest': 'sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', 'observed_image_id': None, 'candidate_id': 'sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80', 'companion_bundle': None, 'policy_identity': None, 'daemon_binding': None, 'pi_binding': None, 'expected_paseo_version': '0.9.2', 'expected_pi_version': '0.87.1', 'version_source': 'candidate:candidate.json', 'candidate_file_sha256': 'sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec', 'publication_image_id': 'sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a'}, 'real_validation_satisfied': False, 'real_reason': 'fixture/rehearsal never satisfies final validation', 'reason': 'prepared complete companion declaration mismatch', 'cleanup': {'status': 'COMPLETE', 'issues': []}}
+
+======================================================================
+FAIL: test_malformed_and_wrong_subject_at_genuine_validate_boundary (test_m07_t05_readback_cleanup.ReadbackCleanupTests.test_malformed_and_wrong_subject_at_genuine_validate_boundary) (appended='{broken')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_readback_cleanup.py", line 57, in test_malformed_and_wrong_subject_at_genuine_validate_boundary
+    self.assertTrue(any('guarded-dispatch' in str(c) for c in calls))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_malformed_and_wrong_subject_at_genuine_validate_boundary (test_m07_t05_readback_cleanup.ReadbackCleanupTests.test_malformed_and_wrong_subject_at_genuine_validate_boundary) (appended='{"test_id": "another", "kind": "terminal", "status": "aborted"}')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_readback_cleanup.py", line 57, in test_malformed_and_wrong_subject_at_genuine_validate_boundary
+    self.assertTrue(any('guarded-dispatch' in str(c) for c in calls))
+AssertionError: False is not true
+
+======================================================================
+FAIL: test_clamped_actual_snapshot_prevents_prompt_and_preserves_ids (test_m07_t05_validator_adapter.FourthReturnRegressionTests.test_clamped_actual_snapshot_prevents_prompt_and_preserves_ids)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_validator_adapter.py", line 1304, in test_clamped_actual_snapshot_prevents_prompt_and_preserves_ids
+    self.assertEqual(res["status"], "UNKNOWN")
+AssertionError: 'FAIL' != 'UNKNOWN'
+- FAIL
++ UNKNOWN
+
+
+======================================================================
+FAIL: test_third_return_regressions (test_m07_t05_validator_adapter.ProbeRegressionTests.test_third_return_regressions)
+Main third-return 11 probes as committed regression coverage.
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_validator_adapter.py", line 720, in test_third_return_regressions
+    self.assertEqual(res["status"], "PASS")
+AssertionError: 'FAIL' != 'PASS'
+- FAIL
++ PASS
+
+
+======================================================================
+FAIL: test_native_export_without_dispatch_is_not_smoke (test_m07_t05_validator_adapter.ValidatorMatrixTests.test_native_export_without_dispatch_is_not_smoke)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_m07_t05_validator_adapter.py", line 468, in test_native_export_without_dispatch_is_not_smoke
+    self.assertEqual(res["status"], "PASS")
+AssertionError: 'FAIL' != 'PASS'
+- FAIL
++ PASS
+
+
+======================================================================
+FAIL: test_cli_genuine_path (test_paseo_tower_validator.TowerValidatorGenuineTests.test_cli_genuine_path)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_paseo_tower_validator.py", line 969, in test_cli_genuine_path
+    self.assertEqual(rc, 0)
+AssertionError: 2 != 0
+
+======================================================================
+FAIL: test_false_guard_readback_fails (test_paseo_tower_validator.TowerValidatorGenuineTests.test_false_guard_readback_fails)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_paseo_tower_validator.py", line 912, in test_false_guard_readback_fails
+    self.assertIn('content readback mismatch', res.get('reason', '').lower())
+AssertionError: 'content readback mismatch' not found in 'frozen companion or validation-source binding mismatch'
+
+======================================================================
+FAIL: test_positive_fixture_through_genuine_api (test_paseo_tower_validator.TowerValidatorGenuineTests.test_positive_fixture_through_genuine_api)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_paseo_tower_validator.py", line 801, in test_positive_fixture_through_genuine_api
+    self.assertEqual(res["status"], "PASS")
+AssertionError: 'FAIL' != 'PASS'
+- FAIL
++ PASS
+
+
+======================================================================
+FAIL: test_real_mode_structurally_succeeds_under_fakes (test_paseo_tower_validator.TowerValidatorGenuineTests.test_real_mode_structurally_succeeds_under_fakes)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/worktrees/pi-unraid-paseo-update-distribution/tests/test_paseo_tower_validator.py", line 877, in test_real_mode_structurally_succeeds_under_fakes
+    self.assertEqual(res["status"], "PASS")
+AssertionError: 'FAIL' != 'PASS'
+- FAIL
++ PASS
+
+
+----------------------------------------------------------------------
+Ran 737 tests in 502.960s
+
+FAILED (failures=23, errors=4)
+{"record": "/tmp/tmpyt7wloyo/build-record.json", "tag": "pi-unraid:paseo-881b528282d7"}
+{"record": "/tmp/tmpxvau51a5/record.json", "retention": "/tmp/tmpxvau51a5/appdata/buildx/retention.json"}
+{"checks": {}, "cleanup": {"issues": [], "status": "COMPLETE"}, "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "execution_class": "fixture", "immutable_ref": "ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "real_reason": "fixture/rehearsal never satisfies final validation", "real_validation_satisfied": false, "reason": "prepared complete companion declaration mismatch", "repository": "ghcr.io/elmakus/pi-unraid", "schema_version": 2, "status": "FAIL", "subject": {"candidate_file_sha256": "sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec", "candidate_id": "sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80", "companion_bundle": null, "daemon_binding": null, "expected_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "expected_paseo_version": "0.9.2", "expected_pi_version": "0.87.1", "observed_image_id": null, "pi_binding": null, "policy_identity": null, "publication_image_id": "sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a", "repository": "ghcr.io/elmakus/pi-unraid", "version_source": "candidate:candidate.json"}, "terminal_class": "terminal"}
+{"state": "committed", "status": "GREEN"}

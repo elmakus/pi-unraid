@@ -1,0 +1,162 @@
+.....................................................F............................................................................................................................note: detached CLI records are diagnostic-only; production promotion requires in-process acquisition
+....promotion failed: detached gate records are diagnostic-only and cannot confer production promotion eligibility; production promotion requires in-process trusted acquisition via the acquisition bundle (CLI --final-gate files are diagnostic-only)
+............................................................................................................................{"acquisition": "detached-caller-records", "baseline_local_image_id": "sha256:7777777777777777777777777777777777777777777777777777777777777777", "baseline_oci": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "binding_digest": "sha256:a53f3089292ec9cb9f47df9272397cd68f8b009267408c50e7ac16343121eaa8", "candidate_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "candidate_id": "sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80", "candidate_local_image_id": "sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a", "companion_digest": "sha256:67e1543572b6b471da6525899766711812c281a3e40327b003e52ba289ba7199", "eligibility": "diagnostic-only", "execution_class": "real", "guard_binding_digest": "sha256:3f0f5ef60fef7ef6e7a9f9af33f2f0d893098bee450fe81aadbe4a8ed74cba44", "launcher_digest": "sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde", "policy_digest": "sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40", "predecessor": {"digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "kind": "oci", "repository": "ghcr.io/elmakus/pi-unraid"}, "real_validation_satisfied": true, "repository": "ghcr.io/elmakus/pi-unraid", "required_gates": {"applied_payload_interval": "PASS", "codex_auth": "PASS", "codex_catalog": "PASS", "codex_health": "PASS", "companion_binding": "PASS", "daemon_binding": "PASS", "frozen_chain": "PASS", "image_config": "PASS", "image_mapping": "PASS", "immutable_source_configuration": "PASS", "mount_isolation": "PASS", "muse_dispatch": "PASS", "muse_effective_config": "PASS", "muse_effective_profile": "PASS", "muse_effective_readback": "PASS", "muse_guard_readback": "PASS", "muse_owned_child": "PASS", "muse_policy_readback": "PASS", "muse_profile_preflight": "PASS", "network_isolation": "PASS", "pi_binding": "PASS", "policy_binding": "PASS", "registry_digest": "PASS", "runtime": "PASS", "secret_isolation": "PASS", "state.baseline_clone_isolated": "PASS", "state.candidate_state_mutation": "PASS", "state.direct_skip_path": "PASS", "state.previous_runtime_reopen": "PASS", "uid_gid": "PASS"}, "schema_version": 2, "source_head": "9752a887ee9286946162c97d5795ad852f6d45d6", "status": "GREEN"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmp9a2cpyq6/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+(empty)
+
+--- buildx stderr (progress) ---
+boom......{"record": "/tmp/tmpz4sovfr4/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+{"record": "/tmp/tmpf6mye7fw/record.json", "tag": ""}
+{"record": "/tmp/tmp0zzib16k/record.json", "tag": ""}
+{"record": "/tmp/tmpdcueip_9/record.json", "tag": ""}
+{"record": "/tmp/tmpi6rafdaj/record.json", "tag": ""}
+--- smoke: image_provenance ---
+ok
+--- smoke: persistence_ownership ---
+ok
+--- smoke: instruction_plane ---
+ok
+--- smoke: global_capabilities ---
+.test refused: record has no successful build phase
+test refused: build record is missing: /tmp/tmpj6ny1ct6/absent.json
+test refused: build record is not valid JSON: /tmp/tmpj6ny1ct6/broken.json
+.ok
+{"record": "/tmp/tmptmqcpxp6/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276", "test": "ok"}
+--- smoke: image_provenance ---
+ok
+--- smoke: persistence_ownership ---
+test failed: smoke failed: persistence_ownership (rc=1): ownership drift
+.--- smoke: image_provenance ---
+ok
+--- smoke: persistence_ownership ---
+ok
+--- smoke: instruction_plane ---
+ok
+--- smoke: global_capabilities ---
+..bounded prune refused: record builder 'pi-unraid-paseo' does not match 'pi-unraid-other'
+.bounded prune refused: record lacks a successful build and test; cleanup runs only after successful build/smoke
+bounded prune refused: record lacks a successful build and test; cleanup runs only after successful build/smoke
+bounded prune refused: record lacks a successful build and test; cleanup runs only after successful build/smoke
+.bounded prune refused: builder name is not an isolated namespace: 'default'
+bounded prune refused: builder name is not an isolated namespace: 'default'
+..............ok
+{"record": "/tmp/tmps6r3j7jx/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276", "test": "ok"}
+{"builder": "pi-unraid-paseo", "command": "prune", "duration_ms": 0, "keep_storage": "8GB", "reclaimed": "ok\n", "schema_version": 1}
+{"record": "/tmp/tmp1wx01au8/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+{"record": "/tmp/tmpv170votw/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+(empty)
+
+--- buildx stderr (progress) ---
+#1 [internal] load build definition from Dockerfile
+#1 DONE 0.0s
+#2 [internal] load metadata for ghcr.io/getpaseo/paseo
+#2 DONE 0.0s
+#3 [1/8] FROM ghcr.io/getpaseo/paseo@sha256:d413ff361bc4018d559da3d517a6d5a9eaca721fbb1b71ae8df3dcf7a965c136
+#3 CACHED
+#4 [2/8] RUN set -eux; apt-get update; apt-get install -y --no-install-recommends build-essential
+#4 CACHED
+#5 [3/8] RUN set -eux; npm install -g --ignore-scripts playwright@1.63.0
+#5 CACHED
+#6 [4/8] RUN set -eux; npm install -g --ignore-scripts @earendil-works/pi-coding-agent@0.87.1
+#6 CACHED
+#7 [5/8] RUN set -eux; curl -fsSL https://github.com/cli/cli/releases/download/v2.101.0/gh.tar.gz
+#7 CACHED
+#8 [6/8] RUN set -eux; curl -fsSL https://download.docker.com/linux/static/stable/x86_64/docker-29.8.1.tgz
+#8 CACHED
+#9 [7/8] RUN set -eux; curl -fsSL https://github.com/docker/compose/releases/download/v5.5.1/docker-compose
+#9 CACHED
+#10 [8/8] WORKDIR /workspace
+#10 CACHED
+#11 exporting to image
+#11 DONE 0.4s
+.build refused: --with-prune requires --with-smoke (cleanup only after successful build/smoke)
+..bounded prune refused: keep-storage bound is invalid: 'all'
+.{"record": "/tmp/tmpo1vyk5hl/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+{"record": "/tmp/tmp2y0v7xyk/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmpccqwj418/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+..{"record": "/tmp/tmp1btkvd2l/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+--- smoke: image_provenance ---
+--- smoke: persistence_ownership ---
+--- smoke: instruction_plane ---
+--- smoke: global_capabilities ---
+.usage: python3 -m unittest prune [-h] --record RECORD [--builder BUILDER]
+                                 [--state-dir STATE_DIR]
+                                 [--keep-storage KEEP_STORAGE]
+python3 -m unittest prune: error: the following arguments are required: --record
+.....usage: paseo_candidate_build.py package [-h] --candidate CANDIDATE
+                                        --handoff-evidence HANDOFF_EVIDENCE
+                                        --build-record BUILD_RECORD --archive
+                                        ARCHIVE --evidence EVIDENCE
+                                        --source-head SOURCE_HEAD
+                                        --build-input BUILD_INPUT
+paseo_candidate_build.py package: error: the following arguments are required: --build-input
+........................................................{"record": "/tmp/tmpkdcrrk8x/record.json", "tag": "pi-unraid:paseo-b4e0c1e7c276"}
+{"record": "/tmp/tmph712jils/build-record.json", "tag": ""}
+{"record": "/tmp/tmph712jils/build-record.json", "tag": ""}
+{"record": "/tmp/tmph712jils/build-record.json", "tag": ""}
+{"record": "/tmp/tmph712jils/build-record.json", "tag": ""}
+{"record": "/tmp/tmplef25hzn/build-record.json", "tag": ""}
+{"record": "/tmp/tmplef25hzn/build-record.json", "tag": ""}
+{"record": "/tmp/tmplef25hzn/build-record.json", "tag": ""}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmpze76xrkj/build-record.json", "tag": "pi-unraid:paseo-881b528282d7"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.{"record": "/tmp/tmpkdbwdxor/build-record.json", "tag": "pi-unraid:paseo-881b528282d7"}
+--- buildx stdout (tail) ---
+done
+--- buildx stderr (progress) ---
+(empty)
+.......................................................................................................................paseo rpc-workspace error: failure report unwritable ([Errno 2] No such file or directory: '/tmp/tmpp85bo95o/missing-dir/spawn.json'); payload: {
+  "card": "M06-T01",
+  "error": "original",
+  "full_green_claimed": false,
+  "outcome": "failed",
+  "production_mutation": false,
+  "scope": "disposable"
+}
+
+.....................................................................................................................................................................................................................
+======================================================================
+FAIL: test_every_declared_member_byte_drift_after_catalog (test_m07_t05_applied_interval.AppliedIntervalTests.test_every_declared_member_byte_drift_after_catalog) (member='extensions/m07-t05-witness.js')
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/home/paseo/pud-full-8144bda-wt/tests/test_m07_t05_applied_interval.py", line 78, in test_every_declared_member_byte_drift_after_catalog
+    self.assertTrue(observed['mutated'])
+AssertionError: False is not true
+
+----------------------------------------------------------------------
+Ran 737 tests in 663.932s
+
+FAILED (failures=1)
+{"record": "/tmp/tmpf_dp5pd1/build-record.json", "tag": "pi-unraid:paseo-881b528282d7"}
+{"record": "/tmp/tmpanqtg6i5/record.json", "retention": "/tmp/tmpanqtg6i5/appdata/buildx/retention.json"}
+{"checks": {"applied_payload_interval": "PASS", "codex_auth": "PASS", "codex_catalog": "PASS", "codex_health": "PASS", "codex_no_inference": "PASS", "companion_binding": "PASS", "daemon_binding": "PASS", "frozen_chain": "PASS", "image_config": "PASS", "image_mapping": "PASS", "immutable_source_configuration": "PASS", "mount_isolation": "PASS", "muse_dispatch": "PASS", "muse_effective_config": "PASS", "muse_effective_profile": "PASS", "muse_effective_readback": "PASS", "muse_guard_readback": "PASS", "muse_owned_child": "PASS", "muse_policy_readback": "PASS", "muse_profile_preflight": "PASS", "network_isolation": "PASS", "pi_binding": "PASS", "policy_binding": "PASS", "registry_digest": "PASS", "runtime": "PASS", "secret_isolation": "PASS", "uid_gid": "PASS"}, "cleanup": {"issues": [], "status": "COMPLETE"}, "digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "execution_class": "fixture", "immutable_ref": "ghcr.io/elmakus/pi-unraid@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "real_reason": "fixture/rehearsal never satisfies final validation", "real_validation_satisfied": false, "repository": "ghcr.io/elmakus/pi-unraid", "schema_version": 2, "status": "PASS", "subject": {"applied_interval": {"manifest_sha256": "6541d8489e6a36804f299b60bbb5dee7cfd347be7241c1bde7c270a0bdd1a5dd", "nonce": "0551dd5e0fe01a7b", "pid": 1082104, "schema_version": 1, "socket": "/home/paseo/.m07-t05/applied.json.sock", "start": "139493320"}, "applied_interval_observation": {"bound": true, "nonce": "0551dd5e0fe01a7b", "pid": 1082104}, "archive_binding": {"kind": "docker_save", "local_image_id": "sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a", "sha256": "sha256:34f4f0e1fe7d786c8d07076de07aa8f60a02f9c771fe82b108abd589e5852aa0"}, "artifact_bytes": {"build": "sha256:0de3b321b69e80c6b68f0df13a08e126eafa27a093725a43758e8acacd6cb107", "candidate": "sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec", "handoff": "sha256:5701b32081fd865d70060f01ca7b03f557e131063f769434019ef40689a15e14", "prepared": "sha256:2f0222c98c43398350b9b508bd1effa74bb47f02fb7ba2389fe90fb9f523f368", "publication": "sha256:82879831c9e232314958ded68e1680dbd90f76eea7c8307b4cde00745624432a", "tested": "sha256:01912066b6aba7ff674567d73118baa6d867576cc57ba1a46b8842f8f4201a00"}, "build_configuration": {"kind": "buildx_command", "sha256": "sha256:f76f73b0aab259b59fb006ef4f2cd3c2f5732d19debfbeb807ee4a5b36ba7f96"}, "candidate_file_sha256": "sha256:98f0e3693f0726e946c1ada2ea0b5e5f6fd37f49e5207c6cc5cfce0d8f01adec", "candidate_id": "sha256:1875e77f9a5fe5c2d794d562474b4d02d06cb29bfb47f3895d018b079b72ac80", "candidate_readback_reference": "/home/paseo/.m07-t05/owned.json", "companion_bundle": {"files": 19, "source": "config/pi-agent", "source_digest": "sha256:67e1543572b6b471da6525899766711812c281a3e40327b003e52ba289ba7199"}, "daemon_binding": {"endpoint": "127.0.0.1:43333", "home": "/home/paseo/.paseo", "node": "/usr/local/bin/node", "pid": 1082114, "server_id": "ea109c7f-d879-498b-83bc-695d3e730567", "version": "0.9.2", "worker_pid": 1082114}, "expected_digest": "sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd", "expected_paseo_version": "0.9.2", "expected_pi_version": "0.87.1", "image_pi_label": "0.87.1", "launcher_identity": {"path": "config/pi-agent/bin/run-llm-test.sh", "sha256": "sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde"}, "muse_effective_config": {"changed": true, "effective": {"bytes": 198, "mode": "0600", "path": "models.json", "sha256": "sha256:5ee60ec9591e5881aab5835af2577d4fa08ad7a6cd029b24de210b01d111464e"}, "fragment": {"mode": "0644", "sha256": "sha256:5ee60ec9591e5881aab5835af2577d4fa08ad7a6cd029b24de210b01d111464e"}}, "muse_effective_readback": {"mode": "0600", "sha256": "sha256:5ee60ec9591e5881aab5835af2577d4fa08ad7a6cd029b24de210b01d111464e"}, "muse_native_shape": "export-only (not dispatch)", "muse_observed_effective": {"effort": "max", "model": "muse-spark-1.3-contributor", "provider": "meta", "thinking": "max"}, "muse_owned_child": {"id": "572fd7c9-e22f-4d1a-a55b-a3ab80d33f4b", "process": {"agent_id": "572fd7c9-e22f-4d1a-a55b-a3ab80d33f4b", "auth_inherited": true, "executable": "/usr/local/bin/pi", "file_identity": "76:12314156", "parent_start_time": "139493359", "pid": 1082305, "ppid": 1082114, "server_id": "ea109c7f-d879-498b-83bc-695d3e730567", "sha256": "sha256:a936dd487c47c47388ccbca171959fe40cb2ef25705eb30b326efbf02cb36330", "start_time": "139493633", "test_id": "m07t05-0551dd5e0fe01a7b", "workspace_id": "wks_7e7945ebdbd276b7"}, "source": "actual native creation and effective snapshot readback", "thinking": "max", "workspace_id": "wks_7e7945ebdbd276b7"}, "muse_profile_preflight": {"model": "meta/muse-spark-1.3-contributor", "source": "candidate-daemon provider models (non-inference)", "thinking": "max"}, "muse_witness_events": 5, "observed_image_id": "sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a", "observed_running_image": "sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a", "owned_runtime": {"agent_id": "572fd7c9-e22f-4d1a-a55b-a3ab80d33f4b", "agent_request_id": "39822b05-0a51-41af-a74b-dc0b24cf6289", "daemon": {"endpoint": "127.0.0.1:43333", "home": "/home/paseo/.paseo", "node": "/usr/local/bin/node", "pid": 1082114, "server_id": "ea109c7f-d879-498b-83bc-695d3e730567", "version": "0.9.2", "worker_pid": 1082114}, "dispatch": "settled", "message_id": "0338726d-a860-43d9-a7aa-908fe9003fa6", "process": {"agent_id": "572fd7c9-e22f-4d1a-a55b-a3ab80d33f4b", "auth_inherited": true, "executable": "/usr/local/bin/pi", "file_identity": "76:12314156", "parent_start_time": "139493359", "pid": 1082305, "ppid": 1082114, "server_id": "ea109c7f-d879-498b-83bc-695d3e730567", "sha256": "sha256:a936dd487c47c47388ccbca171959fe40cb2ef25705eb30b326efbf02cb36330", "start_time": "139493633", "test_id": "m07t05-0551dd5e0fe01a7b", "workspace_id": "wks_7e7945ebdbd276b7"}, "reference": "/home/paseo/.m07-t05/owned.json", "replay": false, "requested_agent_id": "572fd7c9-e22f-4d1a-a55b-a3ab80d33f4b", "requested_workspace_id": "wks_7e7945ebdbd276b7", "schema_version": 1, "status": "PASS", "test_id": "m07t05-0551dd5e0fe01a7b", "workspace_id": "wks_7e7945ebdbd276b7", "workspace_request_id": "78488668-b924-4a68-be0c-6dbfc08d898e"}, "owned_test": "/tmp/tmph4rx8fme/st/candidate-binpve5a/test-0551dd5e0fe01a7b.json", "pi_binding": {"path": "/usr/local/bin/pi", "sha256": "sha256:a936dd487c47c47388ccbca171959fe40cb2ef25705eb30b326efbf02cb36330", "version": "0.87.1"}, "policy_identity": {"path": "config/pi-agent/policies/llm-test-policy.json", "sha256": "sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40"}, "publication_image_id": "sha256:ec2200501744cf40b275a04bf3334d9348f39e0f102d91950e9d013050632b6a", "repository": "ghcr.io/elmakus/pi-unraid", "source_binding": {"commit_sha256": "sha256:c229b1986faf4a4fc69303f3060e794db6cf50e23810b46ab7adc02c03271f64", "files": 101, "head": "b9cc621618ae5ace5f01a5dcf22ae58129ffd6da", "kind": "git_commit", "parent": "12ec5e9a667923a4cef950aa7696bdef0e705d59", "ref": "refs/heads/main", "tree": "054c03ad5129b64f977e53149b2a1f1342a1356d"}, "staged_identities": {"candidate-env": "sha256:c612676ac1103c12f91058be943aa0d3033102cd552358f2d70ca2aaa42e913a", "paseo_codex_candidate_check.py": "sha256:e04457c6173b2f85936c05aec7a9d197d6bfbc5059382aba5499d55a9a4dd215", "paseo_codex_noninference.py": "sha256:c94a3d279eaa8255f45afc83c387d40ead924e1ab545467217e82a266d7929fe", "witness": "sha256:0ab5abab5214aca7ddb25185944de32d2fc60dbc3a71f3e46409a4d14732fdd7"}, "version_source": "candidate:candidate.json"}, "terminal_class": "terminal"}
+{"state": "committed", "status": "GREEN"}
