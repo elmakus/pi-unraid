@@ -729,6 +729,7 @@ def cmd_build(args: argparse.Namespace) -> int:
                     raise BuildxError('prepared configuration changed during smoke dispatch')
             recorder.record("test", "ok", int((time.monotonic() - begin) * 1000), detail)
         except (BuildxError, subprocess.TimeoutExpired) as exc:
+            print(f"test failed: {exc}", file=sys.stderr, flush=True)
             recorder.record("test", "failed", int((time.monotonic() - begin) * 1000),
                             {"error": str(exc)})
             recorder.skip_rest(["prune"], "prior phase failed")
