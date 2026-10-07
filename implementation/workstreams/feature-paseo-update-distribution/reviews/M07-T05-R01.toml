@@ -1,8 +1,8 @@
 workstream_id = "feature-paseo-update-distribution"
 card_id = "M07-T05"
 attempt = "R01"
-verdict = "pending"
-evidence_path = ""
+verdict = "green"
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-R01-independent-review-2026-10-07.md"
 
 [subject]
 class = "git_blob"
@@ -19,4 +19,4 @@ blob = "658fffe1d9d547a1a1525194628cdc2414ccc524"
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "Pending R01 requires a fresh independent context that did not materially author or repair the exact result, declared implementation or acceptance surface. All producing/repair contexts are excluded. The reviewer must independently recover and challenge these immutable bindings and the full stable acceptance; no verdict or completed independence qualification is claimed by freezing this attempt. Runtime identity is not independence evidence."
+basis = "R01 independently reviewed the exact result blob, declared implementation and unchanged stable acceptance in a fresh context that did not materially author, implement or repair them. Reviewer verified exact bindings, full acceptance with genuine synthetic controls, safety and limitation classification; terminal evidence is elmakus/pi-unraid@e1159b00b8e56e1d7fa36309590d6d040cf16e20:implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-R01-independent-review-2026-10-07.md@0979068e96b9f55f2dda351b1e94afc69fe44772. No runtime identity substitutes for semantic independence."
