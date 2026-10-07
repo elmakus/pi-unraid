@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 123
+revision = 124
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -559,7 +559,7 @@ condition = "M07-T06 final-gate/first-exposure/legacy transaction compatibility 
 
 [[cards]]
 id = "M07-T05A"
-status = "ready"
+status = "in_progress"
 
 [cards.contract]
 class = "task_card"
