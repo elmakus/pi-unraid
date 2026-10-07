@@ -1,5 +1,5 @@
 workstream_id = "feature-paseo-update-distribution"
-revision = 132
+revision = 133
 
 [execution_ref]
 branch = "feat/paseo-update-distribution"
@@ -600,8 +600,16 @@ path = "implementation/workstreams/feature-paseo-update-distribution/reviews/M07
 [[jit_triggers]]
 id = "after-M07-T06-materialize-M07-T07"
 after_card = "M07-T06"
-state = "satisfied"
+state = "consumed"
 condition = "M07-T07 fresh exact artifact/autonomous rehearsal requires exact independently GREEN DONE M07-T06 trusted-consumer/first-channel/legacy/action result plus exact M07-T05A delivery identities. Refresh current build/source/companion/bootstrap inputs and changed-gate evidence before materialization; no old artifact or fixture gate can supply final real acceptance."
+
+[[cards]]
+id = "M07-T07"
+status = "ready"
+
+[cards.contract]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T07.md"
 
 [[cards]]
 id = "M08-T01"
