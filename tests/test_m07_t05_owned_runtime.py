@@ -48,7 +48,13 @@ class OwnedRuntimeFixture:
             target = self.agent / rel
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(self.translate(content))
-            target.chmod(0o755 if rel.parts[0] == 'bin' else 0o644)
+            # M07-T05A: the derived effective models.json Pi reads is 0600
+            # (narrow merge product, never a companion 0644). Preserve it;
+            # all other instruction files keep managed modes (bin/* 0755).
+            if rel.as_posix() == 'models.json':
+                target.chmod(0o600)
+            else:
+                target.chmod(0o755 if rel.parts[0] == 'bin' else 0o644)
         node = T._find_node()
         if node is None:
             raise RuntimeError('Node required; no hidden skip')

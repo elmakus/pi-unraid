@@ -1324,24 +1324,15 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 if uncertain:
                     raise ValidationUnknown('applied interval uncertain after possible effects; no replay') from exc
                 raise ValidationError('applied companion interval changed or unavailable') from exc
-            # Continuous effective binding: the kernel interval already
-            # watches the derived file (staged rows include it); this
-            # readback proves candidate-visible bytes/modes still match.
-            _exp = _muse_effective_holder.get("expected")
-            if _exp is not None:
-                try:
-                    _h, _m = _readback_file('/home/paseo/.pi/agent/models.json', what='effective models config')
-                except ValidationError as exc:
-                    result['checks']['muse_effective_readback'] = 'UNKNOWN' if uncertain else 'FAIL'
-                    if uncertain:
-                        raise ValidationUnknown('effective config uncertain after possible effects; no replay') from exc
-                    raise
-                _norm = _h if _h.startswith("sha256:") else "sha256:" + _h
-                if _norm != _exp["sha256"] or _m.zfill(4) != "0600":
-                    result['checks']['muse_effective_readback'] = 'UNKNOWN' if uncertain else 'FAIL'
-                    if uncertain:
-                        raise ValidationUnknown('effective config changed after dispatch; no replay') from None
-                    raise ValidationError("candidate effective config changed during interval")
+            # M07-T05A continuity note: the kernel-backed interval rows
+            # staged above include the derived effective models.json when
+            # present, so this single source-frozen inotify+snapshot check
+            # re-verifies effective bytes/modes/set at every boundary with
+            # no second transport per boundary. Initial binding was proven
+            # in the effective readback block; one final confirmation
+            # re-reads before terminal marking (see muse_effective_final).
+            # Write-and-restore is caught by the interval event mask even
+            # when bytes compare equal, which hash comparison alone misses.
 
         if expected_paseo is not None:
             adap.stage_private_runtime(work / 'home', uid=uid, gid=gid)
@@ -1418,12 +1409,14 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 result["subject"]["muse_effective_readback"] = muse_effective_expected
                 result["checks"]["muse_effective_readback"] = "PASS"
 
-        def muse_effective_check(*, uncertain=False):
-            """Re-verify effective bytes/modes continuously; fail closed.
+        def muse_effective_final(*, uncertain=False):
+            """One terminal confirmation re-read before marking.
 
-            Alias preserving the M07-T05A product entrypoint: the same
-            verification already runs inside applied_check() at every
-            acquisition/preflight/dispatch/completion boundary.
+            Continuity itself is proven by the kernel-backed interval rows
+            at every boundary (see applied_check); this single readback
+            confirms the candidate-visible terminal bytes/modes still match
+            the host-staged merge record. Write-and-restore anywhere in the
+            interval already invalidated the rows irreversibly.
             """
             _exp = _muse_effective_holder.get("expected")
             if _exp is None:
@@ -1654,6 +1647,7 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
         result["subject"]["owned_test"] = owned_test_path
         if applied_code is not None:
             applied_check(uncertain=dispatch_summary is not None)
+            muse_effective_final(uncertain=dispatch_summary is not None)
             result['checks']['applied_payload_interval'] = 'PASS'
         # Real-mode gate: the path EXISTS structurally (not hardcoded false).
         if real_mode:

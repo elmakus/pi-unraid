@@ -39,6 +39,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -622,6 +623,148 @@ class CompanionInstructionPlaneTests(unittest.TestCase):
         old = dict(ident, source_digest="sha256:" + "0" * 64)
         with self.assertRaises(BUILD.CandidateBuildError):
             BUILD.verify_companion_binding(ROOT, old)
+
+
+class ValidatorReachableTests(unittest.TestCase):
+    """Producer→stage/merge→candidate config→profile→dispatch→completion.
+
+    Genuine validator API with the executing fake Docker harness (same as
+    M07-T05 matrix: staged guard/programs REALLY execute locally;
+    daemon/Pi outputs canned at the fake-daemon boundary and parsed for
+    real). Negatives assert required failure + absence of disallowed calls
+    BEFORE cleanup. No real inference/auth/HOME mutation.
+    """
+
+    def _harness(self):
+        H = _load("m05a_harness", "tests/test_m07_t05_validator_adapter.py")
+        return H, H.T
+
+    def _run(self, td: Path, *, mutate=None, boundary="catalog",
+             execution_class="fixture", extra_state=None):
+        # Patch HT (H.T), the exact harness module object H._run_validate
+        # calls for make_fake_docker/LocalCodexServer. A separately loaded
+        # tower-harness copy would leave the mutation factory unwired and
+        # negatives would never reach their mutation.
+        H, HT = self._harness()
+        original = HT.make_fake_docker
+        observed = {"mutated": False}
+        with HT.LocalCodexServer() as server:
+            def factory(*args, **kwargs):
+                external = original(*args, **kwargs)
+                state = kwargs["state"]
+                def run(argv, **options):
+                    outcome = external(argv, **options)
+                    after = (boundary == "catalog" and "provider" in argv and "models" in argv
+                             or boundary == "readback" and "file-readback" in str(argv[-1])
+                             or boundary == "completion" and "--candidate-owned" in str(argv[-1]))
+                    if mutate and after and not observed["mutated"]:
+                        mutate(state["_owned_runtime"])
+                        observed["mutated"] = True
+                    return outcome
+                return run
+            with mock.patch.object(HT, "make_fake_docker", side_effect=factory):
+                result, calls, state = H._run_validate(
+                    Path(td), server_base=server.base,
+                    execution_class=execution_class,
+                    extra_state=extra_state)
+            runtime = state.get("_owned_runtime")
+            methods = state.get("runtime_calls_before_cleanup", runtime.calls() if runtime else [])
+            if runtime:
+                try:
+                    runtime.close()
+                except Exception:
+                    pass
+            return result, calls, methods, observed
+
+    def test_positive_fixture_reaches_dispatch_with_effective(self):
+        with tempfile.TemporaryDirectory() as td:
+            result, calls, methods, _ = self._run(Path(td))
+            self.assertEqual(result["status"], "PASS", result.get("reason"))
+            self.assertFalse(result["real_validation_satisfied"])
+            self.assertEqual(result["execution_class"], "fixture")
+            # Effective delivery bound through the guarded interval.
+            self.assertEqual(result["checks"].get("muse_effective_config"), "PASS")
+            self.assertEqual(result["checks"].get("muse_effective_readback"), "PASS")
+            self.assertEqual(result["checks"].get("muse_profile_preflight"), "PASS")
+            self.assertEqual(result["checks"].get("muse_dispatch"), "PASS")
+            self.assertEqual(result["checks"].get("applied_payload_interval"), "PASS")
+            eff = result["subject"].get("muse_effective_config", {}).get("effective", {})
+            self.assertTrue(str(eff.get("sha256", "")).startswith("sha256:"))
+            self.assertEqual(eff.get("mode"), "0600")
+            # Exactly one fake prompt/transport on the positive control.
+            self.assertEqual(methods.count("prompt"), 1)
+            self.assertEqual(methods.count("fake-transport"), 1)
+            # Secret-safe: no credential values in result or calls.
+            blob = json.dumps(result) + " ".join(" ".join(c) for c in calls)
+            self.assertNotIn("fixture-meta", blob)
+            self.assertNotIn("fixture-codex", blob)
+
+    def _mutate_and_assert_fail_before_transport(self, mutate, *, boundary="catalog"):
+        with tempfile.TemporaryDirectory() as td:
+            result, calls, methods, observed = self._run(
+                Path(td), mutate=mutate, boundary=boundary)
+            self.assertTrue(
+                observed["mutated"],
+                f"mutation never reached (status={result['status']!r} "
+                f"reason={result.get('reason', '')[:300]!r} "
+                f"checks={[k for k, v in result.get('checks', {}).items() if v != 'PASS']})",
+            )
+            self.assertEqual(result["status"], "FAIL", result.get("reason"))
+            self.assertFalse(result["real_validation_satisfied"])
+            self.assertNotIn("prompt", methods)
+            self.assertNotIn("fake-transport", methods)
+            self.assertFalse(any("--candidate-owned" in str(c[-1]) for c in calls))
+            return result
+
+    def test_post_preflight_fragment_byte_drift_rejects(self):
+        def mutate(runtime):
+            f = runtime.agent / "models.muse-max-override.json"
+            f.write_bytes(f.read_bytes() + b"\n# synthetic drift\n")
+        self._mutate_and_assert_fail_before_transport(mutate)
+
+    def test_post_preflight_effective_byte_drift_rejects(self):
+        def mutate(runtime):
+            f = runtime.agent / "models.json"
+            f.write_bytes(f.read_bytes() + b" ")
+        self._mutate_and_assert_fail_before_transport(mutate)
+
+    def test_post_preflight_effective_write_restore_rejects(self):
+        def mutate(runtime):
+            f = runtime.agent / "models.json"
+            raw = f.read_bytes()
+            f.write_bytes(raw + b"\n# transient\n")
+            f.write_bytes(raw)
+        self._mutate_and_assert_fail_before_transport(mutate, boundary="readback")
+
+    def test_post_preflight_effective_substitution_rejects(self):
+        def subst(runtime):
+            f = runtime.agent / "models.json"
+            raw = f.read_bytes()
+            outside = runtime.root / "unowned-models"
+            outside.write_bytes(raw)
+            f.unlink()
+            f.symlink_to(outside)
+        self._mutate_and_assert_fail_before_transport(subst)
+
+    def test_post_preflight_effective_missing_rejects(self):
+        def missing(runtime):
+            (runtime.agent / "models.json").unlink()
+        self._mutate_and_assert_fail_before_transport(missing)
+
+    def test_post_preflight_effective_wrong_value_rejects(self):
+        def wrong(runtime):
+            doc = json.loads((runtime.agent / "models.json").read_text())
+            doc["providers"]["meta"]["modelOverrides"]["muse-spark-1.3-contributor"]["thinkingLevelMap"]["max"] = None
+            (runtime.agent / "models.json").write_text(json.dumps(doc))
+        self._mutate_and_assert_fail_before_transport(wrong)
+
+    def test_uncertainty_after_dispatch_retains_nonreplay(self):
+        with tempfile.TemporaryDirectory() as td:
+            result, calls, methods, _ = self._run(
+                Path(td), execution_class="fixture",
+                extra_state={"runtime_fault": {"prompt_uncertain": True}})
+            self.assertEqual(result["status"], "UNKNOWN", result.get("reason"))
+            self.assertFalse(result["real_validation_satisfied"])
 
 
 if __name__ == "__main__":
