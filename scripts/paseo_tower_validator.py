@@ -147,13 +147,20 @@ def _positive_absence(proc, identity: str, *, network=False) -> bool:
     if getattr(proc, 'returncode', 0) != 1:
         return False
     text = (getattr(proc, 'stderr', '') or '').strip()
+    out = (getattr(proc, 'stdout', '') or '').strip()
+    # Tower Docker 27.5.1 prints an empty JSON array to stdout alongside the
+    # exact daemon error for absent networks/containers; GitHub runners print
+    # empty stdout. Both prove verified absence when returncode and stderr match
+    # exactly; any other stdout content remains unverified.
+    if out not in ('', '[]'):
+        return False
     if network:
         expected = {f'Error response from daemon: network {identity} not found',
                     f'Error: No such network: {identity}'}
     else:
         expected = {f'Error: No such object: {identity}',
                     f'Error response from daemon: No such container: {identity}'}
-    return text in expected and not (getattr(proc, 'stdout', '') or '').strip()
+    return text in expected
 
 
 def immutable_ref(repository, digest):
