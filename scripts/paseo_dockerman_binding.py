@@ -69,18 +69,49 @@ def update_and_verify(guard_path: Path, binding: str,
                       verify_recovery: Callable[[str], bool],
                       *, attempts: int = 120, interval: float = 1.0,
                       sleeper: Callable[[float], None] = sleep) -> dict:
-    """Single Update + Verify fallback action.
+    """Single Update + Verify fallback action with crash-safe trigger intent.
 
-    The action owns both sides of the lifecycle: validate the durable armed guard,
-    trigger the update only after that validation, then remain attached to the
-    restartable observer until immediate acceptance reaches a terminal result.
+    The action owns both sides of the lifecycle: validate the durable
+    armed guard, persist a narrow guard-local trigger intent, trigger
+    the update only after that validation, then remain attached to the
+    restartable observer until immediate acceptance reaches a terminal
+    result. A restart that finds a durable intent for the same binding
+    never reissues the trigger: it reads back the uncertain occurrence
+    and observes instead. Interruption before the intent leaves no
+    record (safe to trigger); interruption after the intent observes
+    only. No universal action ledger is introduced.
     """
+    from scripts.paseo_trigger_intent import TriggerIntentError, readback, record as record_intent
     g=load(guard_path)
     if g['binding_digest'] != binding:
         raise DockerManBindingError('stale transaction binding')
     if g['state'] != 'armed':
+        # A committed/recovered guard that restarts here must not
+        # re-trigger: delegate to the terminal-state readback so
+        # post-GREEN rollback stays denied and RED stays recovered.
+        if g['state'] in ('committed','recovered'):
+            return run_transaction(guard_path,binding,probes,restore_predecessor,verify_recovery)
         raise DockerManBindingError('Update + Verify requires an armed guard')
-    trigger_update()
+    try:
+        existing = readback(guard_path, binding)
+    except TriggerIntentError as exc:
+        raise DockerManBindingError(f'uncertain trigger occurrence; observe, never reissue: {exc}') from exc
+    if existing is None:
+        try:
+            record_intent(guard_path, binding)
+        except TriggerIntentError as exc:
+            raise DockerManBindingError(f'uncertain trigger occurrence; observe, never reissue: {exc}') from exc
+        try:
+            trigger_update()
+        except Exception:
+            # The intent is durable: trigger occurrence is now uncertain.
+            # The caller restarts into the observer below instead of
+            # blindly reissuing a second update.
+            return wait_for_stock_update(
+                guard_path,binding,inspect_digest,probes,restore_predecessor,verify_recovery,
+                attempts=attempts,interval=interval,sleeper=sleeper)
+    # Intent exists (this attempt or a pre-restart attempt): never
+    # re-trigger an uncertain update; observe the authoritative state.
     return wait_for_stock_update(
         guard_path,binding,inspect_digest,probes,restore_predecessor,verify_recovery,
         attempts=attempts,interval=interval,sleeper=sleeper)

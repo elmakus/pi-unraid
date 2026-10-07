@@ -37,6 +37,51 @@ def rotate(ledger, new):
         raise ValueError("stale known-good identity cannot become a new current")
     return {"current":new,"previous_1":ledger["current"],"previous_2":ledger["previous_1"]}
 
+
+def commit_on_terminal(ledger, new, *, transaction_status):
+    """Rotate the one coherent ledger only on terminal GREEN/committed.
+
+    Rejected (RED/recovered), uncertain (UNKNOWN/BLOCKED) or any
+    non-terminal transaction never rotates: the current plus exactly two
+    previous anchors are protected and no second ledger is introduced.
+    """
+    status = str(transaction_status or "").strip().upper()
+    if status in ("GREEN", "COMMITTED"):
+        return rotate(ledger, new)
+    if status in ("RED", "RECOVERED", "UNKNOWN", "BLOCKED", "FAIL"):
+        raise ValueError(f"ledger never rotates on {status} transactions")
+    raise ValueError(f"unknown transaction status: {transaction_status!r}")
+
+
+def migrate_with_predecessor(ledger, new, *, predecessor_mapping,
+                             transaction_status):
+    """Coherently migrate existing records with a typed predecessor.
+
+    The typed mapping (oci/local/legacy) must bind the ledger current
+    value by value equality; the kind distinguishes the OCI manifest
+    namespace from the platform image-ID namespace. Unknown, multiple
+    or wrong-repository mappings fail closed. Rotation still occurs
+    only on terminal GREEN via commit_on_terminal.
+    """
+    if not isinstance(predecessor_mapping, dict):
+        raise ValueError("predecessor mapping must be an object")
+    kind = predecessor_mapping.get("kind")
+    if kind not in ("oci", "local", "legacy"):
+        raise ValueError("unsupported predecessor kind")
+    if kind == "oci":
+        value = predecessor_mapping.get("digest")
+    else:
+        value = predecessor_mapping.get("image_id")
+    digest(value)
+    if value != ledger["current"]:
+        raise ValueError("predecessor mapping mismatch vs ledger current")
+    if kind == "legacy":
+        for key in ("archive_sha256", "config_digest"):
+            digest(predecessor_mapping.get(key))
+        if not predecessor_mapping.get("archive_path") or not predecessor_mapping.get("state_identity"):
+            raise ValueError("legacy predecessor anchor/state is missing")
+    return commit_on_terminal(ledger, new, transaction_status=transaction_status)
+
 def guard_input(candidate, ledger, config_sha256, rollback_anchor):
     digest(candidate); digest(ledger["current"])
     if candidate == ledger["current"]: raise ValueError("candidate equals current")
