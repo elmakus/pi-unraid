@@ -60,9 +60,13 @@ bash "$repo_root/scripts/configure-pi-instruction-plane.sh" apply "$image" "$fix
 # the fixture must not copy ambient/ordinary HOME models/auth. This synthetic
 # file carries only the ${CODEX_LB_API_KEY} reference (no secret value) and an
 # unroutable fake baseUrl; catalog refresh warns and keeps current catalog,
-# while get_state RPC proceeds. Mode 0600 matches production models.json.
-mkdir -p "$fixture/home/.pi/agent"
-cat > "$fixture/home/.pi/agent/models.json" <<'EOF'
+# while get_state RPC proceeds. Mode 0600 + 99:100 matches production.
+# Host runner cannot write to the 99:100-owned fixture home (0755), so stage
+# via container-as-root (bypasses host permission) then chown to runtime.
+docker run --rm --user 0:0 \
+  -v "$fixture/home:/home/paseo" \
+  "$image" sh -ec '
+cat > /home/paseo/.pi/agent/models.json <<'"'"'EOF'"'"'
 {
   "providers": {
     "codex-lb": {
@@ -73,10 +77,10 @@ cat > "$fixture/home/.pi/agent/models.json" <<'EOF'
   }
 }
 EOF
-chmod 0600 "$fixture/home/.pi/agent/models.json"
-# Ownership must match production (99:100) for 0600 to remain readable by
-# the disposable candidate runtime (UID:GID); host-created files otherwise
-# stay root/runner-owned and unreadable, reproducing the original failure.
+chmod 0600 /home/paseo/.pi/agent/models.json
+'
+# Ownership must match production for 0600 readability; separate host-expanded
+# chown avoids inner-shell variable expansion and preserves UID:GID overrides.
 docker run --rm --user 0:0 --entrypoint chown \
   -v "$fixture:/fixture" \
   "$image" "$uid:$gid" /fixture/home/.pi/agent/models.json
