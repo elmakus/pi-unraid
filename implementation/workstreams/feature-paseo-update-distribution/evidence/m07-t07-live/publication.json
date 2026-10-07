@@ -1,0 +1,19 @@
+{
+  "accepted_candidate_id": "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69",
+  "build_record_sha256": "sha256:298be24426b935915d907422a6d4e2eb3cc2e131bc8549c376da430d077ecded",
+  "candidate_file_sha256": "sha256:7bf6eb8e42faf3901b4522e13e98486f760cf043f178dfb5569c9dccc7eba7ec",
+  "candidate_id": "sha256:6f1e3b5ccbfaa1b32718dc0c4d5d57d35cbd0d7dbea20e9566fa128419569068",
+  "candidate_ref": "ghcr.io/elmakus/pi-unraid:candidate-6f1e3b5ccbfaa1b32718dc0c4d5d57d35cbd0d7dbea20e9566fa128419569068",
+  "digest": "sha256:b1dde88915ef68ec80f4a68e7194064dd1b688e6972b602e9d1f125b6f52e52b",
+  "discovery_source_ref": "refs/heads/feat/paseo-update-distribution",
+  "discovery_source_sha": "b397464acadd2d8495b8037633c94607de862157",
+  "handoff_evidence_sha256": "sha256:c0adea080a543f8f2d117030f2e5e3ab91f7fccf7ebcd0e21b7517a68de98e1c",
+  "image_archive_sha256": "sha256:313aca490e854a4767f2b3e44ebd090c67f927d4bb7daf7af0a73d50dcbb7931",
+  "image_id": "sha256:e3f72af26a577ff1da66ba529416457102a7dfc2f4f210c7b93c71a081e05d87",
+  "immutable_ref": "ghcr.io/elmakus/pi-unraid@sha256:b1dde88915ef68ec80f4a68e7194064dd1b688e6972b602e9d1f125b6f52e52b",
+  "repository": "ghcr.io/elmakus/pi-unraid",
+  "schema_version": 1,
+  "source_head": "3dfd8959199ce6b4b0d7b29c728d14ff6515a9f1",
+  "status": "published",
+  "tested_image_evidence_sha256": "sha256:9426dba36efee372634f36cd905b4f02879cfbfae3dd17434cc2dd6152d62c57"
+}

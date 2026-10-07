@@ -1,0 +1,9 @@
+{
+  "binding_digest": "sha256:bacab02a54d8402f07c56643716097372aabe05e5a00d4a704c2986651d6b411",
+  "candidate_digest": "sha256:b1dde88915ef68ec80f4a68e7194064dd1b688e6972b602e9d1f125b6f52e52b",
+  "config_digest": "sha256:ebc1b352c340e1796f30bdb1b9b0df5424294bd8e5465b027f5dffb7c1f13f89",
+  "previous_digest": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "rollback_anchor": "/tmp/pud-m07t07-guard/rollback-anchor.json",
+  "rollback_digest": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "state": "armed"
+}
