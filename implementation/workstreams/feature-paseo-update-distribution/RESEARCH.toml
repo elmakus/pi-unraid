@@ -1,30 +1,30 @@
 workstream_id = "feature-paseo-update-distribution"
-state = "active"
+state = "consumed"
 origin_role = "execution_prep"
 origin_subject = "post-M07-T05-supported-max-delivery"
 return_target = "execution_prep:post-M07-T05-supported-max-delivery"
-return_reconciliation = "pending"
-return_result = ""
-finding = "Determine supported reproducible, merge-safe delivery of the existing Muse Contributor max configuration before successor preparation. Preserve exact M07-T05 GREEN and historical consumed Research in Git. Questions: documented modelOverrides resolution and merge semantics on pinned Pi 0.87.1; actual installed nonsecret override versus frozen companion delivery; candidate applied-file/temporal binding implications; minimal bounded implementation and acceptance requirements within existing P4/R2 authority, or precise missing strategy/product fact requiring owner reentry. Do not decide product policy or infer endpoint capability from metadata."
-limitations = "Non-inference research only: no ordinary credentials, auth files, deployment, source repair, publication, candidate smoke, inference or final eligibility. Existing guarded production round-trip and pure clamp/fake-wire observations are diagnostic evidence only, not exact-candidate acceptance. Real validation and dedicated credentials remain at M08. Historical Research preserved at 8c0a106:implementation/workstreams/feature-paseo-update-distribution/RESEARCH.toml."
-conflicts = "Reconcile bundled Contributor max=null and unmodified max-to-xhigh clamp with installed documented modelOverrides max=max, without relabeling a clamp or using an unmanaged HOME fix as frozen candidate proof. Separate supported configuration mechanism, effective-profile observation, wire serialization, and endpoint/candidate acceptance."
+return_reconciliation = "applied"
+return_result = "elmakus/pi-unraid@d188925e33cee49699c6b1431ba8f58847f7f810:implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05-supported-max-delivery-research-2026-10-07.md@6191384bf17ed89e8110ede473835db1bde040d0"
+finding = "Main verified and consumed the exact report. Pinned Pi supports topmost, per-key merge-safe modelOverrides; the installed Contributor max=max fragment and mutable catalog cache are not candidate provenance. A secret-free frozen fragment with actual effective-configuration and applied temporal binding can be delivered within existing P4/R2 authority. Main classifies this as bounded Execution Prep refinement, not milestone strategy/product change: materialize M07-T05A for delivery and synthetic proof before M07-T06 consumer preparation; preserve exact M07-T05 GREEN and all later gates. M07-T07 owns a fresh immutable artifact; M08-T01 owns dedicated credentials and exact-candidate real validation. No configuration/diagnostic observation is capability or eligibility proof."
+limitations = "No research inference, credential read/admission, deployment, source repair, CI, publication or candidate acceptance. Guarded production round-trip and pure clamp/fake-wire observations are diagnostic only. Real validation and dedicated credentials remain at M08. Historical Research preserved at 8c0a106:implementation/workstreams/feature-paseo-update-distribution/RESEARCH.toml; this obligation's active request is preserved at 3338523. Registry/tracker/community facts reuse explicitly marked historical evidence; mutable overlay/override origin remain untraced."
+conflicts = "Bundled direct-Meta Contributor max=null and unmodified clamp conflict with installed max=max override and mutable overlay. Supported configuration provenance and clamp-correctness can be established synthetically, but neither wire serialization nor catalog/ordinary-worker success proves exact-candidate endpoint acceptance. OpenRouter/relay observations do not transfer to direct Meta. No substitution, fallback or relabeling resolves these conflicts; later real gates stay unsatisfied."
 
 [[sources]]
 class = "official_upstream"
-status = "pending"
-weight = "primary for pinned supported configuration and provider semantics"
+status = "checked"
+weight = "primary for pinned supported configuration and provider semantics; current source read plus explicitly historical registry evidence"
 
 [[sources]]
 class = "project_runtime"
-status = "pending"
-weight = "direct for nonsecret installed configuration and frozen delivery/binding facts"
+status = "checked"
+weight = "direct for targeted nonsecret installed configuration and frozen delivery/binding facts"
 
 [[sources]]
 class = "tracker_discussion"
-status = "pending"
-weight = "supporting for recorded upstream discrepancies; never authority"
+status = "checked"
+weight = "supporting for recorded discrepancies, explicitly historical reuse; never authority"
 
 [[sources]]
 class = "practitioner_community"
-status = "pending"
-weight = "supporting only; never override fixed policy or primary source"
+status = "checked"
+weight = "supporting only, explicitly historical reuse; never override fixed policy or primary evidence"
