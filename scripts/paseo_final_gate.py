@@ -32,6 +32,10 @@ from paseo_legacy_identity import (  # noqa: E402  genuine shipped mapping autho
     validate as validate_predecessor_shape,
     verify_anchor,
 )
+import paseo_tower_validator as tower_validator  # noqa: E402  shipped producer authority
+import paseo_state_roundtrip as state_prove  # noqa: E402  shipped round-trip authority
+import paseo_transaction_guard as guard_mod  # noqa: E402  shipped guard authority
+import paseo_candidate_build as build_mod  # noqa: E402  shipped companion authority
 
 SCHEMA_VERSION = 2
 VALIDATOR_SCHEMA = 2
@@ -457,6 +461,100 @@ def assemble(*, repository: str, candidate_digest: str,
     raw = json.dumps(gate, sort_keys=True, separators=(",", ":"))
     gate["binding_digest"] = "sha256:" + hashlib.sha256(raw.encode()).hexdigest()
     return gate
+
+
+def assemble_from_acquisition(*, repository: str, candidate_digest: str,
+        candidate_file, handoff_file, build_input_file, tested_image_file,
+        build_record, publication_file, source_root, companion_bundle,
+        codex_secret, codex_base_url, codex_model, muse_secret,
+        validator_state_root, validator_output,
+        baseline_path, baseline_local_image_id, state_root, state_output,
+        predecessor: dict, guard_path):
+    """Acquire, verify and assemble through shipped entrypoints (provenance boundary).
+
+    This is the genuine shipped acquisition→assembler integration: it invokes
+    the shipped ``paseo_tower_validator.validate`` producer (``real`` mode),
+    the shipped ``paseo_state_roundtrip.prove`` round-trip and the shipped
+    guard readback itself, then delegates to :func:`assemble`. Caller data
+    never substitutes for acquisition: companion/policy/launcher bindings are
+    recomputed from ``source_root`` bytes inside (a caller-supplied companion
+    declaration must equal the recomputation), the source head is read from
+    the genuine chain bytes, and the guard binding is read from the live
+    guard file. Only the typed ``predecessor`` mapping, the ledger-owned
+    ``baseline_local_image_id`` observation and file/secret locators arrive
+    from the caller layers that own them. External acquisition/transport
+    effects (Docker/registry/probe) are the only fakeable boundaries and
+    live behind the producer modules' own transport seams, which tests
+    exercise via the same mocks the producer harness uses.
+    """
+    candidate = _req_digest(candidate_digest, "candidate digest")
+    repo = repository.strip().lower()
+    if not repo:
+        raise FinalGateError("repository is required")
+    baseline_local_image_id = _req_digest(baseline_local_image_id,
+                                          "baseline local image identity")
+    try:
+        computed_companion = build_mod.companion_bundle_identity(Path(source_root))
+    except Exception as exc:
+        raise FinalGateError(f"companion identity unavailable: {exc}") from exc
+    if companion_bundle is not None:
+        if not isinstance(companion_bundle, dict):
+            raise FinalGateError("companion bundle declaration must be an object")
+        for key in ("source_digest", "files"):
+            if companion_bundle.get(key) != computed_companion.get(key):
+                raise FinalGateError("companion declaration mismatch vs source recomputation")
+    policy_file = Path(source_root) / "config" / "pi-agent" / "policies" / "llm-test-policy.json"
+    launcher_file = Path(source_root) / "config" / "pi-agent" / "bin" / "run-llm-test.sh"
+    try:
+        policy_digest = "sha256:" + hashlib.sha256(policy_file.read_bytes()).hexdigest()
+        launcher_digest = "sha256:" + hashlib.sha256(launcher_file.read_bytes()).hexdigest()
+    except OSError as exc:
+        raise FinalGateError(f"policy/launcher bytes unavailable: {exc}") from exc
+    try:
+        build_input_doc = json.loads(Path(build_input_file).read_bytes())
+    except (OSError, ValueError) as exc:
+        raise FinalGateError(f"build-input chain bytes unavailable: {exc}") from exc
+    source_head = build_input_doc.get("source_head")
+    try:
+        record = tower_validator.validate(
+            repository=repo, digest=candidate, output=Path(validator_output),
+            state_root=Path(validator_state_root),
+            codex_secret=codex_secret, codex_base_url=codex_base_url,
+            codex_model=codex_model, execution_class="real",
+            source_root=Path(source_root), companion_bundle=computed_companion,
+            candidate_file=candidate_file, handoff_file=handoff_file,
+            build_input_file=build_input_file, tested_image_file=tested_image_file,
+            build_record=build_record, publication_file=publication_file,
+            muse_secret=muse_secret)
+    except FinalGateError:
+        raise
+    except Exception as exc:
+        raise FinalGateError(f"producer acquisition failed: {exc}") from exc
+    observed_local = (record.get("subject") or {}).get("observed_image_id")
+    try:
+        state_record = state_prove.prove(
+            baseline=Path(baseline_path), candidate=str(observed_local),
+            previous=baseline_local_image_id,
+            state_root=Path(state_root), output=Path(state_output))
+    except Exception as exc:
+        raise FinalGateError(f"state acquisition failed: {exc}") from exc
+    if not isinstance(state_record, dict) or state_record.get("status") != "PASS":
+        raise FinalGateError("state round-trip is not PASS")
+    try:
+        guard_record = guard_mod.load(Path(guard_path))
+    except Exception as exc:
+        raise FinalGateError(f"guard readback failed: {exc}") from exc
+    gate = assemble(
+        repository=repo, candidate_digest=candidate,
+        validator_record=record, state_record=state_record,
+        source_head=_req_git_sha(source_head, "source head"),
+        companion_digest=_req_digest(computed_companion["source_digest"], "companion digest"),
+        policy_digest=policy_digest, launcher_digest=launcher_digest,
+        predecessor=predecessor,
+        guard_binding_digest=_req_digest(guard_record.get("binding_digest"), "guard binding digest"),
+        guard_candidate=str(guard_record.get("candidate_digest")))
+    return gate, {"validator_record": record, "state_record": state_record,
+                   "guard_record": guard_record}
 
 
 def main() -> int:

@@ -124,10 +124,10 @@ def tearDownModule():  # noqa: N802 (unittest hook name is fixed)
         shutil.rmtree(_OWN_CACHE_DIR, ignore_errors=True)
 
 
-def _repo_digests():
-    companion = BUILD.companion_bundle_identity(ROOT)
-    pol = ROOT / "config" / "pi-agent" / "policies" / "llm-test-policy.json"
-    grd = ROOT / "config" / "pi-agent" / "bin" / "run-llm-test.sh"
+def _repo_digests(source_root=ROOT):
+    companion = BUILD.companion_bundle_identity(Path(source_root))
+    pol = Path(source_root) / "config" / "pi-agent" / "policies" / "llm-test-policy.json"
+    grd = Path(source_root) / "config" / "pi-agent" / "bin" / "run-llm-test.sh"
     return {
         "companion": companion["source_digest"],
         "policy": "sha256:" + hashlib.sha256(pol.read_bytes()).hexdigest(),
@@ -135,67 +135,134 @@ def _repo_digests():
     }
 
 
+def _make_baseline(root):
+    baseline = Path(root) / "baseline" / ".paseo"
+    (baseline / "projects").mkdir(parents=True)
+    (baseline / "config.json").write_text('{"daemon":{"relay":{"enabled":true}}}\n')
+    (baseline / "daemon-keypair.json").write_text('{"fixture":true}\n')
+    (baseline / "server-id").write_text("fixture\n")
+    (baseline / "projects" / "projects.json").write_text("{}\n")
+    return baseline.parent
+
+
+def _state_fakes():
+    calls = []
+
+    def probe(image, home, name, candidate_state=None):
+        calls.append(image)
+        if candidate_state is not None:
+            marker = Path(home) / ".paseo" / "state-roundtrip-candidate.json"
+            marker.write_text(json.dumps(candidate_state) + "\n")
+        return True
+    return calls, probe
+
+
+def _acquire(kind, parent, *, tamper=None, anchor_bytes=b"legacy-image-bytes"):
+    """Acquire→assemble through the SHIPPED integration boundary.
+
+    Builds a genuine harness chain, then invokes shipped
+    ``FG.assemble_from_acquisition`` (which itself calls the shipped
+    validator, state-prove and guard-readback entrypoints). Only external
+    acquisition/transport seams are faked. Returns
+    ``(gate, guard, guard_path, state_record, predecessor, info)`` where
+    info carries the genuinely acquired validator record and chain bindings.
+    """
+    td = Path(parent) / "chain"
+    td.mkdir(parents=True, exist_ok=True)
+    codex, muse = H._secrets(td)
+    files = H._fixture_chain(td, image_id=CAND_LOCAL)
+    chain = dict(zip(("candidate_file", "handoff_file", "build_input_file",
+                      "tested_image_file", "build_record_file", "publication_file"), files))
+    if tamper is not None:
+        tamper(chain)
+    bindir = HT.make_fake_paseo(td / "bindir")
+    wit = td / "witness.jsonl"
+    wit.write_text("")
+    calls, fstate = [], {"net_exists": False, "network": "pi-unraid-validator",
+                         "bindir": str(bindir), "witness_host": str(wit)}
+    source_root = HT.fixture_source(td)
+    companion = dict(HT.REAL_COMPANION)
+    if kind == "oci":
+        predecessor = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
+        previous_local = RUN_LOCAL
+    elif kind == "legacy":
+        anchor = Path(parent) / "legacy.tar"
+        anchor.write_bytes(anchor_bytes)
+        archive_digest = "sha256:" + hashlib.sha256(anchor_bytes).hexdigest()
+        predecessor = {"kind": "legacy", "image_id": LEGACY_IMG,
+                       "archive_path": str(anchor), "archive_sha256": archive_digest,
+                       "config_digest": CFG, "state_identity": "legacy-state-1"}
+        previous_local = LEGACY_IMG
+    else:
+        predecessor = {"kind": "local", "image_id": RUN_LOCAL}
+        previous_local = RUN_LOCAL
+    baseline_src = _make_baseline(Path(parent) / "st")
+    anchor_g = Path(parent) / "rollback.json"
+    anchor_g.write_text("{}\n", encoding="utf-8")
+    guard_path = Path(parent) / "guard.json"
+    running_value = predecessor.get("digest", predecessor.get("image_id"))
+    GUARD.arm(guard_path, CAND_OCI, running_value, CFG, anchor_g)
+    state_calls, probe = _state_fakes()
+    with HT.LocalCodexServer() as server:
+        fake = HT.make_fake_docker(digest=CAND_OCI, image_id=CAND_LOCAL, calls=calls,
+                                   state=fstate, server_base=server.base,
+                                   codex_secret_host=codex, muse_secret_host=muse)
+        with mock.patch.object(FG.tower_validator.shutil, "which",
+                               return_value="/usr/bin/docker"), \
+             mock.patch.object(FG.tower_validator.os, "chown"), \
+             mock.patch.object(FG.tower_validator, "run", side_effect=fake), \
+             mock.patch.object(FG.state_prove.shutil, "which",
+                               return_value="/usr/bin/docker"), \
+             mock.patch.object(FG.state_prove, "image_readback",
+                               side_effect=lambda x: x), \
+             mock.patch.object(FG.state_prove, "runtime_probe", side_effect=probe), \
+             mock.patch.object(FG.state_prove.os, "chown"):
+            gate, ctx = FG.assemble_from_acquisition(
+                repository=REPO, candidate_digest=CAND_OCI,
+                candidate_file=chain["candidate_file"], handoff_file=chain["handoff_file"],
+                build_input_file=chain["build_input_file"],
+                tested_image_file=chain["tested_image_file"],
+                build_record=chain["build_record_file"],
+                publication_file=chain["publication_file"],
+                source_root=source_root, companion_bundle=companion,
+                codex_secret=codex, codex_base_url=server.base, codex_model="m",
+                muse_secret=muse,
+                validator_state_root=Path(parent) / "vst",
+                validator_output=Path(parent) / "vout.json",
+                baseline_path=baseline_src, baseline_local_image_id=previous_local,
+                state_root=Path(parent) / "sst", state_output=Path(parent) / "sout.json",
+                predecessor=copy.deepcopy(predecessor), guard_path=guard_path)
+    assert gate["schema_version"] == 2 and gate["status"] == "GREEN"
+    validator = ctx["validator_record"]
+    assert [c for c in state_calls] == [validator["subject"]["observed_image_id"],
+                                        previous_local]
+    live = _repo_digests(source_root)
+    assert live["companion"] == validator["subject"]["companion_bundle"]["source_digest"]
+    assert live["policy"] == validator["subject"]["policy_identity"]["sha256"]
+    assert live["launcher"] == validator["subject"]["launcher_identity"]["sha256"]
+    build_input = json.loads(Path(chain["build_input_file"]).read_bytes())
+    info = {"validator": validator, "source_head": build_input["source_head"],
+            "digests": live, "chain": chain}
+    guard = GUARD.load(guard_path)
+    return gate, guard, guard_path, ctx["state_record"], predecessor, info
+
+
 _GEN = {}
 
 
 def genuine_bundle():
-    """Acquire one genuine real-mode producer record + harness chain bindings.
+    """One cached genuine validator record + chain bindings (forgery bases).
 
-    Runs the shipped ``paseo_tower_validator.validate`` in ``real`` mode
-    through the M07-T05 fake-only harness (fake Docker/daemon/Pi/registry/
-    Codex transport; real staged programs, real hash/ownership/readback
-    logic). Returns the validator record plus the harness-produced chain
-    files the assembler cross-checks (source head read from genuine chain
-    bytes, never hand-authored). The disposable work root persists for the
-    test session so owned references stay readable.
+    Acquired once through the shipped integration boundary (see _acquire);
+    callers MUST deepcopy before mutating. The disposable work root persists
+    for the session so owned references stay readable.
     """
     if "bundle" in _GEN:
         return _GEN["bundle"]
     work = Path(tempfile.mkdtemp(prefix="m07t06-genuine-"))
-    td = work / "v"
-    td.mkdir()
-    codex, muse = H._secrets(td)
-    cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = \
-        H._fixture_chain(td, image_id=CAND_LOCAL)
-    bindir = HT.make_fake_paseo(td / "bindir")
-    wit = td / "witness.jsonl"
-    wit.write_text("")
-    calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
-                        "bindir": str(bindir), "witness_host": str(wit)}
-    kwargs = dict(repository=REPO, digest=CAND_OCI,
-                  output=td / "o.json", state_root=td / "st",
-                  codex_secret=codex, codex_base_url="http://127.0.0.1:9",
-                  codex_model="m", execution_class="real",
-                  source_root=HT.fixture_source(td), companion_bundle=dict(HT.REAL_COMPANION),
-                  candidate_file=cand_file, handoff_file=handoff_file,
-                  build_input_file=build_input_file, tested_image_file=tested_file,
-                  build_record=build_record_file, publication_file=publication_file,
-                  muse_secret=muse)
-    # Local Codex fixture for the required non-inference checks.
-    with HT.LocalCodexServer() as server:
-        base_fake = HT.make_fake_docker(digest=CAND_OCI, image_id=CAND_LOCAL, calls=calls,
-                                        state=state, server_base=server.base,
-                                        codex_secret_host=codex, muse_secret_host=muse)
-        kwargs["codex_base_url"] = server.base
-        with mock.patch.object(H.V.shutil, "which", return_value="/usr/bin/docker"), \
-             mock.patch.object(H.V.os, "chown"), \
-             mock.patch.object(H.V, "run", side_effect=base_fake):
-            res = H.V.validate(**kwargs)
-    assert res["status"] == "PASS", res.get("reason")
-    assert res["real_validation_satisfied"] is True
-    assert res["execution_class"] == "real"
-    build_input = json.loads(Path(build_input_file).read_bytes())
-    source_head = build_input["source_head"]
-    digests = _repo_digests()
-    # Genuine agreement gates: repo-computed bindings must equal what the
-    # genuine producer bound (guards against harness/source drift).
-    assert digests["companion"] == res["subject"]["companion_bundle"]["source_digest"]
-    assert digests["policy"] == res["subject"]["policy_identity"]["sha256"]
-    assert digests["launcher"] == res["subject"]["launcher_identity"]["sha256"]
-    assert res["subject"]["observed_image_id"] == CAND_LOCAL
-    assert res["digest"] == CAND_OCI
-    bundle = {"validator": res, "calls": calls, "work": work, "td": td,
-              "source_head": source_head, "digests": digests}
+    _, _, _, _, _, info = _acquire("oci", work)
+    bundle = {"validator": info["validator"], "source_head": info["source_head"],
+              "digests": info["digests"]}
     _GEN["bundle"] = bundle
     return bundle
 
@@ -241,36 +308,15 @@ def genuine_guard(tmpdir, *, candidate, previous, config=CFG):
 
 
 def assemble_genuine(kind, tmpdir, *, anchor_bytes=b"legacy-image-bytes"):
-    """Assemble a final gate from genuine acquisition for one predecessor kind."""
-    bundle = genuine_bundle()
-    validator = bundle["validator"]
-    digests = bundle["digests"]
-    candidate_local = validator["subject"]["observed_image_id"]
-    if kind == "oci":
-        predecessor = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
-        previous_local = RUN_LOCAL
-    elif kind == "legacy":
-        anchor = Path(tmpdir) / "legacy.tar"
-        anchor.write_bytes(anchor_bytes)
-        archive_digest = "sha256:" + hashlib.sha256(anchor_bytes).hexdigest()
-        predecessor = {"kind": "legacy", "image_id": LEGACY_IMG,
-                       "archive_path": str(anchor), "archive_sha256": archive_digest,
-                       "config_digest": CFG, "state_identity": "legacy-state-1"}
-        previous_local = LEGACY_IMG
-    else:
-        predecessor = {"kind": "local", "image_id": RUN_LOCAL}
-        previous_local = RUN_LOCAL
-    state = genuine_state(candidate_local=candidate_local, previous_local=previous_local)
-    running_value = predecessor.get("digest", predecessor.get("image_id"))
-    guard_path, guard, _ = genuine_guard(tmpdir, candidate=CAND_OCI, previous=running_value)
-    gate = FG.assemble(
-        repository=REPO, candidate_digest=CAND_OCI,
-        validator_record=copy.deepcopy(validator), state_record=state,
-        source_head=bundle["source_head"], companion_digest=digests["companion"],
-        policy_digest=digests["policy"], launcher_digest=digests["launcher"],
-        predecessor=copy.deepcopy(predecessor),
-        guard_binding_digest=guard["binding_digest"], guard_candidate=CAND_OCI)
-    assert gate["schema_version"] == 2 and gate["status"] == "GREEN"
+    """Assemble a final gate through the SHIPPED integration boundary.
+
+    Thin wrapper over _acquire preserving the 5-tuple contract used across
+    this file; every gate returned was acquired by shipped code (validator +
+    state-prove + guard readback inside ``assemble_from_acquisition``), never
+    hand-sequenced in tests.
+    """
+    gate, guard, guard_path, state, predecessor, _ = _acquire(
+        kind, tmpdir, anchor_bytes=anchor_bytes)
     return gate, guard, guard_path, state, predecessor
 
 
@@ -598,6 +644,30 @@ class ForgeryTests(unittest.TestCase):
                 kwargs[field] = bad
                 with self.assertRaises(FG.FinalGateError):
                     FG.assemble(**kwargs)
+
+    def test_tampered_handoff_rejected_by_genuine_producer(self):
+        # Forgery at the acquisition INPUTS (not the record): flip one byte
+        # of the genuine handoff chain file, then drive the full shipped
+        # acquisition. The genuine producer must reject before any gate
+        # exists (writer unreachable by construction: no gate to consume).
+        def tamper(chain):
+            p = Path(chain["handoff_file"])
+            raw = p.read_bytes()
+            p.write_bytes(b"X" + raw[1:])
+
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(FG.FinalGateError):
+                _acquire("oci", td, tamper=tamper)
+
+    def test_tampered_candidate_rejected_by_genuine_producer(self):
+        def tamper(chain):
+            p = Path(chain["candidate_file"])
+            raw = p.read_bytes()
+            p.write_bytes(raw[:-2] + b"XY")
+
+        with tempfile.TemporaryDirectory() as td:
+            with self.assertRaises(FG.FinalGateError):
+                _acquire("oci", td, tamper=tamper)
 
     def test_wrong_guard_binding_rejected_before_write(self):
         with tempfile.TemporaryDirectory() as td:
