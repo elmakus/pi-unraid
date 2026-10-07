@@ -1,0 +1,22 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M07-T06"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "ff3e3fd567a8e913af54e6c63938eaf8a8e85846"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T06.md"
+blob = "fcea398a5dac60e93ddedb0f07d8d2e6967f5b73"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T06.md"
+commit = "bea0f67fc5917c454a42ab352f95b63085ddc9b6"
+blob = "110fcab84e18dc7e7114f67d682761701f390448"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending review must use a fresh context that did not materially produce or repair the exact implementation/result; it must independently challenge complete stable acceptance and corrected synthetic evidence, not merely attest passing counts."
