@@ -18,10 +18,8 @@ jobs:
   build:
     if: >-
       (github.event_name == 'pull_request' &&
-       ((github.head_ref == 'automation/paseo-update-candidate' &&
-         github.event.pull_request.base.ref == github.event.repository.default_branch) ||
-        (github.head_ref == 'automation/paseo-update-candidate-p4-bootstrap' &&
-         github.event.pull_request.base.ref == 'feat/paseo-update-distribution'))) ||
+       github.head_ref == 'automation/paseo-update-candidate' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch) ||
       (github.event_name == 'workflow_dispatch' &&
        github.ref == 'refs/heads/automation/paseo-update-candidate')
     runs-on: ubuntu-latest
@@ -43,16 +41,8 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CANDIDATE_HEAD"
           test "$(git rev-parse 25719c4caffa7940898ec723e2a099f0fa3ad412:implementation/workstreams/feature-paseo-update-distribution/results/M03-T01.md)" = "b967d7c65055b5fc9ba79b6faae0502f1fcd1bdb"
           source_parent="$(git rev-parse HEAD^)"
-          if [ "$GITHUB_HEAD_REF" = "automation/paseo-update-candidate-p4-bootstrap" ]; then
-            expected_source_ref="refs/heads/feat/paseo-update-distribution"
-            git fetch origin "$expected_source_ref:refs/remotes/origin/feat/paseo-update-distribution"
-            test "$(git rev-parse refs/remotes/origin/feat/paseo-update-distribution)" = "$source_parent"
-            test "${{ github.event.pull_request.base.sha }}" = "$source_parent"
-          else
-            expected_source_ref="refs/heads/$DEFAULT_BRANCH"
-            git fetch origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
-            git merge-base --is-ancestor "$source_parent" "refs/remotes/origin/$DEFAULT_BRANCH"
-          fi
+          git fetch origin "refs/heads/$DEFAULT_BRANCH:refs/remotes/origin/$DEFAULT_BRANCH"
+          git merge-base --is-ancestor "$source_parent" "refs/remotes/origin/$DEFAULT_BRANCH"
           test "$(git diff --name-only HEAD^ HEAD | sort)" = "$(printf '%s\n' candidates/paseo-update/candidate.json candidates/paseo-update/evidence.json | sort)"
           python3 scripts/paseo_candidate_build.py prepare \
             --candidate candidates/paseo-update/candidate.json \
@@ -62,7 +52,7 @@ jobs:
             --stage-dir "$RUNNER_TEMP/paseo-candidate-context" \
             --source-head "$CANDIDATE_HEAD" \
             --source-parent "$source_parent" \
-            --expected-source-ref "$expected_source_ref"
+            --expected-source-ref "refs/heads/$DEFAULT_BRANCH"
       - name: Build once and run exact-image core smoke
         run: |
           set -euo pipefail
@@ -100,11 +90,9 @@ jobs:
     needs: build
     if: >-
       (github.event_name == 'pull_request' &&
-       (((github.head_ref == 'automation/paseo-update-candidate' &&
-          github.event.pull_request.base.ref == github.event.repository.default_branch) ||
-         (github.head_ref == 'automation/paseo-update-candidate-p4-bootstrap' &&
-          github.event.pull_request.base.ref == 'feat/paseo-update-distribution')) &&
-        github.event.pull_request.head.repo.full_name == github.repository)) ||
+       github.head_ref == 'automation/paseo-update-candidate' &&
+       github.event.pull_request.base.ref == github.event.repository.default_branch &&
+       github.event.pull_request.head.repo.full_name == github.repository) ||
       (github.event_name == 'workflow_dispatch' &&
        github.ref == 'refs/heads/automation/paseo-update-candidate')
     runs-on: ubuntu-latest
