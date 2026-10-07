@@ -81,6 +81,15 @@ export async function runOwnedTest(config, connect) {
       && config.daemon_config.daemon?.browserTools?.enabled === false);
     const daemonConfig = path.join(config.daemon.home, 'config.json');
     const daemonConfigIdentity = identity(daemonConfig);
+    // M07-T05A bounded lifecycle: persist owned refs BEFORE bounded-subprocess
+    // readiness gates (configuration/applied/guard spawns carry finite
+    // deadlines: 5000ms applied check, 10000ms guard shape). Under host
+    // saturation those spawns can exceed their deadlines through no product
+    // fault; refs must still exist for bounded readback without resend.
+    // Classification is unchanged: effect stays false until workspace
+    // acquisition, so pre-acquisition failures remain terminal FAIL with
+    // replay:false. Nonsecret initial state only; O_EXCL/0600/cleanup same.
+    persist = recorder(config.reference, state);
     function configuration() {
       requireFact(identity(daemonConfig) === daemonConfigIdentity
         && JSON.stringify(privateJSON(daemonConfig)) === JSON.stringify(config.daemon_config));
@@ -103,7 +112,6 @@ export async function runOwnedTest(config, connect) {
     const shape = JSON.parse(guard.stdout);
     requireFact(shape.provider === `pi/${fixed}` && shape.settings?.thinkingOptionId === 'max'
       && shape.notifyOnFinish === true && Object.keys(shape.settings).length === 1);
-    persist = recorder(config.reference, state);
     client = await bounded(connect({target: {kind: 'instance', home: config.daemon.home}, timeout: 10000}));
     function server() {
       configuration(); applied();

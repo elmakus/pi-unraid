@@ -662,11 +662,16 @@ def make_fake_docker(*, digest, image_id, calls, state, server_base,
                        "M07_T05_WITNESS_FILE": str(wit),
                        "DISPATCH_MARKER": str(marker_path),
                        "META_API_KEY_FILE": str(muse_secret_host) if muse_secret_host else ""}
+                # M07-T05A load coherence: the product adapter allows 120s for
+                # guarded dispatch and the bridge self-bounds at 110s, so the
+                # harness must not kill a product-coherent run at 60s under
+                # host saturation. Genuine overruns still surface via the
+                # bridge deadline/timeout paths (UNKNOWN, no replay, refs kept).
                 try:
                     pr = subprocess.run(["bash", str(local_env), str(staged_guard),
                                          f"SYNTHETIC_PROMPT_{tid}", "/tmp"],
                                         env=env, text=True, stdout=subprocess.PIPE,
-                                        stderr=subprocess.PIPE, timeout=60)
+                                        stderr=subprocess.PIPE, timeout=120)
                 except subprocess.TimeoutExpired:
                     return mock.Mock(returncode=None, stdout="", stderr="timeout")
                 except Exception as exc:
