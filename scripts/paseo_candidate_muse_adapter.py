@@ -72,6 +72,9 @@ PINNED_PI_VERSION = "0.87.1"
 PINNED_PASEO_VERSION = "0.9.2"
 GUARD_REL = Path("config/pi-agent/bin/run-llm-test.sh")
 POLICY_REL = Path("config/pi-agent/policies/llm-test-policy.json")
+MUSE_MAX_FRAGMENT_REL = Path("models.muse-max-override.json")
+MUSE_MAX_MERGE_REL = Path("bin/paseo-muse-max-merge.py")
+MUSE_MAX_EFFECTIVE_REL = Path("models.json")
 SCHEMA_VERSION = 1
 
 # Dedicated Muse validation credential, source-qualified to official Meta
@@ -183,6 +186,198 @@ def policy_identity(source_root: Path) -> dict:
         raise AdapterError(f"canonical policy shape invalid: {exc}") from exc
     digest = "sha256:" + hashlib.sha256(p.read_bytes()).hexdigest()
     return {"path": POLICY_REL.as_posix(), "sha256": digest, "profile": fixed_profile()}
+
+
+# ---------------------------------------------------------------------------
+# M07-T05A muse-max delivery: secret-free minimal modelOverrides fragment +
+# narrow merge-safe effective configuration (pinned Pi 0.87.1 documented
+# semantics). Product path for the validator; unit-tested with fake-only
+# boundaries. Preserves fixed meta/muse-spark-1.3-contributor/max +
+# no-fallback; never installs a whole models.json and never relies on the
+# mutable models-store overlay.
+# ---------------------------------------------------------------------------
+
+def muse_max_fragment_identity(source_root: Path) -> dict:
+    """Read back the frozen secret-free fragment bytes, mode and digest."""
+    p = Path(source_root) / "config" / "pi-agent" / MUSE_MAX_FRAGMENT_REL
+    if p.is_symlink() or not p.is_file():
+        raise AdapterBlocked(f"muse-max fragment unavailable: {MUSE_MAX_FRAGMENT_REL}")
+    try:
+        raw = p.read_bytes()
+        doc = json.loads(raw.decode("utf-8"))
+    except (OSError, ValueError) as exc:
+        raise AdapterError(f"muse-max fragment unreadable: {exc}") from exc
+    validate_muse_max_fragment(doc)
+    mode = p.stat().st_mode & 0o777
+    if mode != 0o644:
+        raise AdapterError(f"muse-max fragment mode is not 0644: {mode:04o}")
+    return {
+        "path": MUSE_MAX_FRAGMENT_REL.as_posix(),
+        "sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        "mode": f"{mode:04o}",
+        "bytes": len(raw),
+    }
+
+
+def validate_muse_max_fragment(doc) -> dict:
+    """Require EXACTLY the minimal documented override, nothing else."""
+    if not isinstance(doc, dict):
+        raise AdapterError("muse-max fragment root must be an object")
+    if set(doc.keys()) != {"providers"}:
+        raise AdapterError("muse-max fragment must contain only 'providers'")
+    providers = doc.get("providers")
+    if not isinstance(providers, dict) or set(providers.keys()) != {FIXED_PROVIDER}:
+        raise AdapterError("muse-max fragment must contain only the 'meta' provider")
+    meta = providers.get(FIXED_PROVIDER)
+    if not isinstance(meta, dict) or set(meta.keys()) != {"modelOverrides"}:
+        raise AdapterError("muse-max fragment meta must contain only 'modelOverrides'")
+    overrides = meta.get("modelOverrides")
+    if not isinstance(overrides, dict) or set(overrides.keys()) != {FIXED_MODEL}:
+        raise AdapterError("muse-max fragment must override only the Contributor model")
+    entry = overrides.get(FIXED_MODEL)
+    if not isinstance(entry, dict) or set(entry.keys()) != {"thinkingLevelMap"}:
+        raise AdapterError("muse-max fragment entry must contain only 'thinkingLevelMap'")
+    tlm = entry.get("thinkingLevelMap")
+    if not isinstance(tlm, dict) or set(tlm.keys()) != {FIXED_THINKING}:
+        raise AdapterError("muse-max fragment thinkingLevelMap must contain only 'max'")
+    if tlm.get(FIXED_THINKING) != "max":
+        raise AdapterError("muse-max fragment thinkingLevelMap.max must be exactly \"max\"")
+    text = json.dumps(doc)
+    if "!" in text and "!command" in text:
+        raise AdapterError("muse-max fragment must be secret-free")
+    for banned in ("apiKey", "baseUrl", "models", "api", "oauth", "headers", "authHeader"):
+        if banned in meta:
+            raise AdapterError(f"muse-max fragment must not carry {banned}")
+    if "$" in text:
+        raise AdapterError("muse-max fragment must be secret-free (no interpolation)")
+    return doc
+
+
+def merge_muse_max_effective(existing, fragment) -> dict:
+    """Narrow merge preserving unrelated providers (pinned shallow key-merge)."""
+    validate_muse_max_fragment(fragment)
+    if not isinstance(existing, dict):
+        raise AdapterError("existing effective config root must be an object")
+    providers = existing.get("providers", {})
+    if "providers" in existing and not isinstance(providers, dict):
+        raise AdapterError("existing providers must be an object")
+    merged = json.loads(json.dumps(existing))
+    mproviders = merged.setdefault("providers", {})
+    if not isinstance(mproviders, dict):
+        raise AdapterError("existing providers must be an object")
+    meta = mproviders.setdefault(FIXED_PROVIDER, {})
+    if not isinstance(meta, dict):
+        raise AdapterError("existing meta entry is not an object")
+    overrides = meta.setdefault("modelOverrides", {})
+    if not isinstance(overrides, dict):
+        raise AdapterError("existing meta modelOverrides is not an object")
+    entry = overrides.setdefault(FIXED_MODEL, {})
+    if not isinstance(entry, dict):
+        raise AdapterError("existing Contributor entry is not an object")
+    tlm = entry.setdefault("thinkingLevelMap", {})
+    if not isinstance(tlm, dict):
+        raise AdapterError("existing thinkingLevelMap is not an object")
+    tlm[FIXED_THINKING] = "max"
+    return merged
+
+
+def verify_muse_max_effective(doc) -> dict:
+    """Verify the effective merged file carries the required override."""
+    if not isinstance(doc, dict):
+        raise AdapterError("effective models config root must be an object")
+    try:
+        value = doc["providers"][FIXED_PROVIDER]["modelOverrides"][FIXED_MODEL]["thinkingLevelMap"][FIXED_THINKING]
+    except (KeyError, TypeError):
+        raise AdapterError("effective config lacks the required muse max override") from None
+    if value != "max":
+        raise AdapterError("effective muse max override is not exactly \"max\" (null/clamped)")
+    return {"model": f"{FIXED_PROVIDER}/{FIXED_MODEL}", "thinking": FIXED_THINKING}
+
+
+def muse_max_effective_identity(raw: bytes, mode: int) -> dict:
+    if not isinstance(raw, bytes) or not raw:
+        raise AdapterError("effective config bytes are missing")
+    if mode != 0o600:
+        raise AdapterError(f"effective config mode is not 0600: {mode:04o}")
+    try:
+        doc = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        raise AdapterError(f"effective config unreadable: {exc}") from exc
+    verify_muse_max_effective(doc)
+    return {
+        "path": MUSE_MAX_EFFECTIVE_REL.as_posix(),
+        "sha256": "sha256:" + hashlib.sha256(raw).hexdigest(),
+        "mode": f"{mode:04o}",
+        "bytes": len(raw),
+    }
+
+
+def apply_muse_max_merge(home_agent: Path, source_root: Path) -> dict:
+    """Host-side narrow merge for validator staging (no inference/auth).
+
+    Reads the frozen fragment from ``source_root/config/pi-agent`` and the
+    existing effective file from ``home_agent/models.json`` (when present),
+    validates both, writes the merged effective file atomically with mode
+    ``0600`` when changed, and returns fragment + effective identities.
+    The existing file is preserved unchanged on any validation failure.
+    Idempotent: identical inputs yield ``changed: False`` with the same
+    effective digest.
+    """
+    frag_path = Path(source_root) / "config" / "pi-agent" / MUSE_MAX_FRAGMENT_REL
+    eff_path = Path(home_agent) / MUSE_MAX_EFFECTIVE_REL
+    if frag_path.is_symlink() or not frag_path.is_file():
+        raise AdapterBlocked(f"muse-max fragment unavailable: {MUSE_MAX_FRAGMENT_REL}")
+    try:
+        frag_raw = frag_path.read_bytes()
+        frag_doc = json.loads(frag_raw.decode("utf-8"))
+    except (OSError, ValueError) as exc:
+        raise AdapterError(f"muse-max fragment unreadable: {exc}") from exc
+    validate_muse_max_fragment(frag_doc)
+    if eff_path.is_symlink():
+        raise AdapterError(f"refusing symlink effective target: {eff_path}")
+    if eff_path.exists():
+        if not eff_path.is_file():
+            raise AdapterError(f"refusing non-file effective target: {eff_path}")
+        try:
+            eff_raw = eff_path.read_bytes()
+            eff_doc = json.loads(eff_raw.decode("utf-8"))
+        except (OSError, ValueError) as exc:
+            raise AdapterError(f"effective models.json unreadable; preserved unchanged: {exc}") from exc
+        if not isinstance(eff_doc, dict):
+            raise AdapterError("effective models.json root must be an object; preserved unchanged")
+    else:
+        eff_doc = {"providers": {}}
+        eff_raw = b""
+    merged = merge_muse_max_effective(eff_doc, frag_doc)
+    rendered = (json.dumps(merged, sort_keys=True, indent=2) + "\n").encode("utf-8")
+    verify_muse_max_effective(merged)
+    if eff_path.exists():
+        cur = eff_path.read_bytes()
+        mode = eff_path.stat().st_mode & 0o777
+        if cur == rendered and mode == 0o600:
+            return {
+                "changed": False,
+                "fragment": {"sha256": "sha256:" + hashlib.sha256(frag_raw).hexdigest(), "mode": f"{frag_path.stat().st_mode & 0o777:04o}"},
+                "effective": muse_max_effective_identity(rendered, 0o600),
+            }
+    import tempfile as _tf
+    eff_path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = _tf.mkstemp(prefix=".models.json.", dir=eff_path.parent)
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(rendered)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, eff_path)
+    finally:
+        tmp.unlink(missing_ok=True)
+    return {
+        "changed": True,
+        "fragment": {"sha256": "sha256:" + hashlib.sha256(frag_raw).hexdigest(), "mode": f"{frag_path.stat().st_mode & 0o777:04o}"},
+        "effective": muse_max_effective_identity(rendered, 0o600),
+    }
 
 
 def is_disposable_path(path: Path, disposable_root: Path) -> bool:
@@ -764,11 +959,36 @@ APPLIED_PROGRAM = '/home/paseo/.pi/agent/bin/m07-t05-applied.py'
 
 def stage_applied_interval(home: Path, source: Path, companion: dict, *, nonce: str,
                            uid: int, gid: int) -> str:
-    """Frozen public source content; no credential values or caller success fields."""
+    """Frozen public source content; no credential values or caller success fields.
+
+    M07-T05A: when the derived effective ``models.json`` has already been
+    staged host-side via :func:`apply_muse_max_merge` into
+    ``home/.pi/agent/models.json`` (mode ``0600``), its bytes/mode join the
+    kernel-backed interval rows so continuous binding covers both the
+    frozen fragment and the actual effective merged configuration Pi reads.
+    Homes without a staged effective file keep exact M07-T05 behavior.
+    """
     code = (source / 'bin/m07-t05-applied.py').read_text()
     doc = {'schema_version': 1, 'root': '/home/paseo/.pi/agent', 'nonce': nonce,
            'files': {rel: {'content': (source / rel).read_text(), 'mode': companion['modes'][rel]}
                      for rel in companion['files']}}
+    # Derived effective file (NOT a companion member): bind it when staged.
+    eff_home = Path(home) / '.pi' / 'agent' / MUSE_MAX_EFFECTIVE_REL.as_posix()
+    if eff_home.exists() and not eff_home.is_symlink() and eff_home.is_file():
+        try:
+            eff_raw = eff_home.read_bytes()
+            eff_doc = json.loads(eff_raw.decode('utf-8'))
+        except (OSError, ValueError) as exc:
+            raise AdapterError(f"staged effective config unreadable: {exc}") from exc
+        verify_muse_max_effective(eff_doc)
+        import stat as _st
+        eff_mode = eff_home.stat().st_mode & 0o777
+        if eff_mode != 0o600:
+            raise AdapterError(f"staged effective config mode is not 0600: {eff_mode:04o}")
+        if MUSE_MAX_EFFECTIVE_REL.as_posix() in doc['files']:
+            raise AdapterError("effective config collides with companion member")
+        doc['files'][MUSE_MAX_EFFECTIVE_REL.as_posix()] = {
+            'content': eff_raw.decode('utf-8'), 'mode': '0600'}
     file = home / '.m07-t05/applied-manifest.json'
     fd = os.open(file, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as stream:

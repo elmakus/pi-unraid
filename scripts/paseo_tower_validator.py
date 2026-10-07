@@ -1149,6 +1149,26 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 if 'sha256:' + hashlib.sha256(runtime_file.read_bytes()).hexdigest() != declared_sha:
                     raise ValidationError('executing validator source differs from frozen producer declaration')
             (work / "home" / ".pi" / "agent" / "bin" / "run-llm-test.sh").chmod(0o755)
+            # M07-T05A muse-max delivery: narrow host-side merge of the frozen
+            # secret-free fragment into the derived effective models.json Pi
+            # reads. Preserves unrelated providers verbatim; never installs a
+            # whole models.json and never touches models-store/auth/HOME.
+            # The derived file is bound below plus the applied interval.
+            muse_effective_staged = None
+            if source_root is not None:
+                try:
+                    muse_effective_staged = adap.apply_muse_max_merge(
+                        dst_agent, Path(source_root))
+                except adap.AdapterBlocked as exc:
+                    raise ValidationBlocked(f"muse-max fragment unavailable: {exc}") from exc
+                except adap.AdapterError as exc:
+                    raise ValidationError(f"muse-max merge failed closed: {exc}") from exc
+                result["subject"]["muse_effective_config"] = {
+                    "fragment": muse_effective_staged["fragment"],
+                    "effective": muse_effective_staged["effective"],
+                    "changed": muse_effective_staged["changed"],
+                }
+                result["checks"]["muse_effective_config"] = "PASS"
             # Bind staged bytes to reviewed validator source (host-side): every
             # staged behavior-changing file must byte-match its repo source.
             # Generated observer/loader/Codex helpers are bound here to exact
@@ -1165,8 +1185,12 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
             for gen, dst in (("witness", dst_agent / "extensions" / "m07-t05-witness.js"),
                              ("candidate-env", dst_agent / "bin" / "m07-t05-candidate-env.sh")):
                 staged_identities[gen] = "sha256:" + _hl2.sha256(dst.read_bytes()).hexdigest()
-            # Staged companion payload (exact declared file set only) must
-            # match the declared binding from host-side bytes and modes.
+            # Staged companion payload must match the declared binding from
+            # host-side bytes and modes. M07-T05A permits exactly one derived
+            # file beyond the companion set: the merge-produced effective
+            # ``models.json`` (0600), verified separately below. Any other
+            # extra file, missing companion member, or mode/digest mismatch
+            # fails closed.
             if companion_bundle is not None:
                 import importlib.util as _ilu3
                 _ispec = _ilu3.spec_from_file_location(
@@ -1177,8 +1201,11 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 try:
                     _decl_files = sorted(companion_bundle.get("files", []))
                     _staged_all = sorted([p.as_posix() for p in _inst.safe_files(dst_agent)])
-                    _staged_decl = [p for p in _staged_all if p in set(_decl_files)]
-                    if _staged_all != _decl_files:
+                    _derived = ["models.json"]
+                    _staged_extra = [p for p in _staged_all if p not in set(_decl_files)]
+                    if _staged_extra not in ([], _derived):
+                        raise ValidationError("staged companion file set differs from declared binding")
+                    if sorted([p for p in _staged_all if p in set(_decl_files)]) != _decl_files:
                         raise ValidationError("staged companion file set differs from declared binding")
                     _staged_modes = {p: f"{(dst_agent / p).stat().st_mode & 0o777:04o}" for p in _decl_files}
                     if _staged_modes != companion_bundle.get("modes"):
@@ -1187,6 +1214,27 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         dst_agent, [Path(p) for p in _decl_files])
                     if _staged_digest != companion_bundle.get("source_digest"):
                         raise ValidationError("staged companion digest differs from declared binding")
+                    # Derived effective file: mode 0600, required override
+                    # present, fragment identity matches staged merge record.
+                    if _staged_extra == _derived:
+                        _eff_path = dst_agent / "models.json"
+                        if _eff_path.is_symlink():
+                            raise ValidationError("staged effective config is a symlink")
+                        _eff_mode = f"{_eff_path.stat().st_mode & 0o777:04o}"
+                        if _eff_mode != "0600":
+                            raise ValidationError("staged effective config mode is not 0600")
+                        try:
+                            _eff_doc = json.loads(_eff_path.read_bytes().decode("utf-8"))
+                        except (OSError, ValueError) as exc:
+                            raise ValidationError(f"staged effective config unreadable: {exc}") from exc
+                        try:
+                            adap.verify_muse_max_effective(_eff_doc)
+                        except adap.AdapterError as exc:
+                            raise ValidationError(f"staged effective config lacks muse max: {exc}") from exc
+                        _eff_digest = "sha256:" + hashlib.sha256(_eff_path.read_bytes()).hexdigest()
+                        _rec_eff = (result.get("subject", {}).get("muse_effective_config", {}).get("effective", {}))
+                        if _rec_eff.get("sha256") != _eff_digest or _rec_eff.get("mode") != "0600":
+                            raise ValidationError("staged effective config differs from merge record")
                 except ValidationError:
                     raise
                 except Exception as exc:
@@ -1262,6 +1310,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
 
         applied_code = None
         result['checks']['applied_payload_interval'] = 'PENDING'
+        # M07-T05A holder: set after the effective readback below; None keeps
+        # exact M07-T05 behavior for homes without a staged effective file.
+        _muse_effective_holder = {"expected": None}
         def applied_check(*, uncertain=False):
             if applied_code is None:
                 raise ValidationError('applied interval missing')
@@ -1273,6 +1324,24 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 if uncertain:
                     raise ValidationUnknown('applied interval uncertain after possible effects; no replay') from exc
                 raise ValidationError('applied companion interval changed or unavailable') from exc
+            # Continuous effective binding: the kernel interval already
+            # watches the derived file (staged rows include it); this
+            # readback proves candidate-visible bytes/modes still match.
+            _exp = _muse_effective_holder.get("expected")
+            if _exp is not None:
+                try:
+                    _h, _m = _readback_file('/home/paseo/.pi/agent/models.json', what='effective models config')
+                except ValidationError as exc:
+                    result['checks']['muse_effective_readback'] = 'UNKNOWN' if uncertain else 'FAIL'
+                    if uncertain:
+                        raise ValidationUnknown('effective config uncertain after possible effects; no replay') from exc
+                    raise
+                _norm = _h if _h.startswith("sha256:") else "sha256:" + _h
+                if _norm != _exp["sha256"] or _m.zfill(4) != "0600":
+                    result['checks']['muse_effective_readback'] = 'UNKNOWN' if uncertain else 'FAIL'
+                    if uncertain:
+                        raise ValidationUnknown('effective config changed after dispatch; no replay') from None
+                    raise ValidationError("candidate effective config changed during interval")
 
         if expected_paseo is not None:
             adap.stage_private_runtime(work / 'home', uid=uid, gid=gid)
@@ -1308,6 +1377,71 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                     raise ValidationError('candidate companion content readback mismatch')
                 if actual_mode.zfill(4) != companion_bundle['modes'][rel]:
                     raise ValidationError('candidate companion actual mode readback mismatch')
+        # M07-T05A: bind the ACTUAL effective merged configuration Pi reads
+        # (derived models.json, 0600), not only the fragment declaration.
+        # The kernel-backed interval already watches it (staged rows include
+        # it); this readback proves candidate-visible bytes/modes match the
+        # host-staged merge record continuously through the guarded interval.
+        # The holder feeds applied_check() so every later acquisition,
+        # preflight, dispatch and completion re-verifies effective binding.
+        if source_root is not None:
+            _frag_src = Path(source_root) / 'config' / 'pi-agent' / 'models.muse-max-override.json'
+            if _frag_src.is_file():
+                _frag_bytes = _frag_src.read_bytes()
+                try:
+                    adap.validate_muse_max_fragment(json.loads(_frag_bytes.decode('utf-8')))
+                except adap.AdapterError as exc:
+                    raise ValidationError(f"frozen muse-max fragment invalid: {exc}") from exc
+                _eff_hash, _eff_mode = _readback_file('/home/paseo/.pi/agent/models.json', what='effective models config')
+                if _eff_mode.zfill(4) != "0600":
+                    raise ValidationError("candidate effective config mode is not 0600")
+                # Candidate-visible bytes must match the host-staged merge
+                # record (same hash-compare pattern as companion readback;
+                # returncode alone never passes). The staged record itself is
+                # verified to carry the required override below.
+                _staged_eff = work / 'home' / '.pi' / 'agent' / 'models.json'
+                if not _staged_eff.is_file() or _staged_eff.is_symlink():
+                    raise ValidationError("staged effective merge record unavailable")
+                try:
+                    _staged_bytes = _staged_eff.read_bytes()
+                    _staged_doc = json.loads(_staged_bytes.decode('utf-8'))
+                except (OSError, ValueError) as exc:
+                    raise ValidationError(f"staged effective config unreadable: {exc}") from exc
+                try:
+                    adap.verify_muse_max_effective(_staged_doc)
+                except adap.AdapterError as exc:
+                    raise ValidationError(f"staged effective config lacks muse max: {exc}") from exc
+                if hashlib.sha256(_staged_bytes).hexdigest() != _eff_hash.removeprefix("sha256:"):
+                    raise ValidationError("candidate effective config content mismatch vs staged merge")
+                muse_effective_expected = {"sha256": _eff_hash if _eff_hash.startswith("sha256:") else "sha256:" + _eff_hash, "mode": "0600"}
+                _muse_effective_holder["expected"] = muse_effective_expected
+                result["subject"]["muse_effective_readback"] = muse_effective_expected
+                result["checks"]["muse_effective_readback"] = "PASS"
+
+        def muse_effective_check(*, uncertain=False):
+            """Re-verify effective bytes/modes continuously; fail closed.
+
+            Alias preserving the M07-T05A product entrypoint: the same
+            verification already runs inside applied_check() at every
+            acquisition/preflight/dispatch/completion boundary.
+            """
+            _exp = _muse_effective_holder.get("expected")
+            if _exp is None:
+                return
+            try:
+                _h, _m = _readback_file('/home/paseo/.pi/agent/models.json', what='effective models config')
+            except ValidationError as exc:
+                result["checks"]["muse_effective_readback"] = 'UNKNOWN' if uncertain else 'FAIL'
+                if uncertain:
+                    raise ValidationUnknown('effective config uncertain after possible effects; no replay') from exc
+                raise
+            _norm = _h if _h.startswith("sha256:") else "sha256:" + _h
+            if _norm != _exp["sha256"] or _m.zfill(4) != "0600":
+                result["checks"]["muse_effective_readback"] = 'UNKNOWN' if uncertain else 'FAIL'
+                if uncertain:
+                    raise ValidationUnknown('effective config changed after dispatch; no replay') from None
+                raise ValidationError("candidate effective config changed during interval")
+
         # Guard hash+mode compare (bytes AND mode; profile fields alone prove
         # nothing — a staged policy/guard with identical fields but different
         # bytes or world-writable mode fails here).
@@ -1527,7 +1661,8 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                         "policy_binding", "daemon_binding", "pi_binding", "codex_catalog",
                         "codex_auth", "codex_health", "muse_guard_readback",
                         "muse_policy_readback", "muse_dispatch", "muse_effective_profile",
-                        "muse_owned_child", "muse_profile_preflight", "applied_payload_interval"]
+                        "muse_owned_child", "muse_profile_preflight", "applied_payload_interval",
+                        "muse_effective_config", "muse_effective_readback"]
             for k in required:
                 if result["checks"].get(k) != "PASS":
                     raise ValidationBlocked(f"real validation requires {k} PASS")

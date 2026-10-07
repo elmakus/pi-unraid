@@ -1,0 +1,13 @@
+{
+  "providers": {
+    "meta": {
+      "modelOverrides": {
+        "muse-spark-1.3-contributor": {
+          "thinkingLevelMap": {
+            "max": "max"
+          }
+        }
+      }
+    }
+  }
+}
