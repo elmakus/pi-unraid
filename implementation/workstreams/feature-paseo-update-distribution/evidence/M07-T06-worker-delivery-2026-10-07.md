@@ -1,6 +1,6 @@
-# M07-T06 worker delivery evidence (bounded, synthetic/local only)
+# M07-T06 worker delivery evidence (bounded, synthetic/local only) — CORRECTED
 
-- Date: 2026-10-07
+- Date: 2026-10-07 (corrects `fa28fba`; supersedes its counts/provenance where they differ)
 - Card: M07-T06 (in_progress, Board rev 128 at launch; JIT `after-M07-T05-materialize-M07-T06` consumed)
 - Branch/worktree: `feat/paseo-update-distribution` @ `/worktrees/pi-unraid-paseo-update-distribution`
 - Initial HEAD: `cdf0ed4`; implementation commit: `8bff08066083f43148b5e2bc0cfb1e02038d5588`
@@ -12,104 +12,97 @@
   `decisions/ADR_PUD_004_POLICY_COMPLIANT_VALIDATION.md`, `planning/PASEO_UPDATE_DISTRIBUTION_P4.md` P4 §M07-T06,
   `contracts/PASEO_R2_CANDIDATE_VALIDATION.md`, canonical `ROUTER.md` + `EXECUTION.md`/`EXECUTION_PREP.md`,
   exact Card `cards/M07-T06.md` (Main-owned Prep preserved; no strategy/order/product change).
-- M07-T05A delivery input refreshed (not retained as eligibility): final companion 19 files
+- Companion refreshed (not retained as eligibility): 19 files
   `sha256:67e1543572b6b471da6525899766711812c281a3e40327b003e52ba289ba7199`; guard bytes unchanged.
+- Provenance correction (durable R01 record): M07-T05A independent Review covered
+  **29+11+4+1+28+1 = 74 tests** (direct exit 0, zero skips); the "99" cohort was the producer's
+  isolated-local prior run (`M07-T05A-main-return-classification`); full discovery (652) was explicitly
+  **not rerun by R01 by design**. No Tower full-suite attribution is claimed here.
 
 ## Implementation subject (`8bff080`, 7 files, +1827/−19)
 
-- New `scripts/paseo_final_gate.py` (trusted Tower final-gate assembler): requires real validator record
-  (schema 2, `execution_class=real`, terminal PASS, `real_validation_satisfied`, all 20 producer + 6
-  source/isolation checks PASS incl. effective-max bindings, distinct OCI/local, COMPLETE cleanup),
-  state A→C→A PASS with baseline==previous binding, and exact source/companion/policy/launcher/guard
-  bindings; rejects fixture-as-real, generic PASS maps, wrong-digest reports, stale baselines.
-- Extended `scripts/paseo_accepted_promotion.py`: verified HTTP-404-only absence
-  (`classify_channel_status`/`verify_channel_absence`; 401/403/network/timeout never absence),
-  `promote_first_channel` under one lock (absence → race recheck → create → OCI readback),
-  strict trusted gates + armed guard before both create/update, channel observation distinct from
-  running predecessor (`running_predecessor` + typed `predecessor_mapping`), Tower single-writer
-  domain preserved (guard-before-domain-before-gates ordering keeps both negative classifications).
-- New `scripts/paseo_legacy_identity.py`: typed `oci`/`local`/`legacy` mapping; legacy = verified local
-  image-ID + independently recoverable archive/config/state anchor; import verification never relabels
-  image-ID as manifest digest; no legacy publication.
-- Extended `scripts/paseo_known_good.py`: `commit_on_terminal` (rotate only on GREEN/committed; never on
-  RED/RECOVERED/UNKNOWN/BLOCKED/FAIL) + `migrate_with_predecessor` (typed binding to ledger current).
+- New `scripts/paseo_final_gate.py` (trusted assembler): real validator record (schema 2, `real`
+  execution, terminal PASS, satisfied real validation, 20 producer + 6 source/isolation checks PASS
+  incl. effective-max bindings, distinct OCI/local, COMPLETE cleanup), state A→C→A PASS with
+  baseline==previous binding, exact source/companion/policy/launcher/guard bindings; rejects
+  fixture-as-real, generic PASS maps, wrong-digest reports, stale baselines.
+- Extended `scripts/paseo_accepted_promotion.py`: verified HTTP-404-only absence (401/403/network/timeout
+  never absence), `promote_first_channel` under one lock (absence → race recheck → create → OCI readback),
+  strict gates + armed guard before create/update, channel observation distinct from running predecessor,
+  Tower single-writer domain preserved (guard-before-domain-before-gates keeps both classifications).
+- New `scripts/paseo_legacy_identity.py`: typed `oci`/`local`/`legacy`; legacy = verified local image-ID +
+  independently recoverable archive/config/state anchor; never relabels image-ID as manifest digest.
+- Extended `scripts/paseo_known_good.py`: terminal-only rotation + typed migration (never on RED/UNKNOWN/BLOCKED).
 - New `scripts/paseo_trigger_intent.py` + extended `scripts/paseo_dockerman_binding.py`: guard-local narrow
-  intent sibling (no universal ledger); pre-trigger intent readback — absent means safe to trigger,
-  present means observe-only; trigger exceptions become uncertain-observe (never blind reissue);
-  terminal committed/recovered short-circuits post-GREEN retrigger. Missing-container transient,
-  third-digest fail-closed, RED exact-restore, post-GREEN rollback denial preserved via existing
-  guard/acceptance state machine (unchanged semantics).
-- New tests: `tests/test_m07_t06_trusted_gate.py` (33 tests, genuine product entrypoints, fake-only
-  Docker/registry/trigger/probe boundaries, disposable temp state).
+  intent (no universal ledger); absent intent = safe to trigger, present = observe-only; trigger exceptions
+  become uncertain-observe (never blind reissue); terminal states short-circuit retrigger. Missing-container
+  transient, third-digest fail-closed, RED exact-restore, post-GREEN denial via unchanged state machine.
+- New tests: `tests/test_m07_t06_trusted_gate.py` (33 tests, genuine entrypoints, fake-only transports,
+  disposable temp state).
 
 ## Tests (direct exits, honest skips, fake boundaries only)
 
-- New targeted: `python3 -m unittest tests.test_m07_t06_trusted_gate` → **33/33 GREEN, exit 0, zero skips**.
-  Covers: assembler positive via actual entrypoint; fixture/rehearsal/missing/forged/failed/unknown
-  gates; stale source/companion/policy/baseline; wrong guard candidate/binding; state gates; OCI/local
-  distinctness; 404 absence vs 401/403/network/timeout/ambiguous; absent-channel positive with readback;
-  first-create races; gates+guard-before-write proof (inspect/run assert_not_called); channel-vs-running
-  separation; Tower lock/readback (faked root/hostname); typed legacy validate/anchor/import/relabel
-  rejection; legacy first-create without publishing; ledger rotation/retention/never-on-uncertain/typed
-  migration; intent record/readback/stale; interruption before/after trigger; trigger-exception
-  uncertain-observe; missing-container convergence; third-identity fail-closed; RED restore; post-GREEN
-  denial; single-RepoDigest; lock-contention single winner.
-- Affected regressions (same worktree, no duplicate pending runs): promotion (11) + guard (4) + ledger (3)
-  + immediate-acceptance (8) + dockerman (8) + update-verify (4) + state-roundtrip (4) → **42/42 GREEN**;
-  combined focused+affected **75/75 GREEN, exit 0, zero skips**. All pre-existing tests unmodified.
-- Companion: `tests.test_paseo_companion_bundle` → 21/21 GREEN. Node catalog core: GREEN (`node --check` +
-  `codex-lb dynamic catalog core tests: GREEN`).
-- `py_compile` GREEN (7 files); `git diff --check` GREEN.
-- Full classified synthetic discovery (background job 1, consumed terminal, no duplicate):
-  **714 ran, 27 failed, 398.885s** (log `/home/paseo/.pi/agent/specpi/background/398890-e7b4227b/job-1.log`,
-  tail-preserved; only 2 FAIL headers + tail JSON survive truncation — limitation noted, no M07-T06-scope
-  failure hidden: all 75 M07-T06-scope + 21 companion GREEN by targeted runs above).
+- New targeted `tests.test_m07_t06_trusted_gate` → **33/33 GREEN, exit 0, zero skips** (absent-channel
+  positive+readback; 404 vs 401/403/network/timeout/ambiguous; create/update races; gates+guard-before-write
+  with `assert_not_called`; channel-vs-running split; Tower lock/readback on faked root/host; typed legacy
+  incl. no-publish first-create; ledger rotation/retention/typed migration; intent lifecycle; interruption
+  before/after trigger; uncertain-observe; missing-container; third-identity; RED restore; post-GREEN denial;
+  single-RepoDigest; lock contention).
+- Affected validation/delivery/build-adjacent cohorts: promotion 11 + guard 4 + ledger 3 + acceptance 8 +
+  dockerman 8 + update-verify 4 + state-roundtrip 4 → **42/42 GREEN**; combined focused+affected **75/75**;
+  companion 21/21 GREEN; Node catalog core GREEN. All pre-existing tests unmodified. `py_compile` GREEN;
+  `git diff --check` GREEN.
+- **Corrected full classified synthetic discovery** (one run, all old jobs terminal, no duplicate): isolated
+  R01-shape env (`env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=/tmp/pud-m07t06-disc TMPDIR=/tmp
+  PYTHONDONTWRITEBYTECODE=1 PYTHONPYCACHEPREFIX=/tmp/pud-m07t06-pycache python3 -B -m unittest discover -s
+  tests -p "test_*.py"`, full stdout/stderr redirected to file, `DIRECT_EXIT:$?` captured with **no pipe**)
+  → **`Ran 714 tests in 565.482s`, `OK`, `DIRECT_EXIT:0`, zero `FAIL`/`ERROR` lines, zero skips**.
+  Complete terminal output committed as `evidence/M07-T06-discovery-2026-10-07.log` (14,966 bytes).
+  This run includes the 33 new M07-T06 tests and all validation/delivery/build matrix cohorts.
+- Earlier non-isolated full run (job 1, `| tail` carrier — exit masked, lesson per R01 repair §73) showed
+  714 ran / 27 failed with only tail preserved; those 27 are classified below as an ambient bytecode-write
+  artifact, absent under the corrected isolated env. No failure is hidden in M07-T06 scope (targeted 75 prove it).
 
-## Pre-existing validator-catalog failures: exact base-vs-subject evidence (no repair in scope)
+## Exact root cause of the 27 (disposable diagnostics, no repo changes, no secrets)
 
-- Symptom (all sampled): validator result `status FAIL/UNKNOWN` with reason
-  `candidate model catalog malformed` (preflight `paseo provider models` stdout unparsable).
-- Subject (`8bff080`, this env): `test_m07_t05a…test_positive…` FAIL + `test_uncertainty…` FAIL (2/2).
-- Clean base (`cdf0ed4`, disposable detached `/tmp/pud-base-clean`, removed after): same 2 tests FAIL
-  with byte-identical cause (2/2, 4.673s). Base worktree created read-only for evidence, no branch/push
-  mutation; removed immediately.
-- TowerValidator genuine (subject, background job 2, terminal 2/2 FAIL 4.533s,
-  log `…/job-2.log`): `test_positive_fixture_through_genuine_api` + `test_real_mode_structurally_succeeds_under_fakes`
-  FAIL (`'FAIL' != 'PASS'`); job-1 tail preserves a fixture validator result JSON carrying the identical
-  `"reason": "candidate model catalog malformed"`.
-- Prior GREEN (durable, other env): M07-T05A R01 (29 new + 99 prior + 76 affected + Node1 GREEN on Tower),
-  M07-T05 99-targeted GREEN. Same code GREEN on Tower, FAIL here on both base and subject → environment/fixture
-  cause, not subject regression.
-- Mechanism (proven by argv-shape debug, no product change): product wraps candidate execs with
-  `env -i …` (`controlled_candidate_argv`); harness routes `argv[3:5]==['env','-i']` to `OwnedRuntimeFixture`;
-  its Node daemon `catalog` handler threw (daemon replies `{id,error:true}`), CLI prints `row.value`
-  (`undefined`), preflight `json.loads` fails → `AdapterError("candidate model catalog malformed")`.
-  Exact throw site is swallowed by the daemon catch; Green-on-Tower vs Fail-here with identical inputs
-  bounds it to fixture/environment (Node daemon path in this host), not M07-T06 inputs.
-- Repair decision: **none within this Card**. The harness/fixture is owned by DONE M07-T05/M07-T05A
-  (independent GREEN verdicts); this Card forbids rewriting DONE history/authority and owns only the
-  consumer/writer/legacy/intent surfaces. No existing assertion was relaxed (all 11 promotion + 27 other
-  affected tests pass unmodified); M07-T06 tests never traverse the owned-runtime daemon catalog path
-  (synthetic producer-shaped records + direct mocks). Classified as precise unresolved environment
-  evidence for Main/independent Review; M07-T06 acceptance does not depend on that path by design
-  (real gates remain M08-T01).
+- Chain (each step observed, not inferred): preflight catalog stdout `'undefined\n'` ← daemon replies
+  `{id,error:true}` ← daemon logged `{"method":"catalog","message":"synthetic Pi closed"}` (patched
+  **disposable copy** of the fixture; repo file untouched) ← Pi child exit `{"code":42}` ← Python bridge
+  `sys.exit(42)` ← `ValueError('applied interval changed')` ← socket readback `bound=False`.
+- Trigger (proven by controlled pair on disposable fixture copies): first bridge exec writes
+  `bin/__pycache__/m07-t05-applied.cpython-311.pyc` into the staged tree **after** interval start →
+  inotify CREATE → `bound=False` (P1: exit 42 + pycache appears). With `PYTHONDONTWRITEBYTECODE=1`
+  (P2a): returncode 0, exact catalog `[{id:meta/muse-spark-1.3-contributor,thinkingOptionIds:[max]}]`,
+  no pycache. The validator's direct candidate execs carry the flag, but the daemon-spawned Pi evidently
+  runs without it on this host, so its first bridge exec poisons the watch it must then satisfy.
+- Experimental confirmation: the corrected discovery adds isolated `PYTHONPYCACHEPREFIX` (plus `env -i`,
+  disposable HOME, `python3 -B`) → all 27 pass unmodified. The defect is ambient bytecode-write behavior
+  interacting with the kernel-backed watch, not M07-T06 (or any product) logic.
+- Base-vs-subject (same non-isolated env): 2/2 exemplar FAIL with byte-identical cause on clean `cdf0ed4`
+  (disposable detached `/tmp/pud-base-clean`, removed) and on `8bff080`. File-level non-causation: the
+  M07-T06 diff touches none of validator/harness/bridge/fixture/adapter files (promotion, dockerman-binding,
+  known-good + 3 new consumer-side modules + 1 new test file only). Tower GREEN history is consistent
+  (watch-timing outcome varies by host/fs scheduling; cf. R01 load-sensitivity notes).
+- Minimum proposed fix scope (**for the owning lineage — NOT implemented here**): propagate the bytecode
+  guard (or precompile staged bytecode before interval start, or mask `__pycache__` in watch rows) in the
+  validator/harness/bridge lineage with affected-gate re-evidence; no DONE verdict changes (diagnosis only).
+  M07-T06 requires no change: its gates never traverse that path, and the corrected env proves the full
+  suite green without touching this Card's subject. If Main/Planning wants the hardening, that is a separate
+  bounded repair Card, not a silent in-scope edit.
 
 ## Secret/live-effect scans (bounded)
 
-- Changed-file secret-pattern scan: only digest-shaped synthetic strings (`sha256:<hex>`, `ab*20` head),
-  allowlist regex definitions in untouched sources, and synthetic fixture tokens in pre-existing tests;
-  no real credential values, ordinary HOME/auth reads, token-bearing argv, raw `--env KEY=value`, or
-  provider-output echo in new/changed code, tests, or this evidence.
+- Changed-file + evidence-log scans: only digest-shaped synthetic strings and allowlist regex definitions;
+  no credential values, ordinary HOME/auth reads, token argv, raw secret env, or provider echo in new/changed
+  code, tests, or evidence (log holds synthetic digests + harness output only).
 - No real inference/auth, credential admission, installed HOME/catalog/runtime/host mutation, live
   Docker/Tower/registry/Unraid operations, CI/build/publication/push/PR/Issue, actual accepted-channel
-  create/update, production guard arm, update trigger, M07-T07/M08/M09 scope, or further delegation.
-  Disposable temp dirs/files/locks only; all external transports mocked.
+  writes, production guard arm, update triggers, M07-T07/M08/M09 scope, or further delegation. Disposable
+  temp dirs/locks/homes only; all external transports mocked; diagnostics confined to `/tmp` (removed).
 
 ## Limitations (for Main reconciliation + fresh independent Review)
 
 - All positives are synthetic/local through faked transports; no final real gate, actual channel exposure,
   production arm/update, or eligibility is claimed (M08 owns real validation/production).
-- Full-discovery 27 failures are pre-existing environment/fixture evidence (above), preserved not waived;
-  REQUIRED Review must independently challenge full stable acceptance.
 - Worker makes no result/Board/Review/Research/manifest finalization; Main reconciles acceptance and starts
-  a fresh independent reviewer (worker materially produced this subject).
+  a fresh independent reviewer (this context materially produced the subject).
