@@ -62,8 +62,10 @@ bash "$repo_root/scripts/configure-pi-instruction-plane.sh" apply "$image" "$fix
 # unroutable fake baseUrl; catalog refresh warns and keeps current catalog,
 # while get_state RPC proceeds. Mode 0600 + 99:100 matches production.
 # Host runner cannot write to the 99:100-owned fixture home (0755), so stage
-# via container-as-root (bypasses host permission) then chown to runtime.
-docker run --rm --user 0:0 \
+# via the disposable runtime identity itself (owner can write), matching the
+# existing preexisting-file pattern; no entrypoint override so the candidate
+# wrapper/upstream runs as it does for other smoke steps.
+docker run --rm --user "$uid:$gid" \
   -v "$fixture/home:/home/paseo" \
   "$image" sh -ec '
 cat > /home/paseo/.pi/agent/models.json <<'"'"'EOF'"'"'
@@ -79,11 +81,6 @@ cat > /home/paseo/.pi/agent/models.json <<'"'"'EOF'"'"'
 EOF
 chmod 0600 /home/paseo/.pi/agent/models.json
 '
-# Ownership must match production for 0600 readability; separate host-expanded
-# chown avoids inner-shell variable expansion and preserves UID:GID overrides.
-docker run --rm --user 0:0 --entrypoint chown \
-  -v "$fixture:/fixture" \
-  "$image" "$uid:$gid" /fixture/home/.pi/agent/models.json
 # Ensure the synthetic bootstrap is staged with correct mode/ownership before RPC.
 test "$(docker run --rm --user 0:0 --entrypoint stat -v "$fixture/home:/home/paseo:ro" "$image" -c '%a' /home/paseo/.pi/agent/models.json)" = "600"
 test "$(docker run --rm --user 0:0 --entrypoint stat -v "$fixture/home:/home/paseo:ro" "$image" -c '%u:%g' /home/paseo/.pi/agent/models.json)" = "$uid:$gid"
