@@ -1,0 +1,22 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M07-T05A"
+attempt = "R01"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "87a16070f8360b5907fc2d85cbaadb69b3491634"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T05A.md"
+blob = "f52d818a90715d711fb6ed02b488e06e7214a505"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T05A.md"
+commit = "5515c04bacb0272aa5ffe1648a506808002d138f"
+blob = "405460e7a205f170d9b41ad9fe99fab83cfd07f3"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Pending R01 requires a fresh independent context that did not materially produce or repair this result, declared complete implementation or stable acceptance. Producing/correcting contexts are excluded. Exact supported merge/delivery, actual effective-configuration temporal binding, lifecycle/timing corrections and complete acceptance must be independently challenged; no verdict or runtime-identity substitute for independence is claimed."
