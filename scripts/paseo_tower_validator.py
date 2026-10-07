@@ -915,9 +915,9 @@ def validate(*, repository, digest, output, state_root, uid=99, gid=100,
                 chelp.validate_model_id(codex_model)
                 chelp.read_dedicated_secret(Path(codex_secret))
             except chelp.CodexBlocked as exc:
-                raise ValidationBlocked(chelp.sanitize_message(str(exc), 200)) from exc
+                raise ValidationBlocked(chelp.sanitize_message(str(exc), limit=200)) from exc
             except chelp.CodexError as exc:
-                raise ValidationError(chelp.sanitize_message(str(exc), 200)) from exc
+                raise ValidationError(chelp.sanitize_message(str(exc), limit=200)) from exc
         elif real_mode:
             raise ValidationBlocked("real validation requires dedicated Codex credential")
         if muse_secret is not None:
