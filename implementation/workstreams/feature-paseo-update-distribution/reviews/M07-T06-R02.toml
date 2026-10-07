@@ -1,0 +1,22 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M07-T06"
+attempt = "R02"
+verdict = "pending"
+evidence_path = ""
+
+[subject]
+class = "git_blob"
+repository = "elmakus/pi-unraid"
+commit = "5213b07bd640657e17de043511c874d27aaa9065"
+path = "implementation/workstreams/feature-paseo-update-distribution/results/M07-T06.md"
+blob = "788faac87da659d956b30992e8f0689ee316e928"
+
+[acceptance]
+class = "task_card"
+path = "implementation/workstreams/feature-paseo-update-distribution/cards/M07-T06.md"
+commit = "bea0f67fc5917c454a42ab352f95b63085ddc9b6"
+blob = "110fcab84e18dc7e7114f67d682761701f390448"
+
+[independence]
+materially_produced_or_repaired_subject = false
+basis = "Reserved for fresh independent context that did not materially produce or repair the exact corrected subject. Review must challenge full stable acceptance, immutable R01 defects and corrected acquisition/typed identity boundaries, not merely passing test counts."
