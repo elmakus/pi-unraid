@@ -1,0 +1,10 @@
+HEAD: f5d9b5c5222106c83ba8c941c4cf17866ffc55fc (worktree /home/paseo/pud-witness-ctrl, detached, outside /tmp)
+HOME: /tmp/pud-witness-home (isolated) XDG_CACHE_HOME: /tmp/pud-witness-cache PYTHONDONTWRITEBYTECODE=1
+START_SINGLE: 2026-10-07T21:24:42Z
+EXIT_SINGLE:0
+END_SINGLE: 2026-10-07T21:25:38Z
+.
+----------------------------------------------------------------------
+Ran 1 test in 55.640s
+
+OK

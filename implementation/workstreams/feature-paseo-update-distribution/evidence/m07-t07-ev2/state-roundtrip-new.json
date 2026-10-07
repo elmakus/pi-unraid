@@ -1,0 +1,23 @@
+{
+  "baseline_provenance": {
+    "files": {
+      "config.json": "b3ad26b3244805cdc099045fd08cfd8c625d0de1ddde0dd84668facf5f4198ce",
+      "daemon-keypair.json": "b3669df8389566032adcb6c21c1f4cfd0b2f0c5988b8db2805534015f063a3f4",
+      "projects/projects.json": "52c4b97dac10ea698f697ffa195baea5bb4c12083d638d488c38696497bd858d",
+      "projects/workspaces.json": "ab4c020782f5ba3a8b0cbf02ab259b472f5ea3a97361bb4aed2fc6d8c04e6f37",
+      "server-id": "2edfb6d184921af931c383da35217565112247a7ebd50a3b67ef81973da6de04"
+    },
+    "source": "/mnt/cachezfs/appdata/pi-unraid/paseo-home"
+  },
+  "candidate_image_id": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809",
+  "candidate_state_sha256": "7f3b89efb32af2fe07bbeca1b1336bfaf464b6aa4ae785842986fb1716a932d2",
+  "checks": {
+    "baseline_clone_isolated": "PASS",
+    "candidate_state_mutation": "PASS",
+    "direct_skip_path": "PASS",
+    "previous_runtime_reopen": "PASS"
+  },
+  "previous_image_id": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "schema_version": 1,
+  "status": "PASS"
+}

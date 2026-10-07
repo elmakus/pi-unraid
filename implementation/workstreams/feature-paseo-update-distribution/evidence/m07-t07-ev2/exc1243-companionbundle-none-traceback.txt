@@ -1,0 +1,7 @@
+--- EXC #1243 AttributeError: 'NoneType' object has no attribute 'get' at /tmp/pud-ev2c/repo/scripts/paseo_tower_validator.py:1154 in validate ---
+Traceback (most recent call last):
+  File "/tmp/pud-ev2c/repo/scripts/paseo_tower_validator.py", line 1154, in validate
+    for rel, declared_sha in companion_bundle.get('validation_sources', {}).items():
+                             ^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'NoneType' object has no attribute 'get'
+--- EXC #1244 FileNotFoundError: [Errno 2] No such file or directory: '/usr/local/sbin/docker' at <frozen genericpath>:19 in exists ---

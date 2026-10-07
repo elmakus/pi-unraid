@@ -1,0 +1,109 @@
+=== T1 20.720171246 ===
+1791410000.7172570730 755 /tmp/pud-ev2c-stateY
+=== T2 21.223794753 ===
+1791410000.7172570730 755 /tmp/pud-ev2c-stateY
+=== T3 21.726641472 ===
+1791410000.7172570730 755 /tmp/pud-ev2c-stateY
+=== T4 22.228946578 ===
+1791410000.7172570730 755 /tmp/pud-ev2c-stateY
+=== T5 22.731617379 ===
+1791410000.7172570730 755 /tmp/pud-ev2c-stateY
+=== T6 23.234801837 ===
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/paseo_codex_noninference.py
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/run-llm-test.sh
+1791410003.0713409280 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied-manifest.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json.sock
+1791410003.1993454880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05
+=== T7 23.737659557 ===
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/paseo_codex_noninference.py
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/run-llm-test.sh
+1791410003.0713409280 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied-manifest.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json.sock
+1791410003.1993454880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05
+=== T8 24.240262575 ===
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/paseo_codex_noninference.py
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/run-llm-test.sh
+1791410003.0713409280 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied-manifest.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json.sock
+1791410003.1993454880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05
+=== T9 24.742885495 ===
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/paseo_codex_noninference.py
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/run-llm-test.sh
+1791410003.0713409280 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied-manifest.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json.sock
+1791410003.1993454880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05
+=== T10 25.245350084 ===
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/paseo_codex_noninference.py
+1791410003.0703408930 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.pi/agent/bin/run-llm-test.sh
+1791410003.0713409280 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied-manifest.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json.sock
+1791410003.1993454880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05
+=== T11 25.748227284 ===
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json.sock
+1791410003.1993454880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05
+1791410005.6604331540 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/config.json
+1791410005.6664333670 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/paseo.pid
+1791410005.6754336880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410005.6764337240 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/daemon.log
+=== T12 26.251753289 ===
+1791410003.1993454880 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05/applied.json.sock
+1791410003.1993454880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.m07-t05
+1791410005.6604331540 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/config.json
+1791410005.6664333670 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/paseo.pid
+1791410005.6754336880 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410005.6764337240 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/daemon.log
+=== T13 26.754233459 ===
+1791410006.6974700940 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/runtime/opencode/paseo-5ae07a46c614cd64985c83235e9a73441297a2ad373eb592cd36f7558f130f28.mjs
+1791410006.6974700940 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/runtime/opencode
+1791410006.7074704500 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/schedules
+1791410006.7094705210 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/local-credential
+1791410006.7094705210 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410006.7134706640 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/daemon.log
+=== T14 27.256864151 ===
+1791410006.6974700940 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/runtime/opencode
+1791410006.7074704500 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/schedules
+1791410006.7094705210 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/local-credential
+1791410006.7094705210 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410007.2544899350 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/config.json
+1791410007.2554899710 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/daemon.log
+=== T15 27.759188712 ===
+1791410007.7505076040 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410007.7505076040 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models
+1791410007.7505076040 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech
+1791410007.7535077110 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2.tmp-1791410007751
+1791410007.7535077110 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads
+1791410007.7555077820 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.tar.bz2.tmp-1791410007754
+=== T16 28.262796176 ===
+1791410007.7505076040 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410007.7505076040 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models
+1791410007.7505076040 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech
+1791410007.7535077110 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads
+1791410008.2615258070 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.tar.bz2.tmp-1791410007754
+1791410008.2625258430 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2.tmp-1791410007751
+=== T17 28.769729660 ===
+1791410008.5625365290 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/cli-client-id
+1791410008.5625365290 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410008.5835372770 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/config.json
+1791410008.5855373490 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/daemon.log
+1791410008.7695439030 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.tar.bz2.tmp-1791410007754
+1791410008.7695439030 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2.tmp-1791410007751
+=== T18 29.274151526 ===
+1791410008.5625365290 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/cli-client-id
+1791410008.5625365290 700 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo
+1791410008.5835372770 600 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/config.json
+1791410008.8785477860 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/daemon.log
+1791410009.2805621060 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.tar.bz2.tmp-1791410007754
+1791410009.2805621060 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2.tmp-1791410007751
+=== T19 29.785226711 ===
+1791410009.5625721510 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.tar.bz2
+1791410009.5625721510 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads
+1791410009.5755726140 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.extracting
+1791410009.5755726140 755 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.extracting/kokoro-en-v0_19
+1791410009.6095738250 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/sherpa-onnx-nemo-parakeet-tdt-0.6b-v2-int8.tar.bz2.tmp-1791410007751
+1791410009.6865765680 644 /tmp/pud-ev2c-stateY/candidate-u63zx3if/home/.paseo/models/local-speech/.downloads/kokoro-en-v0_19.extracting/kokoro-en-v0_19/model.onnx
+WATCH_STOPPED

@@ -1,0 +1,57 @@
+{
+  "checks": {
+    "companion_binding": "PASS",
+    "frozen_chain": "PASS",
+    "image_config": "PASS",
+    "image_mapping": "PASS",
+    "mount_isolation": "PASS",
+    "network_isolation": "PASS",
+    "policy_binding": "PASS",
+    "registry_digest": "PASS",
+    "runtime": "PASS",
+    "secret_isolation": "PASS",
+    "uid_gid": "PASS"
+  },
+  "cleanup": {
+    "issues": [],
+    "status": "COMPLETE"
+  },
+  "digest": "sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60",
+  "execution_class": "rehearsal",
+  "immutable_ref": "ghcr.io/elmakus/pi-unraid@sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60",
+  "real_reason": "fixture/rehearsal never satisfies final validation",
+  "real_validation_satisfied": false,
+  "reason": "candidate structural/source readback unavailable",
+  "repository": "ghcr.io/elmakus/pi-unraid",
+  "schema_version": 2,
+  "status": "FAIL",
+  "subject": {
+    "candidate_file_sha256": "sha256:be94e4ca8093a4fdb8b723bfd4880f71ede1e14c8339c47e4f26a0f0e7930ca7",
+    "candidate_id": "sha256:f5f5233783c64a8ea0f8a8671e51e625d85b1c8b34c81b915a6ea0eb8beda861",
+    "companion_bundle": {
+      "files": 19,
+      "source": "config/pi-agent",
+      "source_digest": "sha256:67e1543572b6b471da6525899766711812c281a3e40327b003e52ba289ba7199"
+    },
+    "daemon_binding": null,
+    "expected_digest": "sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60",
+    "expected_paseo_version": "0.11.0",
+    "expected_pi_version": "1.0.4",
+    "image_pi_label": "1.0.4",
+    "launcher_identity": {
+      "path": "config/pi-agent/bin/run-llm-test.sh",
+      "sha256": "sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde"
+    },
+    "observed_image_id": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809",
+    "observed_running_image": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809",
+    "pi_binding": null,
+    "policy_identity": {
+      "path": "config/pi-agent/policies/llm-test-policy.json",
+      "sha256": "sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40"
+    },
+    "publication_image_id": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809",
+    "repository": "ghcr.io/elmakus/pi-unraid",
+    "version_source": "candidate:candidate.json"
+  },
+  "terminal_class": "terminal"
+}

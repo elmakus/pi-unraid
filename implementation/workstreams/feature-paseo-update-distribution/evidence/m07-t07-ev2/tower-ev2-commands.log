@@ -1,0 +1,109 @@
+=== EV2 START 2026-10-07T21:25:40Z ===
+CLONE_HEAD: f5d9b5c5222106c83ba8c941c4cf17866ffc55fc
+/tmp/pud-ev2/build-record.json
+/tmp/pud-ev2/candidate.json
+/tmp/pud-ev2/evidence.json
+/tmp/pud-ev2/publication-evidence.json
+/tmp/pud-ev2/tested-image-evidence.json
+VALIDATOR_SHA: fd12d2bbba54a5b45ccba92d58f703e1e2dcf1fcad7cded1a9feb4b3b14c5979
+--- secret fixture (fake, disposable) ---
+600 99 100
+--- full-wired validator (complete JSON to file) ---
+{"checks": {"companion_binding": "PASS", "frozen_chain": "PASS", "image_config": "PASS", "image_mapping": "PASS", "mount_isolation": "PASS", "network_isolation": "PASS", "policy_binding": "PASS", "registry_digest": "PASS", "runtime": "PASS", "secret_isolation": "PASS", "uid_gid": "PASS"}, "cleanup": {"issues": [], "status": "COMPLETE"}, "digest": "sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60", "execution_class": "rehearsal", "immutable_ref": "ghcr.io/elmakus/pi-unraid@sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60", "real_reason": "fixture/rehearsal never satisfies final validation", "real_validation_satisfied": false, "reason": "candidate structural/source readback unavailable", "repository": "ghcr.io/elmakus/pi-unraid", "schema_version": 2, "status": "FAIL", "subject": {"candidate_file_sha256": "sha256:be94e4ca8093a4fdb8b723bfd4880f71ede1e14c8339c47e4f26a0f0e7930ca7", "candidate_id": "sha256:f5f5233783c64a8ea0f8a8671e51e625d85b1c8b34c81b915a6ea0eb8beda861", "companion_bundle": {"files": 19, "source": "config/pi-agent", "source_digest": "sha256:67e1543572b6b471da6525899766711812c281a3e40327b003e52ba289ba7199"}, "daemon_binding": null, "expected_digest": "sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60", "expected_paseo_version": "0.11.0", "expected_pi_version": "1.0.4", "image_pi_label": "1.0.4", "launcher_identity": {"path": "config/pi-agent/bin/run-llm-test.sh", "sha256": "sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde"}, "observed_image_id": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809", "observed_running_image": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809", "pi_binding": null, "policy_identity": {"path": "config/pi-agent/policies/llm-test-policy.json", "sha256": "sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40"}, "publication_image_id": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809", "repository": "ghcr.io/elmakus/pi-unraid", "version_source": "candidate:candidate.json"}, "terminal_class": "terminal"}
+VALID_EXIT:2
+status: FAIL
+reason: candidate structural/source readback unavailable
+real: False
+checks: {"companion_binding": "PASS", "frozen_chain": "PASS", "image_config": "PASS", "image_mapping": "PASS", "mount_isolation": "PASS", "network_isolation": "PASS", "policy_binding": "PASS", "registry_digest": "PASS", "runtime": "PASS", "secret_isolation": "PASS", "uid_gid": "PASS"}
+--- diag traceback (patched COPY in /tmp, repo untouched) ---
+DIAG_PATCHED
+DIAG_EXIT:1
+--- state roundtrip (shipped harness, new candidate) ---
+{"baseline_provenance": {"files": {"config.json": "b3ad26b3244805cdc099045fd08cfd8c625d0de1ddde0dd84668facf5f4198ce", "daemon-keypair.json": "b3669df8389566032adcb6c21c1f4cfd0b2f0c5988b8db2805534015f063a3f4", "projects/projects.json": "52c4b97dac10ea698f697ffa195baea5bb4c12083d638d488c38696497bd858d", "projects/workspaces.json": "ab4c020782f5ba3a8b0cbf02ab259b472f5ea3a97361bb4aed2fc6d8c04e6f37", "server-id": "2edfb6d184921af931c383da35217565112247a7ebd50a3b67ef81973da6de04"}, "source": "/mnt/cachezfs/appdata/pi-unraid/paseo-home"}, "candidate_image_id": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809", "candidate_state_sha256": "7f3b89efb32af2fe07bbeca1b1336bfaf464b6aa4ae785842986fb1716a932d2", "checks": {"baseline_clone_isolated": "PASS", "candidate_state_mutation": "PASS", "direct_skip_path": "PASS", "previous_runtime_reopen": "PASS"}, "previous_image_id": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de", "schema_version": 1, "status": "PASS"}
+SR_EXIT:0
+{
+  "baseline_provenance": {
+    "files": {
+      "config.json": "b3ad26b3244805cdc099045fd08cfd8c625d0de1ddde0dd84668facf5f4198ce",
+      "daemon-keypair.json": "b3669df8389566032adcb6c21c1f4cfd0b2f0c5988b8db2805534015f063a3f4",
+      "projects/projects.json": "52c4b97dac10ea698f697ffa195baea5bb4c12083d638d488c38696497bd858d",
+      "projects/workspaces.json": "ab4c020782f5ba3a8b0cbf02ab259b472f5ea3a97361bb4aed2fc6d8c04e6f37",
+      "server-id": "2edfb6d184921af931c383da35217565112247a7ebd50a3b67ef81973da6de04"
+    },
+    "source": "/mnt/cachezfs/appdata/pi-unraid/paseo-home"
+  },
+  "candidate_image_id": "sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809",
+  "candidate_state_sha256": "7f3b89efb32af2fe07bbeca1b1336bfaf464b6aa4ae785842986fb1716a932d2",
+  "checks": {
+    "baseline_clone_isolated": "PASS",
+    "candidate_state_mutation": "PASS",
+    "direct_skip_path": "PASS",
+    "previous_runtime_reopen": "PASS"
+  },
+  "previous_image_id": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "schema_version": 1,
+  "status": "PASS"
+}
+--- promotion rehearsal (ACTUAL candidate bytes, disposable localhost registry) ---
+8f57d9145f627b941f14bf78df6ac4e3074440f93eaa9deb859f03c43f49d3dc
+95ffc720c8bb: Pushed
+rehearsal: digest: sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60 size: 4729
+PUSH_EXIT:0
+PROMOTED_ID: sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809
+EXPECTED_ID: sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809
+Untagged: localhost:5500/pud-ev2/promotion:rehearsal
+pud-ev2-registry
+--- Update+Verify with ACTUAL disposable restore ---
+BIND: sha256:f0d4c5b54287a8a53041b9e450ac01ab072277f7550858ea30ddb04cc6b0430f
+PROBE exact-digest: sha256:aa4c522e7feb7bd3e70cdae7eb6957257f4f710bf751b33ebc4adab1fbc35809
+PROBE health: 1.0.4
+PROBE mounts: 99
+PROBE invariants: OK
+GREEN: observed
+GREEN: validating
+GREEN: committed
+POSTGREEN: committed
+POSTGREEN_RESTORE_CALLS: 0
+RED health (expect 0.0.0-FAKE): got 1.0.4 -> failed_probes=[health]
+--- ACTUAL disposable restore: run predecessor with same probes ---
+RESTORE exact-digest: sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de
+RESTORE health: 0.87.1
+RESTORE mounts: 99
+RESTORE invariants: OK
+RED: observed
+RED: validating
+RED: rolling-back
+RED: recovered
+GUARD_GREEN_FINAL:
+{
+  "binding_digest": "sha256:f0d4c5b54287a8a53041b9e450ac01ab072277f7550858ea30ddb04cc6b0430f",
+  "candidate_digest": "sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60",
+  "config_digest": "sha256:ebc1b352c340e1796f30bdb1b9b0df5424294bd8e5465b027f5dffb7c1f13f89",
+  "previous_digest": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "rollback_anchor": "/tmp/pud-ev2-accept/anchor.json",
+  "rollback_digest": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "state": "committed"
+}
+GUARD_RED_FINAL:
+{
+  "binding_digest": "sha256:f0d4c5b54287a8a53041b9e450ac01ab072277f7550858ea30ddb04cc6b0430f",
+  "candidate_digest": "sha256:aa7425c8ddff92b3f3d5799383f7972474115cbd5ec35ffac738fc83a5318d60",
+  "config_digest": "sha256:ebc1b352c340e1796f30bdb1b9b0df5424294bd8e5465b027f5dffb7c1f13f89",
+  "previous_digest": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "rollback_anchor": "/tmp/pud-ev2-accept/anchor.json",
+  "rollback_digest": "sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de",
+  "state": "recovered"
+}
+ANCHOR:
+{"previous_image":"sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de"}
+total 12
+drwxr-xr-x   2 root root   100 Oct  7 23:26 .
+drwxrwxrwt 790 root root 21300 Oct  7 23:26 ..
+-rw-r--r--   1 root root    93 Oct  7 23:26 anchor.json
+-rw-------   1 root root   561 Oct  7 23:26 guard-green.json
+-rw-------   1 root root   561 Oct  7 23:26 guard-red.json
+--- cleanup + production readback ---
+NETS_CLEAN_IF_EMPTY
+CONTAINERS_CLEAN_IF_EMPTY
+PRODUCTION: sha256:05e140da78a5bb092fed20102a855fc6e0eae364935f11cdc75b82969f0f32de running
+=== EV2 END 2026-10-07T21:26:25Z ===
