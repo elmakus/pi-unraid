@@ -20,6 +20,28 @@ SCHEMA_VERSION = 1
 PRODUCTION_WRITER_HOST = "Tower"
 PRODUCTION_LOCK_ROOT = Path("/mnt/user/appdata/pi-unraid/update-state")
 
+# Exact full required set the shipped assembler emits: 20 producer checks
+# + 6 source/isolation checks + 4 state checks. The writer requires every
+# name present with PASS. Iterating only the keys a caller record happens
+# to carry would let an omitted check disappear silently, so omission of
+# any name below fails closed here.
+FULL_REQUIRED_GATES = (
+    "registry_digest", "image_mapping", "image_config",
+    "frozen_chain", "companion_binding", "policy_binding",
+    "daemon_binding", "pi_binding", "codex_catalog",
+    "codex_auth", "codex_health", "muse_guard_readback",
+    "muse_policy_readback", "muse_dispatch",
+    "muse_effective_profile", "muse_owned_child",
+    "muse_profile_preflight", "applied_payload_interval",
+    "muse_effective_config", "muse_effective_readback",
+    "immutable_source_configuration", "runtime", "uid_gid",
+    "mount_isolation", "network_isolation", "secret_isolation",
+    "state.baseline_clone_isolated",
+    "state.candidate_state_mutation",
+    "state.previous_runtime_reopen",
+    "state.direct_skip_path",
+)
+
 class PromotionError(RuntimeError):
     pass
 
@@ -100,6 +122,13 @@ def validate_trusted_final_gate(candidate: str, repository: str,
     running predecessor resolves per typed kind (``oci`` → manifest
     digest, ``local``/``legacy`` → image ID); OCI vs local namespaces
     stay distinct, and OCI mappings must name this repository.
+
+    Trust boundary (R01 RED): this function checks VALUE consistency of a
+    gate-shaped dict only — content alone can never prove provenance, so a
+    direct call with a fully populated forged dict confers NOTHING. Actual
+    production eligibility is conferred solely by the production writer
+    paths, which refuse caller-supplied gate records and run the shipped
+    acquisition boundary in-process (see ``_acquire_production_gate``).
     """
     if not isinstance(final_gate, dict):
         raise PromotionError(
@@ -125,22 +154,10 @@ def validate_trusted_final_gate(candidate: str, repository: str,
     for name, outcome in required.items():
         if outcome != "PASS":
             raise PromotionError(f"final gate requires {name} PASS")
-    # The assembler guarantees the full required set; a record that omits
-    # any producer/state/source gate cannot be trusted here.
-    for name in ("registry_digest", "image_mapping", "image_config",
-                 "frozen_chain", "companion_binding", "policy_binding",
-                 "daemon_binding", "pi_binding", "codex_catalog",
-                 "codex_auth", "codex_health", "muse_guard_readback",
-                 "muse_policy_readback", "muse_dispatch",
-                 "muse_effective_profile", "muse_owned_child",
-                 "muse_profile_preflight", "applied_payload_interval",
-                 "muse_effective_config", "muse_effective_readback"):
-        if required.get(name) != "PASS":
-            raise PromotionError(f"final gate requires {name} PASS")
-    for name in ("state.baseline_clone_isolated",
-                 "state.candidate_state_mutation",
-                 "state.previous_runtime_reopen",
-                 "state.direct_skip_path"):
+    # Explicit full set: the 20 producer checks, the six source/isolation
+    # checks AND the four state checks. A record that omits any of them —
+    # even with every carried check PASS — fails closed here.
+    for name in FULL_REQUIRED_GATES:
         if required.get(name) != "PASS":
             raise PromotionError(f"final gate requires {name} PASS")
     for key in ("source_head", "companion_digest", "policy_digest",
@@ -275,12 +292,91 @@ def _running_from_mapping(repository: str, mapping: dict | None) -> str:
         return require_digest(str(mapping.get("image_id") or ""), "local predecessor image-ID")
     raise PromotionError("unsupported predecessor kind")
 
+# Production eligibility is conferred ONLY by in-process acquisition: the
+# writer invokes the shipped assembler acquisition boundary itself (shipped
+# validator + state-prove + guard readback, recomputed source bindings).
+# Caller-supplied gate dicts/JSON — however fully populated, internally
+# consistent or genuinely valued — are detached records. Detached records
+# may exercise disposable diagnostics but can never authorize a production
+# write. No label, hash, flag or binding on a detached record changes that:
+# the production paths below never read such markers, they refuse the
+# record categorically and acquire the gate themselves.
+DETACHED_GATE_ERROR = (
+    "detached gate records are diagnostic-only and cannot confer production "
+    "promotion eligibility; production promotion requires in-process trusted "
+    "acquisition via the acquisition bundle")
+
+# Locator-only bundle for in-process acquisition. Values are file paths and
+# transport locators owned by the caller layers (plus the ledger-owned typed
+# predecessor observation); the producer/validator/state objects themselves
+# are NEVER caller-supplied — the writer imports the shipped acquisition
+# owner itself (see _acquire_production_gate).
+_ACQUISITION_KEYS = (
+    "candidate_file", "handoff_file", "build_input_file",
+    "tested_image_file", "build_record", "publication_file",
+    "source_root", "codex_secret", "codex_base_url", "codex_model",
+    "muse_secret", "validator_state_root", "validator_output",
+    "baseline_path", "baseline_local_image_id", "state_root",
+    "state_output", "predecessor", "guard_path",
+)
+
+def _acquire_production_gate(repository: str, candidate: str,
+                             acquisition: dict | None) -> tuple[dict, dict]:
+    """Run trusted acquisition in-process; return (gate, live guard).
+
+    The shipped ``paseo_final_gate.assemble_from_acquisition`` boundary is
+    invoked HERE, inside the writer, on caller locator data only. A forged
+    or replayed gate dict presented by any caller path is refused by the
+    callers of this helper before it is reached; this helper never accepts
+    a gate/validator/state record from the caller at all.
+    """
+    from scripts import paseo_final_gate as _final_gate  # noqa: E402  shipped acquisition owner
+    if not isinstance(acquisition, dict):
+        raise PromotionError(
+            "production promotion requires an acquisition bundle of "
+            "file/secret locators (caller gate records are diagnostic-only)")
+    missing = [key for key in _ACQUISITION_KEYS if acquisition.get(key) in (None, "")]
+    if missing:
+        raise PromotionError(f"acquisition bundle is missing: {', '.join(missing)}")
+    if not isinstance(acquisition.get("predecessor"), dict):
+        raise PromotionError("acquisition bundle predecessor mapping must be an object")
+    try:
+        gate, ctx = _final_gate.assemble_from_acquisition(
+            repository=repository, candidate_digest=candidate,
+            candidate_file=acquisition["candidate_file"],
+            handoff_file=acquisition["handoff_file"],
+            build_input_file=acquisition["build_input_file"],
+            tested_image_file=acquisition["tested_image_file"],
+            build_record=acquisition["build_record"],
+            publication_file=acquisition["publication_file"],
+            source_root=acquisition["source_root"],
+            companion_bundle=acquisition.get("companion_bundle"),
+            codex_secret=acquisition["codex_secret"],
+            codex_base_url=acquisition["codex_base_url"],
+            codex_model=acquisition["codex_model"],
+            muse_secret=acquisition["muse_secret"],
+            validator_state_root=acquisition["validator_state_root"],
+            validator_output=acquisition["validator_output"],
+            baseline_path=acquisition["baseline_path"],
+            baseline_local_image_id=acquisition["baseline_local_image_id"],
+            state_root=acquisition["state_root"],
+            state_output=acquisition["state_output"],
+            predecessor=acquisition["predecessor"],
+            guard_path=acquisition["guard_path"])
+    except _final_gate.FinalGateError as exc:
+        raise PromotionError(f"production trusted acquisition failed: {exc}") from exc
+    live_guard = ctx.get("guard_record")
+    if not isinstance(live_guard, dict):
+        raise PromotionError("production trusted acquisition did not bind a live guard")
+    return gate, live_guard
+
 def promote(*, repository: str, alias: str, candidate_digest: str,
             expected_current_digest: str, output_path: Path,
             final_gate: dict | None = None, guard: dict | None = None,
             lock_path: Path | None = None,
             running_predecessor: str | None = None,
-            predecessor_mapping: dict | None = None) -> dict:
+            predecessor_mapping: dict | None = None,
+            acquisition: dict | None = None) -> dict:
     candidate = require_digest(candidate_digest, "candidate digest")
     expected = require_digest(expected_current_digest, "expected current digest")
     production = alias == "accepted"
@@ -300,7 +396,13 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
         if predecessor_mapping is not None:
             _check_predecessor_mapping(
                 _running_from_mapping(repository, predecessor_mapping), predecessor_mapping)
-        running = validate_production_gate(candidate, repository, final_gate, guard,
+        # Detached-caller bypass close: a caller-supplied gate — genuine,
+        # replayed or forged — is refused BEFORE any acquisition or registry
+        # access. The eligible gate is acquired in-process below.
+        if final_gate is not None:
+            raise PromotionError(DETACHED_GATE_ERROR)
+        gate, live_guard = _acquire_production_gate(repository, candidate, acquisition)
+        running = validate_production_gate(candidate, repository, gate, live_guard,
                                            predecessor_mapping=predecessor_mapping)
     elif alias == "accepted" or alias.endswith("/accepted"):
         raise PromotionError("reserved production accepted alias")
@@ -340,6 +442,7 @@ def promote_first_channel(*, repository: str, alias: str, candidate_digest: str,
                           final_gate: dict | None = None, guard: dict | None = None,
                           lock_path: Path | None = None,
                           predecessor_mapping: dict | None = None,
+                          acquisition: dict | None = None,
                           channel_status: int | None = None,
                           channel_error: str | None = None,
                           channel_status_fn=None) -> dict:
@@ -370,6 +473,13 @@ def promote_first_channel(*, repository: str, alias: str, candidate_digest: str,
         validate_guard_readback(guard)
     except (GuardError, OSError, TypeError, ValueError) as exc:
         raise PromotionError("production accepted promotion requires validated transaction guard readback") from exc
+    # Detached-caller bypass close (production only): disposable aliases
+    # keep validating caller records by value for diagnostics, but the
+    # accepted channel is only ever written from an in-process acquisition.
+    if production and final_gate is not None:
+        raise PromotionError(DETACHED_GATE_ERROR)
+    if production:
+        final_gate, guard = _acquire_production_gate(repository, candidate, acquisition)
     gate_running = validate_production_gate(candidate, repository, final_gate, guard,
                                             predecessor_mapping=predecessor_mapping)
     if gate_running != running:
@@ -424,13 +534,20 @@ def main() -> int:
     p=argparse.ArgumentParser(description=__doc__); s=p.add_subparsers(dest="command",required=True)
     q=s.add_parser("promote"); q.add_argument("--repository",required=True); q.add_argument("--alias",required=True)
     q.add_argument("--candidate-digest",required=True); q.add_argument("--expected-current-digest",required=True)
-    q.add_argument("--output",type=Path,required=True); q.add_argument("--final-gate",type=Path); q.add_argument("--guard",type=Path)
+    q.add_argument("--output",type=Path,required=True); q.add_argument("--final-gate",type=Path); q.add_argument("--guard",type=Path); q.add_argument("--acquisition",type=Path)
     a=p.parse_args()
     try:
+        cli_production = a.alias == "accepted"
+        if cli_production and a.final_gate:
+            raise PromotionError(DETACHED_GATE_ERROR + " (CLI --final-gate files are diagnostic-only)")
+        acquisition = load_json(a.acquisition) if a.acquisition else None
+        if cli_production and acquisition is None:
+            raise PromotionError("production promotion requires an --acquisition bundle of file/secret locators")
         result=promote(repository=a.repository,alias=a.alias,candidate_digest=a.candidate_digest,
             expected_current_digest=a.expected_current_digest,output_path=a.output,
-            final_gate=load_json(a.final_gate) if a.final_gate else None,
-            guard=load_json(a.guard) if a.guard else None)
+            final_gate=load_json(a.final_gate) if (a.final_gate and not cli_production) else None,
+            guard=load_json(a.guard) if a.guard else None,
+            acquisition=acquisition)
         print(json.dumps(result,sort_keys=True)); return 0
     except (PromotionError,GuardError,OSError,TypeError,ValueError) as exc:
         print(f"promotion failed: {exc}",file=sys.stderr); return 2

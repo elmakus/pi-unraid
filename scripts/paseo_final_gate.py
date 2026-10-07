@@ -585,6 +585,17 @@ def main() -> int:
             predecessor=predecessor,
             guard_binding_digest=args.guard_binding,
             guard_candidate=args.guard_candidate)
+        # Detached-caller restriction (R01 RED): this CLI assembles from
+        # caller-supplied records, so its output is explicitly
+        # diagnostic-only and can never confer production eligibility. The
+        # labels below are documentation, NOT a trust mechanism — the
+        # production writer refuses every caller-supplied record
+        # categorically and acquires its gate in-process.
+        gate["acquisition"] = "detached-caller-records"
+        gate["eligibility"] = "diagnostic-only"
+        print("note: detached CLI records are diagnostic-only; "
+              "production promotion requires in-process acquisition",
+              file=sys.stderr)
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(json.dumps(gate, sort_keys=True, indent=2) + "\n",
                                encoding="utf-8")

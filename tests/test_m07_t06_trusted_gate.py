@@ -49,6 +49,7 @@ Classification (synthetic only, no real effects):
 """
 from __future__ import annotations
 
+import contextlib
 import copy
 import hashlib
 import importlib.util
@@ -155,6 +156,123 @@ def _state_fakes():
             marker.write_text(json.dumps(candidate_state) + "\n")
         return True
     return calls, probe
+
+
+def _setup_chain(parent, kind, *, anchor_bytes=b"legacy-image-bytes"):
+    """Build genuine chain inputs WITHOUT acquiring (setup only).
+
+    Same builders as :func:`_acquire` (harness chain, fixture secrets,
+    fixture source, actual baseline, armed guard) but stops before any
+    acquisition run. Returns a setup dict; the caller runs acquisition
+    itself — either shipped ``FG.assemble_from_acquisition`` (as
+    :func:`_acquire` does) or the production writer's in-process
+    acquisition via :func:`_acquisition_bundle`.
+    """
+    td = Path(parent) / "chain"
+    td.mkdir(parents=True, exist_ok=True)
+    codex, muse = H._secrets(td)
+    files = H._fixture_chain(td, image_id=CAND_LOCAL)
+    chain = dict(zip(("candidate_file", "handoff_file", "build_input_file",
+                      "tested_image_file", "build_record_file", "publication_file"), files))
+    bindir = HT.make_fake_paseo(td / "bindir")
+    wit = td / "witness.jsonl"
+    wit.write_text("")
+    calls, fstate = [], {"net_exists": False, "network": "pi-unraid-validator",
+                         "bindir": str(bindir), "witness_host": str(wit)}
+    source_root = HT.fixture_source(td)
+    companion = dict(HT.REAL_COMPANION)
+    if kind == "oci":
+        predecessor = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
+        previous_local = RUN_LOCAL
+    elif kind == "legacy":
+        anchor = Path(parent) / "legacy.tar"
+        anchor.write_bytes(anchor_bytes)
+        archive_digest = "sha256:" + hashlib.sha256(anchor_bytes).hexdigest()
+        predecessor = {"kind": "legacy", "image_id": LEGACY_IMG,
+                       "archive_path": str(anchor), "archive_sha256": archive_digest,
+                       "config_digest": CFG, "state_identity": "legacy-state-1"}
+        previous_local = LEGACY_IMG
+    else:
+        predecessor = {"kind": "local", "image_id": RUN_LOCAL}
+        previous_local = RUN_LOCAL
+    baseline_src = _make_baseline(Path(parent) / "st")
+    anchor_g = Path(parent) / "rollback.json"
+    anchor_g.write_text("{}\n", encoding="utf-8")
+    guard_path = Path(parent) / "guard.json"
+    running_value = predecessor.get("digest", predecessor.get("image_id"))
+    GUARD.arm(guard_path, CAND_OCI, running_value, CFG, anchor_g)
+    state_calls, probe = _state_fakes()
+    return {
+        "parent": Path(parent), "td": td, "codex": codex, "muse": muse,
+        "chain": chain, "bindir": bindir, "calls": calls, "fstate": fstate,
+        "source_root": source_root, "companion": companion,
+        "predecessor": predecessor, "previous_local": previous_local,
+        "baseline_src": baseline_src, "guard_path": guard_path,
+        "guard": GUARD.load(guard_path), "probe": probe,
+        "state_calls": state_calls,
+        "validator_state_root": Path(parent) / "vst",
+        "validator_output": Path(parent) / "vout.json",
+        "state_root": Path(parent) / "sst",
+        "state_output": Path(parent) / "sout.json",
+    }
+
+
+@contextlib.contextmanager
+def _acquisition_transports(setup):
+    """Fake-only transport context for shipped acquisition runs.
+
+    Local Codex server + harness fake Docker/registry + seam patches on the
+    shipped producer modules. The producer modules are shared objects, so
+    writer-driven in-process acquisition is faked identically to direct
+    ``FG.assemble_from_acquisition`` calls. Yields ``(server, fake)``.
+    """
+    with HT.LocalCodexServer() as server:
+        fake = HT.make_fake_docker(digest=CAND_OCI, image_id=CAND_LOCAL, calls=setup["calls"],
+                                   state=setup["fstate"], server_base=server.base,
+                                   codex_secret_host=setup["codex"], muse_secret_host=setup["muse"])
+        with mock.patch.object(FG.tower_validator.shutil, "which",
+                               return_value="/usr/bin/docker"), \
+             mock.patch.object(FG.tower_validator.os, "chown"), \
+             mock.patch.object(FG.tower_validator, "run", side_effect=fake), \
+             mock.patch.object(FG.state_prove.shutil, "which",
+                               return_value="/usr/bin/docker"), \
+             mock.patch.object(FG.state_prove, "image_readback",
+                               side_effect=lambda x: x), \
+             mock.patch.object(FG.state_prove, "runtime_probe", side_effect=setup["probe"]), \
+             mock.patch.object(FG.state_prove.os, "chown"):
+            yield server, fake
+
+
+def _acquisition_bundle(setup, base_url):
+    """Locator-only writer acquisition bundle (JSON-serializable).
+
+    Carries file/secret locators plus the ledger-owned typed predecessor
+    observation — NEVER producer/validator/state objects. ``base_url`` is
+    the fake-only Codex transport base from :func:`_acquisition_transports`.
+    """
+    chain = setup["chain"]
+    return {
+        "candidate_file": str(chain["candidate_file"]),
+        "handoff_file": str(chain["handoff_file"]),
+        "build_input_file": str(chain["build_input_file"]),
+        "tested_image_file": str(chain["tested_image_file"]),
+        "build_record": str(chain["build_record_file"]),
+        "publication_file": str(chain["publication_file"]),
+        "source_root": str(setup["source_root"]),
+        "companion_bundle": setup["companion"],
+        "codex_secret": str(setup["codex"]),
+        "codex_base_url": base_url,
+        "codex_model": "m",
+        "muse_secret": str(setup["muse"]),
+        "validator_state_root": str(setup["validator_state_root"]),
+        "validator_output": str(setup["validator_output"]),
+        "baseline_path": str(setup["baseline_src"]),
+        "baseline_local_image_id": setup["previous_local"],
+        "state_root": str(setup["state_root"]),
+        "state_output": str(setup["state_output"]),
+        "predecessor": copy.deepcopy(setup["predecessor"]),
+        "guard_path": str(setup["guard_path"]),
+    }
 
 
 def _acquire(kind, parent, *, tamper=None, anchor_bytes=b"legacy-image-bytes"):
@@ -348,25 +466,30 @@ class GenuineTrustTests(unittest.TestCase):
             self.assertEqual(gate["baseline_local_image_id"], RUN_LOCAL)
 
     def test_end_to_end_oci_existing_channel_update(self):
-        # Production update path: the trusted gate + armed guard are
-        # enforced inside promote (Tower domain faked, registry mocked).
+        # Production update path: the writer acquires the trusted gate
+        # in-process from the locator bundle (Tower domain faked, registry
+        # mocked, acquisition transports faked). Caller gate records —
+        # even genuine-valued ones — are refused (see DetachedBypassTests).
         with tempfile.TemporaryDirectory() as td:
-            gate, guard, _, _, _ = assemble_genuine("oci", td)
-            fake_root = Path(td) / "tower-state"
-            fake_root.mkdir()
-            with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
-                 mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
-                 mock.patch.object(PROM, "inspect_digest",
-                                   side_effect=[RUN_OCI, RUN_OCI, CAND_OCI]) as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                out = PROM.promote(
-                    repository=REPO, alias="accepted", candidate_digest=CAND_OCI,
-                    expected_current_digest=RUN_OCI,
-                    output_path=Path(td) / "o.json",
-                    final_gate=gate, guard=guard,
-                    lock_path=fake_root / "accepted.lock",
-                    predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
-                                         "repository": REPO})
+            setup = _setup_chain(td, "oci")
+            with _acquisition_transports(setup) as (server, _fake):
+                bundle = _acquisition_bundle(setup, server.base)
+                fake_root = Path(td) / "tower-state"
+                fake_root.mkdir()
+                with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
+                     mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
+                     mock.patch.object(PROM, "inspect_digest",
+                                       side_effect=[RUN_OCI, RUN_OCI, CAND_OCI]) as inspect, \
+                     mock.patch.object(PROM, "run_checked") as run:
+                    out = PROM.promote(
+                        repository=REPO, alias="accepted", candidate_digest=CAND_OCI,
+                        expected_current_digest=RUN_OCI,
+                        output_path=Path(td) / "o.json",
+                        guard=setup["guard"],
+                        lock_path=fake_root / "accepted.lock",
+                        predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                             "repository": REPO},
+                        acquisition=bundle)
             self.assertTrue(out["production"])
             self.assertEqual(out["readback_digest"], CAND_OCI)
             self.assertEqual(out["running_predecessor"], RUN_OCI)
@@ -416,25 +539,35 @@ class GenuineTrustTests(unittest.TestCase):
 
     def test_production_accepted_enforces_tower_lock_and_readback(self):
         with tempfile.TemporaryDirectory() as td:
-            gate, guard, _, _, _ = assemble_genuine("oci", td)
-            fake_root = Path(td) / "tower-state"
-            fake_root.mkdir()
-            lock = fake_root / "accepted.lock"
-            with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
-                 mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
-                 mock.patch.object(PROM, "inspect_digest",
-                                   side_effect=[PROM.PromotionError("404 missing"), CAND_OCI]), \
-                 mock.patch.object(PROM, "run_checked"):
-                out = PROM.promote_first_channel(
-                    repository=REPO, alias="accepted",
-                    candidate_digest=CAND_OCI,
-                    output_path=Path(td) / "o.json",
-                    final_gate=gate, guard=guard, lock_path=lock,
-                    predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
-                                         "repository": REPO},
-                    channel_status=404)
+            setup = _setup_chain(td, "oci")
+            with _acquisition_transports(setup) as (server, _fake):
+                bundle = _acquisition_bundle(setup, server.base)
+                fake_root = Path(td) / "tower-state"
+                fake_root.mkdir()
+                lock = fake_root / "accepted.lock"
+                with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
+                     mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
+                     mock.patch.object(PROM, "inspect_digest",
+                                       side_effect=[PROM.PromotionError("404 missing"), CAND_OCI]), \
+                     mock.patch.object(PROM, "run_checked"):
+                    out = PROM.promote_first_channel(
+                        repository=REPO, alias="accepted",
+                        candidate_digest=CAND_OCI,
+                        output_path=Path(td) / "o.json",
+                        guard=setup["guard"], lock_path=lock,
+                        predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                             "repository": REPO},
+                        acquisition=bundle,
+                        channel_status=404)
             self.assertTrue(out["production"])
             self.assertEqual(out["readback_digest"], CAND_OCI)
+            # Out-of-domain fails before any detached/acquisition handling:
+            # a caller record is fine here because the domain check fires
+            # first (the production detached refusal is proven separately).
+            # Own subdirectory: this td already holds the setup chain and
+            # must not be rebuilt in place.
+            probe_gate, probe_guard, _, _, _ = assemble_genuine(
+                "oci", Path(td) / "probe")
             with mock.patch.object(PROM.socket, "gethostname", return_value="not-tower"), \
                  mock.patch.object(PROM, "inspect_digest") as inspect, \
                  mock.patch.object(PROM, "run_checked") as run:
@@ -443,7 +576,7 @@ class GenuineTrustTests(unittest.TestCase):
                         repository=REPO, alias="accepted",
                         candidate_digest=CAND_OCI,
                         output_path=Path(td) / "o.json",
-                        final_gate=gate, guard=guard,
+                        final_gate=probe_gate, guard=probe_guard,
                         lock_path=Path(td) / "foreign.lock",
                         predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
                                              "repository": REPO},
@@ -880,6 +1013,218 @@ class ChannelAbsenceTests(unittest.TestCase):
                         predecessor_mapping=bad)
                 inspect.assert_not_called()
                 run.assert_not_called()
+
+
+class DetachedBypassTests(unittest.TestCase):
+    """Detached caller records cannot confer accepted promotion eligibility.
+
+    Every case below presents a FULLY POPULATED, value-consistent record at
+    an actual CLI/library production boundary — not merely empty/wrong
+    fields — and asserts rejection plus zero registry/trigger effects.
+    """
+
+    ATTACK_CANDIDATE = "sha256:" + "c" * 64
+    ATTACK_LOCAL = "sha256:" + "1" * 64
+
+    def _perfect_forgery(self, td):
+        """Strongest fabricable shape for an attacker candidate.
+
+        A genuinely acquired gate rebound with every value self-consistent
+        (30/30 required PASS including the six source/isolation checks,
+        well-formed digests, baselines == running mapping, guard binding ==
+        live armed attacker guard, recomputed binding digest). Only
+        provenance is fabricated: no validator/state run ever covered the
+        attacker candidate.
+        """
+        gate, _, _, _, _ = assemble_genuine("oci", td)
+        # Attacker guard lives in its own sibling dir: the chain guard file
+        # already holds an armed guard and must not be rebound.
+        atk = Path(td) / "attacker"
+        atk.mkdir(exist_ok=True)
+        _, guard_c, _ = genuine_guard(atk, candidate=self.ATTACK_CANDIDATE,
+                                       previous=RUN_OCI)
+        forged = copy.deepcopy(gate)
+        forged["candidate_digest"] = self.ATTACK_CANDIDATE
+        forged["candidate_local_image_id"] = self.ATTACK_LOCAL
+        forged["baseline_oci"] = RUN_OCI
+        forged["baseline_local_image_id"] = RUN_LOCAL
+        forged["guard_binding_digest"] = guard_c["binding_digest"]
+        forged.pop("acquisition", None)
+        forged.pop("eligibility", None)
+        body = {key: value for key, value in forged.items()
+                if key != "binding_digest"}
+        forged["binding_digest"] = (
+            "sha256:" + hashlib.sha256(
+                json.dumps(body, sort_keys=True,
+                           separators=(",", ":")).encode()).hexdigest())
+        # Sanity: the forgery IS value-consistent — the helper-level check
+        # accepts it, proving content checks alone can never be the trust
+        # root. The production boundaries below must still refuse it.
+        checked = PROM.validate_trusted_final_gate(
+            self.ATTACK_CANDIDATE, REPO, forged, guard_c,
+            predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                 "repository": REPO})
+        self.assertEqual(checked["candidate_digest"], self.ATTACK_CANDIDATE)
+        return forged, guard_c
+
+    def _tower(self, td):
+        fake_root = Path(td) / "tower-state"
+        fake_root.mkdir(exist_ok=True)
+        return (mock.patch.object(PROM.socket, "gethostname", return_value="Tower"),
+                mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root),
+                fake_root)
+
+    def test_perfect_forgery_rejected_at_production_promote(self):
+        with tempfile.TemporaryDirectory() as td:
+            forged, guard_c = self._perfect_forgery(td)
+            host, root, fake_root = self._tower(td)
+            with host, root, \
+                 mock.patch.object(PROM, "inspect_digest") as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run:
+                with self.assertRaisesRegex(PROM.PromotionError, "diagnostic-only"):
+                    PROM.promote(
+                        repository=REPO, alias="accepted",
+                        candidate_digest=self.ATTACK_CANDIDATE,
+                        expected_current_digest=RUN_OCI,
+                        output_path=Path(td) / "o.json",
+                        final_gate=forged, guard=guard_c,
+                        lock_path=fake_root / "accepted.lock",
+                        predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                             "repository": REPO})
+                inspect.assert_not_called()
+                run.assert_not_called()
+
+    def test_perfect_forgery_rejected_at_production_first_channel(self):
+        with tempfile.TemporaryDirectory() as td:
+            forged, guard_c = self._perfect_forgery(td)
+            host, root, fake_root = self._tower(td)
+            with host, root, \
+                 mock.patch.object(PROM, "inspect_digest") as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run:
+                with self.assertRaisesRegex(PROM.PromotionError, "diagnostic-only"):
+                    PROM.promote_first_channel(
+                        repository=REPO, alias="accepted",
+                        candidate_digest=self.ATTACK_CANDIDATE,
+                        output_path=Path(td) / "o.json",
+                        final_gate=forged, guard=guard_c,
+                        lock_path=fake_root / "accepted.lock",
+                        predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                             "repository": REPO},
+                        channel_status=404)
+                inspect.assert_not_called()
+                run.assert_not_called()
+
+    def test_promotion_cli_rejects_gate_file_for_accepted(self):
+        with tempfile.TemporaryDirectory() as td:
+            forged, guard_c = self._perfect_forgery(td)
+            gate_file = Path(td) / "gate.json"
+            gate_file.write_text(json.dumps(forged))
+            guard_file = Path(td) / "guard.json"
+            guard_file.write_text(json.dumps(guard_c))
+            host, root, _ = self._tower(td)
+            argv = ["paseo_accepted_promotion", "promote", "--repository", REPO,
+                    "--alias", "accepted", "--candidate-digest", self.ATTACK_CANDIDATE,
+                    "--expected-current-digest", RUN_OCI,
+                    "--output", str(Path(td) / "o.json"),
+                    "--final-gate", str(gate_file), "--guard", str(guard_file)]
+            with host, root, \
+                 mock.patch.object(PROM, "inspect_digest") as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run, \
+                 mock.patch.object(sys, "argv", argv):
+                self.assertEqual(PROM.main(), 2)
+                inspect.assert_not_called()
+                run.assert_not_called()
+            self.assertFalse((Path(td) / "o.json").exists())
+
+    def test_detached_cli_record_even_genuine_valued_is_non_eligible(self):
+        # The detached assembler CLI run over GENUINE records still emits a
+        # diagnostic-only record the production writer refuses: even a
+        # value-perfect CLI product confers no eligibility.
+        with tempfile.TemporaryDirectory() as td:
+            bundle = genuine_bundle()
+            state = genuine_state(candidate_local=CAND_LOCAL, previous_local=RUN_LOCAL)
+            _, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=RUN_OCI)
+            validator_file = Path(td) / "validator.json"
+            validator_file.write_text(json.dumps(bundle["validator"]))
+            state_file = Path(td) / "state.json"
+            state_file.write_text(json.dumps(state))
+            mapping_file = Path(td) / "mapping.json"
+            mapping_file.write_text(json.dumps(
+                {"kind": "oci", "digest": RUN_OCI, "repository": REPO}))
+            gate_file = Path(td) / "gate.json"
+            argv = ["paseo_final_gate", "--repository", REPO,
+                    "--candidate-digest", CAND_OCI,
+                    "--validator", str(validator_file), "--state", str(state_file),
+                    "--source-head", bundle["source_head"],
+                    "--companion-digest", bundle["digests"]["companion"],
+                    "--policy-digest", bundle["digests"]["policy"],
+                    "--launcher-digest", bundle["digests"]["launcher"],
+                    "--predecessor", str(mapping_file),
+                    "--guard-binding", guard["binding_digest"],
+                    "--guard-candidate", CAND_OCI,
+                    "--output", str(gate_file)]
+            with mock.patch.object(sys, "argv", argv):
+                self.assertEqual(FG.main(), 0)
+            emitted = json.loads(gate_file.read_text())
+            self.assertEqual(emitted.get("eligibility"), "diagnostic-only")
+            host, root, fake_root = self._tower(td)
+            with host, root, \
+                 mock.patch.object(PROM, "inspect_digest") as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run:
+                with self.assertRaisesRegex(PROM.PromotionError, "diagnostic-only"):
+                    PROM.promote(
+                        repository=REPO, alias="accepted", candidate_digest=CAND_OCI,
+                        expected_current_digest=RUN_OCI,
+                        output_path=Path(td) / "o.json",
+                        final_gate=emitted, guard=guard,
+                        lock_path=fake_root / "accepted.lock",
+                        predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                             "repository": REPO})
+                inspect.assert_not_called()
+                run.assert_not_called()
+
+    def test_omitted_source_isolation_gates_fail_closed(self):
+        # Each of the six source/isolation checks is explicitly required:
+        # omission fails even with every carried check PASS.
+        with tempfile.TemporaryDirectory() as td:
+            gate, guard, _, _, _ = assemble_genuine("oci", td)
+            for missing in ("immutable_source_configuration", "runtime", "uid_gid",
+                            "mount_isolation", "network_isolation", "secret_isolation"):
+                with self.subTest(missing=missing):
+                    clipped = copy.deepcopy(gate)
+                    clipped["required_gates"].pop(missing, None)
+                    with self.assertRaisesRegex(PROM.PromotionError, missing):
+                        PROM.validate_trusted_final_gate(
+                            CAND_OCI, REPO, clipped, guard,
+                            predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                                 "repository": REPO})
+
+
+class AcquisitionOwnedPromotionTests(unittest.TestCase):
+    """Genuine positives through the writer's in-process acquisition."""
+
+    def test_production_first_channel_acquires_legacy_predecessor(self):
+        with tempfile.TemporaryDirectory() as td:
+            setup = _setup_chain(td, "legacy")
+            with _acquisition_transports(setup) as (server, _fake):
+                bundle = _acquisition_bundle(setup, server.base)
+                fake_root = Path(td) / "tower-state"
+                fake_root.mkdir()
+                with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
+                     mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
+                     mock.patch.object(PROM, "inspect_digest",
+                                       side_effect=[PROM.PromotionError("404 Not Found"),
+                                                    CAND_OCI]), \
+                     mock.patch.object(PROM, "run_checked"):
+                    out = PROM.promote_first_channel(
+                        repository=REPO, alias="accepted", candidate_digest=CAND_OCI,
+                        output_path=Path(td) / "o.json",
+                        guard=setup["guard"], lock_path=fake_root / "accepted.lock",
+                        predecessor_mapping=copy.deepcopy(setup["predecessor"]),
+                        acquisition=bundle, channel_status=404)
+            self.assertTrue(out["production"] and out["first_create"])
+            self.assertEqual(out["running_predecessor"], LEGACY_IMG)
+            self.assertEqual(out["readback_digest"], CAND_OCI)
 
 
 class LedgerMigrationTests(unittest.TestCase):
