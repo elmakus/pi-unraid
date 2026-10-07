@@ -89,19 +89,23 @@ def verify_channel_absence(*, status: int | None = None, error: str | None = Non
         raise PromotionError("channel is present; first-create requires verified absence")
 
 
-def validate_trusted_final_gate(candidate: str, running: str,
-                                final_gate: dict | None, guard: dict) -> dict:
+def validate_trusted_final_gate(candidate: str, repository: str,
+                                final_gate: dict | None, guard: dict,
+                                *, predecessor_mapping: dict | None = None) -> dict:
     """Strict M07-T06 production gate: every required terminal check plus bindings.
 
     Rejects generic GREEN/PASS, fixture-as-real, missing/forged gates,
     wrong-digest reports, stale baselines, absent effective max and
-    wrong source/bundle/configuration before any registry access.
+    wrong source/bundle/configuration before any registry access. The
+    running predecessor resolves per typed kind (``oci`` → manifest
+    digest, ``local``/``legacy`` → image ID); OCI vs local namespaces
+    stay distinct, and OCI mappings must name this repository.
     """
     if not isinstance(final_gate, dict):
         raise PromotionError(
             "production accepted promotion requires trusted final-gate assembler "
             "evidence (generic GREEN is not evidence)")
-    if final_gate.get("schema_version") != 1:
+    if final_gate.get("schema_version") != 2:
         raise PromotionError("final-gate record uses an unsupported schema")
     if final_gate.get("status") != "GREEN":
         raise PromotionError("production accepted promotion requires exact GREEN final-gate evidence")
@@ -140,28 +144,65 @@ def validate_trusted_final_gate(candidate: str, running: str,
         if required.get(name) != "PASS":
             raise PromotionError(f"final gate requires {name} PASS")
     for key in ("source_head", "companion_digest", "policy_digest",
-                "launcher_digest", "baseline_digest"):
+                "launcher_digest", "baseline_oci", "baseline_local_image_id"):
         value = final_gate.get(key)
         if key == "source_head":
             if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}", value):
                 raise PromotionError("final-gate source/bundle binding is missing")
         else:
             require_digest(str(value or ""), f"final-gate {key}")
-    if final_gate.get("baseline_digest") != running:
+    if final_gate.get("baseline_local_image_id") == candidate:
+        raise PromotionError("stale baseline: previous local equals candidate")
+    if final_gate.get("baseline_oci") == candidate:
+        raise PromotionError("stale baseline: previous OCI equals candidate")
+    # Typed predecessor: kind determines which namespace the guard's
+    # running identity lives in; divergent OCI vs local values pass.
+    typed = final_gate.get("predecessor")
+    if not isinstance(typed, dict) or typed.get("kind") not in ("oci", "local", "legacy"):
+        raise PromotionError("final-gate predecessor mapping is missing")
+    if typed["kind"] == "oci":
+        running = require_digest(str(typed.get("digest") or ""), "predecessor OCI digest")
+        if str(typed.get("repository") or "").strip().lower() != repository.strip().lower():
+            raise PromotionError("predecessor repository mismatch")
+    else:
+        running = require_digest(str(typed.get("image_id") or ""), "predecessor image identity")
+        if typed["kind"] == "legacy":
+            for key in ("archive_sha256", "config_digest"):
+                require_digest(str(typed.get(key) or ""), f"predecessor {key}")
+            if not typed.get("archive_path") or not typed.get("state_identity"):
+                raise PromotionError("predecessor legacy anchor/state is missing")
+    if final_gate.get("baseline_oci") != running:
         raise PromotionError("stale baseline: final-gate baseline mismatch vs running predecessor")
+    if predecessor_mapping is not None:
+        if not isinstance(predecessor_mapping, dict):
+            raise PromotionError("predecessor mapping must be an object")
+        kind = predecessor_mapping.get("kind")
+        if kind != typed["kind"]:
+            raise PromotionError("predecessor mapping kind mismatch vs final gate")
+        if kind == "oci":
+            if require_digest(str(predecessor_mapping.get("digest") or ""), "mapping OCI digest") != running:
+                raise PromotionError("predecessor mapping mismatch vs running predecessor")
+            if str(predecessor_mapping.get("repository") or "").strip().lower() != repository.strip().lower():
+                raise PromotionError("predecessor repository mismatch")
+        else:
+            if require_digest(str(predecessor_mapping.get("image_id") or ""), "mapping image identity") != running:
+                raise PromotionError("predecessor mapping mismatch vs running predecessor")
     if final_gate.get("guard_binding_digest") != guard.get("binding_digest"):
         raise PromotionError("final-gate/guard binding mismatch")
     return final_gate
 
-def validate_production_gate(candidate: str, expected: str, final_gate: dict | None, guard: dict | None, *, running_predecessor: str | None = None) -> None:
+def validate_production_gate(candidate: str, repository: str, final_gate: dict | None, guard: dict | None, *, predecessor_mapping: dict | None = None) -> str:
     try:
         guard = validate_guard_readback(guard)
     except (GuardError, OSError, TypeError, ValueError) as exc:
         raise PromotionError("production accepted promotion requires validated transaction guard readback") from exc
-    running = require_digest(running_predecessor or expected, "running predecessor digest")
     # Strict trusted path first: generic GREEN without the assembler
-    # bindings never authorizes a production write.
-    validate_trusted_final_gate(candidate, running, final_gate, guard)
+    # bindings never authorizes a production write. The running
+    # predecessor resolves per typed kind inside the trusted gate.
+    trusted = validate_trusted_final_gate(candidate, repository, final_gate, guard,
+                                          predecessor_mapping=predecessor_mapping)
+    typed = trusted["predecessor"]
+    running = trusted["baseline_oci"]
     if not guard or guard.get("state") != "armed" or guard.get("candidate_digest") != candidate:
         raise PromotionError("production accepted promotion requires matching armed transaction guard readback")
     for key in ("previous_digest", "rollback_digest"):
@@ -170,6 +211,7 @@ def validate_production_gate(candidate: str, expected: str, final_gate: dict | N
         raise PromotionError("armed guard predecessor/rollback identity mismatch vs running predecessor")
     config_digest = str(guard.get("config_digest") or "")
     require_digest(config_digest, "guard config_digest")
+    return running
 
 def promotion_lock_path(repository: str, alias: str, *, production: bool = False) -> Path:
     key = hashlib.sha256(f"{repository}:{alias}".encode("utf-8")).hexdigest()
@@ -219,6 +261,20 @@ def _check_predecessor_mapping(running: str, mapping: dict | None) -> None:
             if not mapping.get("archive_path") or not mapping.get("state_identity"):
                 raise PromotionError("legacy predecessor anchor/state is missing")
 
+def _running_from_mapping(repository: str, mapping: dict | None) -> str:
+    """Resolve the running value from a REQUIRED typed mapping."""
+    if not isinstance(mapping, dict):
+        raise PromotionError("typed predecessor mapping is required")
+    kind = mapping.get("kind")
+    if kind == "oci":
+        value = require_digest(str(mapping.get("digest") or ""), "OCI predecessor digest")
+        if str(mapping.get("repository") or "").strip().lower() != repository.strip().lower():
+            raise PromotionError("predecessor repository mismatch")
+        return value
+    if kind in ("local", "legacy"):
+        return require_digest(str(mapping.get("image_id") or ""), "local predecessor image-ID")
+    raise PromotionError("unsupported predecessor kind")
+
 def promote(*, repository: str, alias: str, candidate_digest: str,
             expected_current_digest: str, output_path: Path,
             final_gate: dict | None = None, guard: dict | None = None,
@@ -227,9 +283,6 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
             predecessor_mapping: dict | None = None) -> dict:
     candidate = require_digest(candidate_digest, "candidate digest")
     expected = require_digest(expected_current_digest, "expected current digest")
-    running = require_digest(running_predecessor or expected_current_digest,
-                             "running predecessor digest")
-    _check_predecessor_mapping(running, predecessor_mapping)
     production = alias == "accepted"
     if production:
         # Guard classification first (forged/stale guard fails before any
@@ -237,16 +290,24 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
         # domain (out-of-domain fails with the domain error), then the
         # strict trusted gates. This preserves both negative
         # classifications while keeping all failures before mutation.
+        # The running predecessor resolves per typed kind from the
+        # trusted gate; an explicit mapping is cross-checked when given.
         try:
             validate_guard_readback(guard)
         except (GuardError, OSError, TypeError, ValueError) as exc:
             raise PromotionError("production accepted promotion requires validated transaction guard readback") from exc
         domain_lock = validate_writer_domain(production=True, lock_path=lock_path)
-        validate_production_gate(candidate, expected, final_gate, guard,
-                                 running_predecessor=running)
+        if predecessor_mapping is not None:
+            _check_predecessor_mapping(
+                _running_from_mapping(repository, predecessor_mapping), predecessor_mapping)
+        running = validate_production_gate(candidate, repository, final_gate, guard,
+                                           predecessor_mapping=predecessor_mapping)
     elif alias == "accepted" or alias.endswith("/accepted"):
         raise PromotionError("reserved production accepted alias")
     else:
+        running = require_digest(running_predecessor or expected_current_digest,
+                                 "running predecessor digest")
+        _check_predecessor_mapping(running, predecessor_mapping)
         domain_lock = validate_writer_domain(production=False, lock_path=lock_path)
     ref = f"{repository}:{alias}"
     immutable = f"{repository}@{candidate}"
@@ -275,7 +336,7 @@ def promote(*, repository: str, alias: str, candidate_digest: str,
 
 
 def promote_first_channel(*, repository: str, alias: str, candidate_digest: str,
-                          running_predecessor: str, output_path: Path,
+                          output_path: Path,
                           final_gate: dict | None = None, guard: dict | None = None,
                           lock_path: Path | None = None,
                           predecessor_mapping: dict | None = None,
@@ -293,7 +354,9 @@ def promote_first_channel(*, repository: str, alias: str, candidate_digest: str,
     read back the OCI digest afterward.
     """
     candidate = require_digest(candidate_digest, "candidate digest")
-    running = require_digest(running_predecessor, "running predecessor digest")
+    # First creation always carries the typed running predecessor; the
+    # writer cross-checks it against the trusted gate's typed binding.
+    running = _running_from_mapping(repository, predecessor_mapping)
     _check_predecessor_mapping(running, predecessor_mapping)
     production = alias == "accepted"
     if not production and (alias == "accepted" or alias.endswith("/accepted")):
@@ -307,8 +370,10 @@ def promote_first_channel(*, repository: str, alias: str, candidate_digest: str,
         validate_guard_readback(guard)
     except (GuardError, OSError, TypeError, ValueError) as exc:
         raise PromotionError("production accepted promotion requires validated transaction guard readback") from exc
-    validate_production_gate(candidate, running, final_gate, guard,
-                             running_predecessor=running)
+    gate_running = validate_production_gate(candidate, repository, final_gate, guard,
+                                            predecessor_mapping=predecessor_mapping)
+    if gate_running != running:
+        raise PromotionError("predecessor mapping mismatch vs trusted running predecessor")
     ref = f"{repository}:{alias}"
     immutable = f"{repository}@{candidate}"
     lock_file = domain_lock if production else (lock_path or promotion_lock_path(repository, alias))

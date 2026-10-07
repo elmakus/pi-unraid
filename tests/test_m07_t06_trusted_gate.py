@@ -1,46 +1,60 @@
 """M07-T06 trusted final-gate / first-channel / typed-legacy / Update+Verify tests.
 
+Trust model (changed after R01 RED): hand-authored PASS-shaped records NEVER
+prove acceptance. Every trust positive below is acquired through the genuine
+shipped producer entrypoints — ``paseo_tower_validator.validate`` in ``real``
+mode (M07-T05-harness fake-only Docker/registry/transport boundaries),
+``paseo_state_roundtrip.prove`` (real clone/sequence, fake Docker daemon
+boundary), ``paseo_transaction_guard.arm`` and real repo-byte bindings
+(companion identity, policy/launcher hashes, harness-chain source head).
+Hand-shaped records are used ONLY for negatives (malformed shapes and the
+exact R01 forgery classes), each asserting rejection AND absence of
+disallowed registry/trigger effects while resources still exist.
+
 Classification (synthetic only, no real effects):
 - Inference-capable entrypoints (Muse/Codex/provider, real LLM launcher):
-  NEVER invoked. Validator Muse/Codex dispatch is represented only by
-  producer-shaped synthetic records consumed through the actual
-  final-gate assembler; no prompt, /responses, /chat/completions or
-  provider auth occurs.
+  exercised ONLY through the genuine validator under the fake-only harness
+  (fake ``paseo``/``pi`` bindirs, local ``http.server`` Codex fixture on
+  127.0.0.1, synthetic secret files). No real inference, provider
+  auth/admission, ordinary-credential reads, or prompt resends occur.
 - Mutation-capable entrypoints:
-  - Docker CLI (inspect/buildx/imagetools/run/exec): ALWAYS mocked via
-    ``mock.patch.object`` on ``inspect_digest``/``run_checked`` or fake
-    runner callables. No daemon, image, container or network is touched.
-  - Registry HTTP/transport: faked via ``channel_status``/``channel_error``
-    integers, never a live GHCR read. 404 is the only verified absence;
-    401/403/network/timeout are never absence.
-  - Unraid/DockerMan trigger, probes, restore/recovery: fake callables
-    recording invocation; no container, engine or production action.
-  - Guard/ledger/intent files: disposable ``tempfile.TemporaryDirectory``
-    siblings only; no production HOME/runtime/config/ledger/guard/template
-    mutation. Production lock root is faked via temp dirs where needed.
-  - Credentials: synthetic digest-shaped strings only; no real secret,
-    ordinary HOME/auth read, or provider credential admission.
-- Product entrypoints exercised genuinely (not helper-only):
-  ``paseo_final_gate.assemble``, ``paseo_accepted_promotion.promote`` /
-  ``promote_first_channel`` / ``classify_channel_status`` /
-  ``verify_channel_absence``, ``paseo_legacy_identity.validate`` /
-  ``verify_anchor`` / ``verify_imported_image``,
-  ``paseo_known_good.commit_on_terminal`` /
-  ``migrate_with_predecessor``, ``paseo_trigger_intent.record`` /
-  ``readback``, ``paseo_dockerman_binding.update_and_verify`` /
-  ``wait_for_stock_update``, ``paseo_immediate_acceptance.run_transaction``,
-  ``paseo_transaction_guard.arm``/``load``, and
-  ``paseo_update_verify_action.running_repo_digest``.
-- Generic hand-authored PASS strings never substitute for end-to-end
-  proof: positive gates are assembled through the actual assembler from
-  producer-shaped bound records; negatives assert the exact failure AND
-  absence of disallowed writes/triggers while resources still exist.
+  - Docker CLI / registry transport: ALWAYS mocked (``inspect_digest`` /
+    ``run_checked``) or harness-faked. No daemon, image, network, GHCR,
+    Tower, Unraid or production object is touched. ``channel_status`` ints
+    carry registry reads; only HTTP 404 is verified absence.
+  - Unraid/DockerMan trigger, probes, restore/recovery: fake recording
+    callables. Guard/ledger/intent files: disposable ``TemporaryDirectory``
+    siblings only. Production lock root faked via temp dirs where the Tower
+    domain is exercised.
+  - Credentials: synthetic digest-shaped strings and harness fixture secrets
+    only; nothing real is admitted.
+- Normative bytecode isolation: this module pins the R01 isolated-env shape
+  at import (``PYTHONDONTWRITEBYTECODE=1`` + disposable ``PYTHONPYCACHEPREFIX``)
+  so harness-spawned staged-python children cannot write bytecode into the
+  kernel-watched staged tree (exact diagnosed ambient failure mode; product
+  watch and assertions untouched). This is test-scope isolation, documented
+  here and in evidence, not a product change and not an assertion relaxation.
+- Product entrypoints exercised genuinely: ``paseo_tower_validator.validate``,
+  ``paseo_state_roundtrip.prove``, ``paseo_final_gate.assemble``,
+  ``paseo_accepted_promotion.promote`` / ``promote_first_channel`` /
+  ``classify_channel_status`` / ``verify_channel_absence``,
+  ``paseo_legacy_identity.validate`` / ``verify_anchor`` /
+  ``verify_imported_image``, ``paseo_known_good`` typed rotation/migration,
+  ``paseo_trigger_intent.record`` / ``readback``,
+  ``paseo_dockerman_binding.update_and_verify`` / ``wait_for_stock_update``,
+  ``paseo_immediate_acceptance.run_transaction``,
+  ``paseo_transaction_guard.arm`` / ``load``,
+  ``paseo_update_verify_action.running_repo_digest`` /
+  ``observe_running_identity``.
 """
 from __future__ import annotations
 
+import copy
+import hashlib
 import importlib.util
 import json
 import os
+import sys
 import tempfile
 import threading
 import time
@@ -48,11 +62,22 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+# Normative R01 isolated-env shape at module scope (see header). Record prior
+# values for honest reporting; teardown restores them and removes the cache dir.
+_PRIOR_ENV = {}
+_OWN_CACHE_DIR = None
+for _key in ("PYTHONDONTWRITEBYTECODE", "PYTHONPYCACHEPREFIX"):
+    if _key in os.environ:
+        _PRIOR_ENV[_key] = os.environ[_key]
+os.environ["PYTHONDONTWRITEBYTECODE"] = "1"
+if "PYTHONPYCACHEPREFIX" not in os.environ:
+    _OWN_CACHE_DIR = tempfile.mkdtemp(prefix="m07-t06-pycache-")
+    os.environ["PYTHONPYCACHEPREFIX"] = _OWN_CACHE_DIR
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def _load(name, rel):
-    import sys
     spec = importlib.util.spec_from_file_location(name, ROOT / rel)
     mod = importlib.util.module_from_spec(spec)
     assert spec.loader
@@ -70,80 +95,144 @@ GUARD = _load("m07_t06_guard", "scripts/paseo_transaction_guard.py")
 ACC = _load("m07_t06_acceptance", "scripts/paseo_immediate_acceptance.py")
 DOCK = _load("m07_t06_dockerman", "scripts/paseo_dockerman_binding.py")
 UVA = _load("m07_t06_update_verify", "scripts/paseo_update_verify_action.py")
+STATE = _load("m07_t06_state", "scripts/paseo_state_roundtrip.py")
+BUILD = _load("m07_t06_build", "scripts/paseo_candidate_build.py")
+H = _load("m07_t06_harness", "tests/test_m07_t05_validator_adapter.py")
+HT = H.T
 
-REPO = "ghcr.io/elmakus/pi-unraid"
-RUN_OCI = "sha256:" + "a" * 64
-CAND_OCI = "sha256:" + "b" * 64
-CAND_LOCAL = "sha256:" + "c" * 64
+REPO = HT.REAL_REPOSITORY
+CAND_OCI = HT.REAL_OCI_DIGEST          # genuine OCI manifest digest under test
+# Genuine pulled local image ID: the harness fake pins it to IMAGE_ID
+# (producer fixture), divergent from the OCI digest by construction.
+CAND_LOCAL = HT.IMAGE_ID
+RUN_OCI = "sha256:" + "a" * 64         # divergent OCI predecessor
+RUN_LOCAL = "sha256:" + "7" * 64       # divergent local predecessor image ID
+LEGACY_IMG = "sha256:" + "6" * 64      # legacy predecessor image-ID value
 CFG = "sha256:" + "d" * 64
-COMP = "sha256:" + "1" * 64
-POL = "sha256:" + "2" * 64
-LAUNCH = "sha256:" + "3" * 64
-CAND_ID = "sha256:" + "9" * 64
 OTHER_OCI = "sha256:" + "e" * 64
 THIRD = "sha256:" + "f" * 64
-SOURCE_HEAD = "ab" * 20
 
 
-def make_validator(*, candidate=CAND_OCI, local=CAND_LOCAL,
-                   execution_class="real", status="PASS",
-                   real_satisfied=True, missing=(), extra_checks=None,
-                   candidate_id=CAND_ID, source_head=SOURCE_HEAD,
-                   companion=COMP, policy=POL, launcher=LAUNCH,
-                   cleanup="COMPLETE"):
-    checks = {}
-    for name in (*FG.REQUIRED_VALIDATOR_CHECKS, *FG.REQUIRED_SOURCE_ISOLATION_CHECKS):
-        checks[name] = "PASS"
-    for name in missing:
-        checks[name] = "SKIP"
-    if extra_checks:
-        checks.update(extra_checks)
+def tearDownModule():  # noqa: N802 (unittest hook name is fixed)
+    for _key in ("PYTHONDONTWRITEBYTECODE", "PYTHONPYCACHEPREFIX"):
+        if _key in _PRIOR_ENV:
+            os.environ[_key] = _PRIOR_ENV[_key]
+        elif _key in os.environ:
+            del os.environ[_key]
+    if _OWN_CACHE_DIR is not None:
+        import shutil
+        shutil.rmtree(_OWN_CACHE_DIR, ignore_errors=True)
+
+
+def _repo_digests():
+    companion = BUILD.companion_bundle_identity(ROOT)
+    pol = ROOT / "config" / "pi-agent" / "policies" / "llm-test-policy.json"
+    grd = ROOT / "config" / "pi-agent" / "bin" / "run-llm-test.sh"
     return {
-        "schema_version": 2,
-        "execution_class": execution_class,
-        "status": status,
-        "terminal_class": "terminal" if status != "UNKNOWN" else "unknown",
-        "digest": candidate,
-        "repository": REPO,
-        "immutable_ref": f"{REPO}@{candidate}",
-        "checks": checks,
-        "subject": {
-            "repository": REPO,
-            "expected_digest": candidate,
-            "observed_image_id": local,
-            "candidate_id": candidate_id,
-            "companion_bundle": {"source_digest": companion},
-            "policy_identity": {"sha256": policy},
-            "launcher_identity": {"sha256": launcher},
-            "source_binding": {"head": source_head},
-            "muse_effective_config": {"effective": {"sha256": "sha256:" + "4" * 64}},
-            "daemon_binding": {"endpoint": "fake"},
-            "pi_binding": {"path": "fake"},
-        },
-        "real_validation_satisfied": real_satisfied,
-        "real_reason": "synthetic",
-        "cleanup": {"status": cleanup, "issues": []},
+        "companion": companion["source_digest"],
+        "policy": "sha256:" + hashlib.sha256(pol.read_bytes()).hexdigest(),
+        "launcher": "sha256:" + hashlib.sha256(grd.read_bytes()).hexdigest(),
     }
 
 
-def make_state(*, candidate_local=CAND_LOCAL, previous_local=RUN_OCI,
-               status="PASS", missing=()):
-    checks = {name: "PASS" for name in FG.REQUIRED_STATE_CHECKS}
-    for name in missing:
-        checks[name] = "FAIL"
-    return {
-        "schema_version": 1,
-        "status": status,
-        "checks": checks,
-        "candidate_image_id": candidate_local,
-        "previous_image_id": previous_local,
-        "baseline_provenance": {"source": "/tmp/fake-baseline",
-                                "files": {"config.json": "abc"}},
-        "candidate_state_sha256": "sha256:" + "5" * 64,
-    }
+_GEN = {}
 
 
-def make_guard(tmpdir, *, candidate=CAND_OCI, previous=RUN_OCI, config=CFG):
+def genuine_bundle():
+    """Acquire one genuine real-mode producer record + harness chain bindings.
+
+    Runs the shipped ``paseo_tower_validator.validate`` in ``real`` mode
+    through the M07-T05 fake-only harness (fake Docker/daemon/Pi/registry/
+    Codex transport; real staged programs, real hash/ownership/readback
+    logic). Returns the validator record plus the harness-produced chain
+    files the assembler cross-checks (source head read from genuine chain
+    bytes, never hand-authored). The disposable work root persists for the
+    test session so owned references stay readable.
+    """
+    if "bundle" in _GEN:
+        return _GEN["bundle"]
+    work = Path(tempfile.mkdtemp(prefix="m07t06-genuine-"))
+    td = work / "v"
+    td.mkdir()
+    codex, muse = H._secrets(td)
+    cand_file, handoff_file, build_input_file, tested_file, build_record_file, publication_file = \
+        H._fixture_chain(td, image_id=CAND_LOCAL)
+    bindir = HT.make_fake_paseo(td / "bindir")
+    wit = td / "witness.jsonl"
+    wit.write_text("")
+    calls, state = [], {"net_exists": False, "network": "pi-unraid-validator",
+                        "bindir": str(bindir), "witness_host": str(wit)}
+    kwargs = dict(repository=REPO, digest=CAND_OCI,
+                  output=td / "o.json", state_root=td / "st",
+                  codex_secret=codex, codex_base_url="http://127.0.0.1:9",
+                  codex_model="m", execution_class="real",
+                  source_root=HT.fixture_source(td), companion_bundle=dict(HT.REAL_COMPANION),
+                  candidate_file=cand_file, handoff_file=handoff_file,
+                  build_input_file=build_input_file, tested_image_file=tested_file,
+                  build_record=build_record_file, publication_file=publication_file,
+                  muse_secret=muse)
+    # Local Codex fixture for the required non-inference checks.
+    with HT.LocalCodexServer() as server:
+        base_fake = HT.make_fake_docker(digest=CAND_OCI, image_id=CAND_LOCAL, calls=calls,
+                                        state=state, server_base=server.base,
+                                        codex_secret_host=codex, muse_secret_host=muse)
+        kwargs["codex_base_url"] = server.base
+        with mock.patch.object(H.V.shutil, "which", return_value="/usr/bin/docker"), \
+             mock.patch.object(H.V.os, "chown"), \
+             mock.patch.object(H.V, "run", side_effect=base_fake):
+            res = H.V.validate(**kwargs)
+    assert res["status"] == "PASS", res.get("reason")
+    assert res["real_validation_satisfied"] is True
+    assert res["execution_class"] == "real"
+    build_input = json.loads(Path(build_input_file).read_bytes())
+    source_head = build_input["source_head"]
+    digests = _repo_digests()
+    # Genuine agreement gates: repo-computed bindings must equal what the
+    # genuine producer bound (guards against harness/source drift).
+    assert digests["companion"] == res["subject"]["companion_bundle"]["source_digest"]
+    assert digests["policy"] == res["subject"]["policy_identity"]["sha256"]
+    assert digests["launcher"] == res["subject"]["launcher_identity"]["sha256"]
+    assert res["subject"]["observed_image_id"] == CAND_LOCAL
+    assert res["digest"] == CAND_OCI
+    bundle = {"validator": res, "calls": calls, "work": work, "td": td,
+              "source_head": source_head, "digests": digests}
+    _GEN["bundle"] = bundle
+    return bundle
+
+
+def genuine_state(*, candidate_local, previous_local):
+    """Prove A->C->A through the real state entrypoint (fake Docker boundary)."""
+    with tempfile.TemporaryDirectory() as td:
+        root = Path(td)
+        baseline = root / "baseline" / ".paseo"
+        (baseline / "projects").mkdir(parents=True)
+        (baseline / "config.json").write_text('{"daemon":{"relay":{"enabled":true}}}\n')
+        (baseline / "daemon-keypair.json").write_text('{"fixture":true}\n')
+        (baseline / "server-id").write_text("fixture\n")
+        (baseline / "projects" / "projects.json").write_text("{}\n")
+        src = baseline.parent
+        calls = []
+
+        def probe(image, home, name, candidate_state=None):
+            calls.append(image)
+            if candidate_state is not None:
+                marker = Path(home) / ".paseo" / "state-roundtrip-candidate.json"
+                marker.write_text(json.dumps(candidate_state) + "\n")
+            return True
+
+        with mock.patch.object(STATE.shutil, "which", return_value="/usr/bin/docker"), \
+             mock.patch.object(STATE, "image_readback", side_effect=lambda x: x), \
+             mock.patch.object(STATE, "runtime_probe", side_effect=probe), \
+             mock.patch.object(STATE.os, "chown"):
+            record = STATE.prove(baseline=src, candidate=candidate_local,
+                                 previous=previous_local,
+                                 state_root=root / "state", output=root / "out.json")
+    assert record["status"] == "PASS", record.get("reason")
+    assert [c for c in calls] == [candidate_local, previous_local]
+    return record
+
+
+def genuine_guard(tmpdir, *, candidate, previous, config=CFG):
     anchor = Path(tmpdir) / "rollback.json"
     anchor.write_text("{}\n", encoding="utf-8")
     guard_path = Path(tmpdir) / "guard.json"
@@ -151,15 +240,38 @@ def make_guard(tmpdir, *, candidate=CAND_OCI, previous=RUN_OCI, config=CFG):
     return guard_path, guard, anchor
 
 
-def make_final_gate(validator, state, guard, *, baseline=RUN_OCI):
-    return FG.assemble(
+def assemble_genuine(kind, tmpdir, *, anchor_bytes=b"legacy-image-bytes"):
+    """Assemble a final gate from genuine acquisition for one predecessor kind."""
+    bundle = genuine_bundle()
+    validator = bundle["validator"]
+    digests = bundle["digests"]
+    candidate_local = validator["subject"]["observed_image_id"]
+    if kind == "oci":
+        predecessor = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
+        previous_local = RUN_LOCAL
+    elif kind == "legacy":
+        anchor = Path(tmpdir) / "legacy.tar"
+        anchor.write_bytes(anchor_bytes)
+        archive_digest = "sha256:" + hashlib.sha256(anchor_bytes).hexdigest()
+        predecessor = {"kind": "legacy", "image_id": LEGACY_IMG,
+                       "archive_path": str(anchor), "archive_sha256": archive_digest,
+                       "config_digest": CFG, "state_identity": "legacy-state-1"}
+        previous_local = LEGACY_IMG
+    else:
+        predecessor = {"kind": "local", "image_id": RUN_LOCAL}
+        previous_local = RUN_LOCAL
+    state = genuine_state(candidate_local=candidate_local, previous_local=previous_local)
+    running_value = predecessor.get("digest", predecessor.get("image_id"))
+    guard_path, guard, _ = genuine_guard(tmpdir, candidate=CAND_OCI, previous=running_value)
+    gate = FG.assemble(
         repository=REPO, candidate_digest=CAND_OCI,
-        validator_record=validator, state_record=state,
-        source_head=SOURCE_HEAD, companion_digest=COMP,
-        policy_digest=POL, launcher_digest=LAUNCH,
-        baseline_digest=baseline,
-        guard_binding_digest=guard["binding_digest"],
-        guard_candidate=CAND_OCI)
+        validator_record=copy.deepcopy(validator), state_record=state,
+        source_head=bundle["source_head"], companion_digest=digests["companion"],
+        policy_digest=digests["policy"], launcher_digest=digests["launcher"],
+        predecessor=copy.deepcopy(predecessor),
+        guard_binding_digest=guard["binding_digest"], guard_candidate=CAND_OCI)
+    assert gate["schema_version"] == 2 and gate["status"] == "GREEN"
+    return gate, guard, guard_path, state, predecessor
 
 
 def core_probes(ok=True):
@@ -167,123 +279,455 @@ def core_probes(ok=True):
             for name in sorted(ACC.REQUIRED_CORE_PROBES)]
 
 
-class FinalGateAssemblerTests(unittest.TestCase):
-    def test_positive_assembles_through_actual_entrypoint(self):
+class GenuineTrustTests(unittest.TestCase):
+    def test_genuine_real_record_assembles_with_divergent_namespaces(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
-            gate = make_final_gate(make_validator(), make_state(), guard)
-            self.assertEqual(gate["status"], "GREEN")
-            self.assertEqual(gate["candidate_digest"], CAND_OCI)
-            self.assertEqual(gate["candidate_local_image_id"], CAND_LOCAL)
-            self.assertEqual(gate["baseline_digest"], RUN_OCI)
-            self.assertEqual(gate["guard_binding_digest"], guard["binding_digest"])
-            self.assertIn("binding_digest", gate)
+            gate, guard, _, _, predecessor = assemble_genuine("oci", td)
+            self.assertEqual(predecessor["kind"], "oci")
+            # Divergent OCI vs local values pass; namespaces stay distinct.
+            self.assertNotEqual(gate["baseline_oci"], gate["baseline_local_image_id"])
+            self.assertEqual(gate["baseline_oci"], RUN_OCI)
+            self.assertEqual(gate["baseline_local_image_id"], RUN_LOCAL)
+            self.assertNotEqual(gate["candidate_digest"], gate["candidate_local_image_id"])
+            # Fixed profile values genuinely observed (not labels).
+            observed = genuine_bundle()["validator"]["subject"]["muse_observed_effective"]
+            self.assertEqual((observed["provider"], observed["model"], observed["thinking"]),
+                             ("meta", "muse-spark-1.3-contributor", "max"))
 
-    def test_fixture_never_satisfies_real_gate(self):
+    def test_genuine_local_predecessor_assembles(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
-            for execution_class in ("fixture", "rehearsal"):
+            gate, _, _, _, predecessor = assemble_genuine("local", td)
+            self.assertEqual(predecessor["kind"], "local")
+            self.assertEqual(gate["baseline_oci"], RUN_LOCAL)
+            self.assertEqual(gate["baseline_local_image_id"], RUN_LOCAL)
+
+    def test_end_to_end_oci_existing_channel_update(self):
+        # Production update path: the trusted gate + armed guard are
+        # enforced inside promote (Tower domain faked, registry mocked).
+        with tempfile.TemporaryDirectory() as td:
+            gate, guard, _, _, _ = assemble_genuine("oci", td)
+            fake_root = Path(td) / "tower-state"
+            fake_root.mkdir()
+            with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
+                 mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
+                 mock.patch.object(PROM, "inspect_digest",
+                                   side_effect=[RUN_OCI, RUN_OCI, CAND_OCI]) as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run:
+                out = PROM.promote(
+                    repository=REPO, alias="accepted", candidate_digest=CAND_OCI,
+                    expected_current_digest=RUN_OCI,
+                    output_path=Path(td) / "o.json",
+                    final_gate=gate, guard=guard,
+                    lock_path=fake_root / "accepted.lock",
+                    predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                         "repository": REPO})
+            self.assertTrue(out["production"])
+            self.assertEqual(out["readback_digest"], CAND_OCI)
+            self.assertEqual(out["running_predecessor"], RUN_OCI)
+            self.assertEqual(out["rollback_digest"], RUN_OCI)
+            self.assertEqual(inspect.call_count, 3)
+            create = run.call_args_list[0].args[0]
+            self.assertIn(f"{REPO}@{CAND_OCI}", create)
+            self.assertIn(f"{REPO}:accepted", create)
+
+    def test_end_to_end_legacy_first_channel_with_typed_ledger(self):
+        with tempfile.TemporaryDirectory() as td:
+            gate, guard, _, _, predecessor = assemble_genuine("legacy", td)
+            alias = "m07-t06-fixture-legacy"
+            with mock.patch.object(PROM, "inspect_digest",
+                                   side_effect=[PROM.PromotionError("404 Not Found"),
+                                                CAND_OCI]) as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run:
+                out = PROM.promote_first_channel(
+                    repository=REPO, alias=alias, candidate_digest=CAND_OCI,
+                    output_path=Path(td) / "o.json",
+                    final_gate=gate, guard=guard,
+                    lock_path=Path(td) / "lock",
+                    predecessor_mapping=predecessor, channel_status=404)
+            self.assertTrue(out["first_create"])
+            self.assertEqual(out["running_predecessor"], LEGACY_IMG)
+            created = run.call_args_list[0].args[0]
+            self.assertIn(f"{REPO}@{CAND_OCI}", created)
+            self.assertNotIn(LEGACY_IMG, " ".join(created))
+            self.assertEqual(inspect.call_count, 2)
+            # Typed ledger migration: legacy current -> candidate, anchors kept.
+            ledger = {"current": {"kind": "legacy", "image_id": LEGACY_IMG,
+                                  "archive_sha256": predecessor["archive_sha256"],
+                                  "config_digest": CFG,
+                                  "state_identity": "legacy-state-1"},
+                      "previous_1": {"kind": "oci", "digest": OTHER_OCI, "repository": REPO},
+                      "previous_2": {"kind": "oci", "digest": THIRD, "repository": REPO}}
+            migrated = KG.migrate_with_predecessor(
+                ledger, {"kind": "oci", "digest": CAND_OCI, "repository": REPO},
+                predecessor_mapping=predecessor, transaction_status="GREEN")
+            self.assertEqual(migrated["current"], {"kind": "oci", "digest": CAND_OCI,
+                                                   "repository": REPO})
+            self.assertEqual(migrated["previous_1"]["kind"], "legacy")
+            self.assertEqual(migrated["previous_1"]["archive_sha256"],
+                             predecessor["archive_sha256"])
+            # Crash-safe intent + immediate acceptance on the same guard.
+            self.assertEqual(GUARD.load(Path(td) / "guard.json")["state"], "armed")
+
+    def test_production_accepted_enforces_tower_lock_and_readback(self):
+        with tempfile.TemporaryDirectory() as td:
+            gate, guard, _, _, _ = assemble_genuine("oci", td)
+            fake_root = Path(td) / "tower-state"
+            fake_root.mkdir()
+            lock = fake_root / "accepted.lock"
+            with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
+                 mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
+                 mock.patch.object(PROM, "inspect_digest",
+                                   side_effect=[PROM.PromotionError("404 missing"), CAND_OCI]), \
+                 mock.patch.object(PROM, "run_checked"):
+                out = PROM.promote_first_channel(
+                    repository=REPO, alias="accepted",
+                    candidate_digest=CAND_OCI,
+                    output_path=Path(td) / "o.json",
+                    final_gate=gate, guard=guard, lock_path=lock,
+                    predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                         "repository": REPO},
+                    channel_status=404)
+            self.assertTrue(out["production"])
+            self.assertEqual(out["readback_digest"], CAND_OCI)
+            with mock.patch.object(PROM.socket, "gethostname", return_value="not-tower"), \
+                 mock.patch.object(PROM, "inspect_digest") as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run:
+                with self.assertRaisesRegex(PROM.PromotionError, "Tower writer domain"):
+                    PROM.promote_first_channel(
+                        repository=REPO, alias="accepted",
+                        candidate_digest=CAND_OCI,
+                        output_path=Path(td) / "o.json",
+                        final_gate=gate, guard=guard,
+                        lock_path=Path(td) / "foreign.lock",
+                        predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                             "repository": REPO},
+                        channel_status=404)
+                inspect.assert_not_called()
+                run.assert_not_called()
+
+
+class ForgeryTests(unittest.TestCase):
+    """Hand-forged copies of the GENUINE record: every class must reject
+    before any registry/trigger effect (mocks assert_not_called)."""
+
+    def _forged_gate(self, td, mutate):
+        bundle = genuine_bundle()
+        validator = copy.deepcopy(bundle["validator"])
+        mutate(validator)
+        state = genuine_state(candidate_local=validator["subject"].get(
+            "observed_image_id", CAND_LOCAL), previous_local=RUN_LOCAL)
+        gp, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=RUN_OCI)
+        return validator, state, guard
+
+    def _assert_no_effect(self, td, validator, state, guard, mapping):
+        with mock.patch.object(PROM, "inspect_digest") as inspect, \
+             mock.patch.object(PROM, "run_checked") as run:
+            with self.assertRaises((FG.FinalGateError, PROM.PromotionError)):
+                PROM.promote_first_channel(
+                    repository=REPO, alias="m07-t06-fixture-forged",
+                    candidate_digest=CAND_OCI,
+                    output_path=Path(td) / "o.json",
+                    final_gate=self._try_assemble(td, validator, state, guard),
+                    guard=guard, lock_path=Path(td) / "lock",
+                    predecessor_mapping=mapping, channel_status=404)
+            inspect.assert_not_called()
+            run.assert_not_called()
+
+    def _try_assemble(self, td, validator, state, guard):
+        bundle = genuine_bundle()
+        mapping = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
+        try:
+            return FG.assemble(
+                repository=REPO, candidate_digest=CAND_OCI,
+                validator_record=validator, state_record=state,
+                source_head=bundle["source_head"],
+                companion_digest=bundle["digests"]["companion"],
+                policy_digest=bundle["digests"]["policy"],
+                launcher_digest=bundle["digests"]["launcher"],
+                predecessor=mapping,
+                guard_binding_digest=guard["binding_digest"], guard_candidate=CAND_OCI)
+        except FG.FinalGateError:
+            # Assembler correctly rejected: writer must also reject the
+            # (unassemblable) attempt; return a schema-2 lookalike that the
+            # writer still refuses via its own checks.
+            return {"schema_version": 2, "status": "GREEN", "execution_class": "real",
+                    "real_validation_satisfied": True, "repository": REPO,
+                    "candidate_digest": "sha256:" + "0" * 64,
+                    "candidate_local_image_id": CAND_LOCAL,
+                    "source_head": bundle["source_head"],
+                    "companion_digest": bundle["digests"]["companion"],
+                    "policy_digest": bundle["digests"]["policy"],
+                    "launcher_digest": bundle["digests"]["launcher"],
+                    "predecessor": mapping, "baseline_oci": RUN_OCI,
+                    "baseline_local_image_id": RUN_LOCAL,
+                    "guard_binding_digest": guard["binding_digest"],
+                    "required_gates": {}}
+
+    def _forgery_case(self, mutate):
+        with tempfile.TemporaryDirectory() as td:
+            validator, state, guard = self._forged_gate(td, mutate)
+            # Assembler-level rejection.
+            with self.assertRaises(FG.FinalGateError):
+                bundle = genuine_bundle()
+                FG.assemble(
+                    repository=REPO, candidate_digest=CAND_OCI,
+                    validator_record=validator, state_record=state,
+                    source_head=bundle["source_head"],
+                    companion_digest=bundle["digests"]["companion"],
+                    policy_digest=bundle["digests"]["policy"],
+                    launcher_digest=bundle["digests"]["launcher"],
+                    predecessor={"kind": "oci", "digest": RUN_OCI, "repository": REPO},
+                    guard_binding_digest=guard["binding_digest"], guard_candidate=CAND_OCI)
+            # Writer-level: no registry effect either.
+            self._assert_no_effect(
+                td, validator, state, guard,
+                {"kind": "oci", "digest": RUN_OCI, "repository": REPO})
+
+    def test_empty_effective_rejected(self):
+        def mutate(v):
+            v["subject"]["muse_effective_config"] = {}
+        self._forgery_case(mutate)
+
+    def test_hacked_effective_rejected(self):
+        def mutate(v):
+            v["subject"]["muse_effective_config"] = {"hacked": "yes"}
+        self._forgery_case(mutate)
+
+    def test_forbidden_substituted_profile_rejected(self):
+        def mutate(v):
+            v["subject"]["muse_profile_preflight"] = {
+                "model": "gpt-6-astra", "thinking": "xhigh", "fallback_allowed": True}
+            v["subject"]["muse_observed_effective"] = {
+                "provider": "gpt", "model": "gpt-6-astra",
+                "thinking": "xhigh", "effort": "xhigh"}
+        self._forgery_case(mutate)
+
+    def test_clamped_thinking_rejected(self):
+        def mutate(v):
+            v["subject"]["muse_profile_preflight"] = {
+                "model": "meta/muse-spark-1.3-contributor", "thinking": "xhigh"}
+            v["subject"]["muse_observed_effective"] = {
+                "provider": "meta", "model": "muse-spark-1.3-contributor",
+                "thinking": "xhigh", "effort": "xhigh"}
+        self._forgery_case(mutate)
+
+    def test_null_thinking_rejected(self):
+        def mutate(v):
+            v["subject"]["muse_observed_effective"] = {
+                "provider": "meta", "model": "muse-spark-1.3-contributor",
+                "thinking": None, "effort": None}
+        self._forgery_case(mutate)
+
+    def test_fallback_reenabled_rejected(self):
+        def mutate(v):
+            v["subject"]["muse_profile_preflight"] = {
+                "model": "meta/muse-spark-1.3-contributor", "thinking": "max",
+                "fallback_allowed": True}
+        self._forgery_case(mutate)
+
+    def test_wrong_provider_rejected(self):
+        def mutate(v):
+            v["subject"]["muse_observed_effective"] = {
+                "provider": "codex-lb", "model": "muse-spark-1.3-contributor",
+                "thinking": "max", "effort": "max"}
+        self._forgery_case(mutate)
+
+    def test_evil_daemon_endpoint_rejected(self):
+        for bad in ("attacker-controlled", "127.attacker.invalid",
+                    "https://evil.example:7777", ""):
+            def mutate(v, bad=bad):
+                v["subject"]["daemon_binding"] = dict(v["subject"]["daemon_binding"])
+                v["subject"]["daemon_binding"]["endpoint"] = bad
+            self._forgery_case(mutate)
+
+    def test_wrong_daemon_home_and_pi_path_rejected(self):
+        def mutate(v):
+            v["subject"]["daemon_binding"] = dict(v["subject"]["daemon_binding"])
+            v["subject"]["daemon_binding"]["home"] = "/tmp/evil-home"
+            v["subject"]["pi_binding"] = dict(v["subject"]["pi_binding"])
+            v["subject"]["pi_binding"]["path"] = "/tmp/evil-pi"
+        self._forgery_case(mutate)
+
+    def test_version_mismatch_rejected(self):
+        def mutate(v):
+            v["subject"]["daemon_binding"] = dict(v["subject"]["daemon_binding"])
+            v["subject"]["daemon_binding"]["version"] = "9.9.9"
+        self._forgery_case(mutate)
+
+    def test_missing_effective_blocks_rejected(self):
+        for key in ("muse_effective_config", "muse_observed_effective",
+                    "muse_profile_preflight", "daemon_binding", "pi_binding",
+                    "muse_owned_child"):
+            def mutate(v, key=key):
+                v["subject"].pop(key, None)
+            self._forgery_case(mutate)
+
+    def test_fixture_execution_class_rejected(self):
+        def mutate(v):
+            v["execution_class"] = "fixture"
+            v["real_validation_satisfied"] = False
+        self._forgery_case(mutate)
+
+    def test_wrong_digest_report_rejected(self):
+        def mutate(v):
+            v["digest"] = OTHER_OCI
+        self._forgery_case(mutate)
+
+    def test_stale_source_bundle_config_rejected(self):
+        bundle = genuine_bundle()
+        # Stale source head / companion / policy / launcher each fail.
+        with tempfile.TemporaryDirectory() as td:
+            validator = copy.deepcopy(bundle["validator"])
+            state = genuine_state(candidate_local=CAND_LOCAL, previous_local=RUN_LOCAL)
+            gp, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=RUN_OCI)
+            for field, bad in (("source_head", "00" * 20),
+                               ("companion_digest", "sha256:" + "6" * 64),
+                               ("policy_digest", "sha256:" + "7" * 64),
+                               ("launcher_digest", "sha256:" + "8" * 64)):
+                kwargs = dict(repository=REPO, candidate_digest=CAND_OCI,
+                              validator_record=copy.deepcopy(validator),
+                              state_record=state,
+                              source_head=bundle["source_head"],
+                              companion_digest=bundle["digests"]["companion"],
+                              policy_digest=bundle["digests"]["policy"],
+                              launcher_digest=bundle["digests"]["launcher"],
+                              predecessor={"kind": "oci", "digest": RUN_OCI,
+                                           "repository": REPO},
+                              guard_binding_digest=guard["binding_digest"],
+                              guard_candidate=CAND_OCI)
+                kwargs[field] = bad
                 with self.assertRaises(FG.FinalGateError):
-                    make_final_gate(make_validator(execution_class=execution_class),
-                                    make_state(), guard)
+                    FG.assemble(**kwargs)
 
-    def test_missing_forged_or_failed_gate_rejected(self):
+    def test_wrong_guard_binding_rejected_before_write(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
-            # Missing check.
-            with self.assertRaisesRegex(FG.FinalGateError, "muse_dispatch PASS"):
-                make_final_gate(make_validator(missing=("muse_dispatch",)),
-                                make_state(), guard)
-            # Missing effective-max binding.
-            validator = make_validator()
-            del validator["subject"]["muse_effective_config"]
-            with self.assertRaisesRegex(FG.FinalGateError, "effective max"):
-                make_final_gate(validator, make_state(), guard)
-            # Wrong digest report.
-            with self.assertRaisesRegex(FG.FinalGateError, "another digest"):
-                make_final_gate(make_validator(candidate=OTHER_OCI),
-                                make_state(), guard)
-            # Failed validator status.
-            with self.assertRaises(FG.FinalGateError):
-                make_final_gate(make_validator(status="FAIL", real_satisfied=False),
-                                make_state(), guard)
-            # Unknown terminal.
-            with self.assertRaises(FG.FinalGateError):
-                make_final_gate(make_validator(status="UNKNOWN", real_satisfied=False),
-                                make_state(), guard)
-            # Generic PASS map without required set still fails (absent key).
-            validator = make_validator()
-            del validator["checks"]["codex_health"]
-            with self.assertRaisesRegex(FG.FinalGateError, "codex_health PASS"):
-                make_final_gate(validator, make_state(), guard)
+            gate, guard, _, _, _ = assemble_genuine("oci", td)
+            wrong = dict(gate)
+            wrong["guard_binding_digest"] = "sha256:" + "8" * 64
+            with mock.patch.object(PROM, "inspect_digest") as inspect, \
+                 mock.patch.object(PROM, "run_checked") as run:
+                with self.assertRaisesRegex(PROM.PromotionError, "binding mismatch"):
+                    PROM.promote_first_channel(
+                        repository=REPO, alias="m07-t06-fixture-forged",
+                        candidate_digest=CAND_OCI,
+                        output_path=Path(td) / "o.json",
+                        final_gate=wrong, guard=guard,
+                        lock_path=Path(td) / "lock",
+                        predecessor_mapping={"kind": "oci", "digest": RUN_OCI,
+                                             "repository": REPO},
+                        channel_status=404)
+                inspect.assert_not_called()
+                run.assert_not_called()
 
-    def test_stale_source_bundle_config_baseline_rejected(self):
+
+class TypedPredecessorTests(unittest.TestCase):
+    def test_conflated_oci_local_values_rejected(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
-            # Stale source head.
-            with self.assertRaisesRegex(FG.FinalGateError, "source head mismatch"):
-                FG.assemble(repository=REPO, candidate_digest=CAND_OCI,
-                            validator_record=make_validator(source_head="00" * 20),
-                            state_record=make_state(),
-                            source_head=SOURCE_HEAD, companion_digest=COMP,
-                            policy_digest=POL, launcher_digest=LAUNCH,
-                            baseline_digest=RUN_OCI,
+            bundle = genuine_bundle()
+            # Forcing the OCI digest to equal the local previous conflates
+            # the namespaces the Card requires distinct.
+            state = genuine_state(candidate_local=CAND_LOCAL, previous_local=RUN_OCI)
+            gp, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=RUN_OCI)
+            with self.assertRaisesRegex(FG.FinalGateError, "distinct values"):
+                FG.assemble(
+                    repository=REPO, candidate_digest=CAND_OCI,
+                    validator_record=copy.deepcopy(bundle["validator"]),
+                    state_record=state,
+                    source_head=bundle["source_head"],
+                    companion_digest=bundle["digests"]["companion"],
+                    policy_digest=bundle["digests"]["policy"],
+                    launcher_digest=bundle["digests"]["launcher"],
+                    predecessor={"kind": "oci", "digest": RUN_OCI, "repository": REPO},
+                    guard_binding_digest=guard["binding_digest"], guard_candidate=CAND_OCI)
+
+    def test_ambiguous_and_invalid_mappings_rejected(self):
+        bundle = genuine_bundle()
+        with tempfile.TemporaryDirectory() as td:
+            state = genuine_state(candidate_local=CAND_LOCAL, previous_local=RUN_LOCAL)
+            gp, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=RUN_OCI)
+            bad_mappings = [
+                {"kind": "weird", "digest": RUN_OCI},
+                {"kind": "oci", "digest": RUN_OCI, "image_id": RUN_LOCAL,
+                 "repository": REPO},
+                {"kind": "oci", "digest": RUN_OCI},
+                {"kind": "oci", "digest": RUN_OCI, "repository": "ghcr.io/other/repo"},
+                {"kind": "local", "image_id": OTHER_OCI},
+                {"kind": "legacy", "image_id": LEGACY_IMG,
+                 "archive_sha256": OTHER_OCI, "config_digest": CFG,
+                 "state_identity": ""},
+            ]
+            for bad in bad_mappings:
+                with self.subTest(bad=bad.get("kind")):
+                    with self.assertRaises((FG.FinalGateError, PROM.PromotionError)):
+                        FG.assemble(
+                            repository=REPO, candidate_digest=CAND_OCI,
+                            validator_record=copy.deepcopy(bundle["validator"]),
+                            state_record=state,
+                            source_head=bundle["source_head"],
+                            companion_digest=bundle["digests"]["companion"],
+                            policy_digest=bundle["digests"]["policy"],
+                            launcher_digest=bundle["digests"]["launcher"],
+                            predecessor=bad,
                             guard_binding_digest=guard["binding_digest"],
                             guard_candidate=CAND_OCI)
-            # Wrong companion.
-            with self.assertRaisesRegex(FG.FinalGateError, "companion digest mismatch"):
-                FG.assemble(repository=REPO, candidate_digest=CAND_OCI,
-                            validator_record=make_validator(companion="sha256:" + "6" * 64),
-                            state_record=make_state(),
-                            source_head=SOURCE_HEAD, companion_digest=COMP,
-                            policy_digest=POL, launcher_digest=LAUNCH,
-                            baseline_digest=RUN_OCI,
-                            guard_binding_digest=guard["binding_digest"],
-                            guard_candidate=CAND_OCI)
-            # Wrong policy.
-            with self.assertRaisesRegex(FG.FinalGateError, "policy digest mismatch"):
-                FG.assemble(repository=REPO, candidate_digest=CAND_OCI,
-                            validator_record=make_validator(policy="sha256:" + "7" * 64),
-                            state_record=make_state(),
-                            source_head=SOURCE_HEAD, companion_digest=COMP,
-                            policy_digest=POL, launcher_digest=LAUNCH,
-                            baseline_digest=RUN_OCI,
-                            guard_binding_digest=guard["binding_digest"],
-                            guard_candidate=CAND_OCI)
-            # Stale baseline.
-            with self.assertRaisesRegex(FG.FinalGateError, "stale baseline"):
-                make_final_gate(make_validator(), make_state(), guard,
-                                baseline=OTHER_OCI)
-            # Wrong guard candidate.
-            with self.assertRaisesRegex(FG.FinalGateError, "guard candidate mismatch"):
-                FG.assemble(repository=REPO, candidate_digest=CAND_OCI,
-                            validator_record=make_validator(),
-                            state_record=make_state(),
-                            source_head=SOURCE_HEAD, companion_digest=COMP,
-                            policy_digest=POL, launcher_digest=LAUNCH,
-                            baseline_digest=RUN_OCI,
-                            guard_binding_digest=guard["binding_digest"],
-                            guard_candidate=OTHER_OCI)
 
-    def test_state_gates_required(self):
+    def test_legacy_archive_mismatch_rejected_with_real_bytes(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
-            with self.assertRaisesRegex(FG.FinalGateError, "state round-trip requires"):
-                make_final_gate(make_validator(),
-                                make_state(missing=("direct_skip_path",)), guard)
-            with self.assertRaisesRegex(FG.FinalGateError, "stale baseline"):
-                make_final_gate(make_validator(),
-                                make_state(previous_local=OTHER_OCI), guard)
-            with self.assertRaisesRegex(FG.FinalGateError, "state candidate"):
-                make_final_gate(make_validator(),
-                                make_state(candidate_local=OTHER_OCI), guard)
+            bundle = genuine_bundle()
+            anchor = Path(td) / "legacy.tar"
+            anchor.write_bytes(b"actual-legacy-bytes")
+            mapping = {"kind": "legacy", "image_id": LEGACY_IMG,
+                       "archive_path": str(anchor),
+                       "archive_sha256": "sha256:" + "0" * 64,
+                       "config_digest": CFG, "state_identity": "s"}
+            state = genuine_state(candidate_local=CAND_LOCAL, previous_local=LEGACY_IMG)
+            gp, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=LEGACY_IMG)
+            with self.assertRaisesRegex(FG.FinalGateError, "archive"):
+                FG.assemble(
+                    repository=REPO, candidate_digest=CAND_OCI,
+                    validator_record=copy.deepcopy(bundle["validator"]),
+                    state_record=state,
+                    source_head=bundle["source_head"],
+                    companion_digest=bundle["digests"]["companion"],
+                    policy_digest=bundle["digests"]["policy"],
+                    launcher_digest=bundle["digests"]["launcher"],
+                    predecessor=mapping,
+                    guard_binding_digest=guard["binding_digest"], guard_candidate=CAND_OCI)
 
-    def test_oci_local_distinctness_enforced(self):
+    def test_typed_kinds_validate_and_relabel_rejected(self):
+        self.assertEqual(
+            LEG.validate({"kind": "oci", "digest": CAND_OCI, "repository": REPO})["kind"], "oci")
+        self.assertEqual(
+            LEG.validate({"kind": "local", "image_id": CAND_LOCAL})["kind"], "local")
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
-            with self.assertRaisesRegex(FG.FinalGateError, "distinct types"):
-                make_final_gate(make_validator(local=CAND_OCI),
-                                make_state(candidate_local=CAND_OCI), guard)
+            anchor = Path(td) / "archive.tar"
+            anchor.write_bytes(b"legacy-bytes")
+            digest = "sha256:" + hashlib.sha256(b"legacy-bytes").hexdigest()
+            record = {"kind": "legacy", "image_id": CAND_LOCAL,
+                      "archive_path": str(anchor), "archive_sha256": digest,
+                      "config_digest": CFG, "state_identity": "state-1"}
+            out = LEG.verify_anchor(record)
+            self.assertEqual(out["archive_sha256"], digest)
+            bad = dict(record)
+            bad["archive_sha256"] = CAND_OCI
+            with self.assertRaises(LEG.LegacyIdentityError):
+                LEG.verify_anchor(bad)
+            anchor.unlink()
+            with self.assertRaises(LEG.LegacyIdentityError):
+                LEG.verify_anchor(record)
+        with self.assertRaises(LEG.LegacyIdentityError):
+            LEG.validate({"kind": "weird", "digest": CAND_OCI})
+        record = {"kind": "legacy", "image_id": CAND_LOCAL,
+                  "archive_path": "/tmp/fake.tar",
+                  "archive_sha256": CAND_OCI, "config_digest": CFG,
+                  "state_identity": "s"}
+        out = LEG.verify_imported_image(record, inspect_image_id=CAND_LOCAL, repo_digests=[])
+        self.assertEqual(out["image_id"], CAND_LOCAL)
+        with self.assertRaises(LEG.LegacyIdentityError):
+            LEG.verify_imported_image(record, inspect_image_id=OTHER_OCI, repo_digests=[])
+        with self.assertRaisesRegex(LEG.LegacyIdentityError, "relabeled"):
+            LEG.verify_imported_image(record, inspect_image_id=CAND_LOCAL,
+                                      repo_digests=[f"{REPO}@{CAND_LOCAL}"])
 
 
 class ChannelAbsenceTests(unittest.TestCase):
@@ -305,148 +749,38 @@ class ChannelAbsenceTests(unittest.TestCase):
         with self.assertRaisesRegex(PROM.PromotionError, "uncertain"):
             PROM.verify_channel_absence(status=None)
 
-
-class FirstChannelPromotionTests(unittest.TestCase):
-    def _gate_and_guard(self, td):
-        gp, guard, _ = make_guard(td)
-        gate = make_final_gate(make_validator(), make_state(), guard)
-        return gp, guard, gate
-
-    def test_absent_channel_positive_with_readback(self):
-        with tempfile.TemporaryDirectory() as td:
-            gp, guard, gate = self._gate_and_guard(td)
-            alias = "m07-t06-fixture-absent"
-            reads = [PROM.PromotionError("404 Not Found"), CAND_OCI]
-            with mock.patch.object(PROM, "inspect_digest", side_effect=reads) as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                out = PROM.promote_first_channel(
-                    repository=REPO, alias=alias, candidate_digest=CAND_OCI,
-                    running_predecessor=RUN_OCI,
-                    output_path=Path(td) / "out.json",
-                    final_gate=gate, guard=guard,
-                    lock_path=Path(td) / "lock",
-                    channel_status=404)
-            self.assertEqual(out["readback_digest"], CAND_OCI)
-            self.assertTrue(out["first_create"])
-            self.assertEqual(out["running_predecessor"], RUN_OCI)
-            self.assertEqual(inspect.call_count, 2)
-            create_argv = run.call_args_list[0].args[0]
-            self.assertIn(f"{REPO}@{CAND_OCI}", create_argv)
-            self.assertIn(f"{REPO}:{alias}", create_argv)
-
-    def test_first_create_rejects_auth_network_as_absence(self):
-        with tempfile.TemporaryDirectory() as td:
-            gp, guard, gate = self._gate_and_guard(td)
-            for status, error in ((401, None), (403, None), (None, "timeout"),
-                                  (None, "network"), (200, None)):
-                with mock.patch.object(PROM, "inspect_digest") as inspect, \
-                     mock.patch.object(PROM, "run_checked") as run:
-                    with self.assertRaises(PROM.PromotionError):
-                        PROM.promote_first_channel(
-                            repository=REPO, alias="m07-t06-fixture-absent",
-                            candidate_digest=CAND_OCI,
-                            running_predecessor=RUN_OCI,
-                            output_path=Path(td) / "o.json",
-                            final_gate=gate, guard=guard,
-                            lock_path=Path(td) / "lock",
-                            channel_status=status, channel_error=error)
-                    inspect.assert_not_called()
-                    run.assert_not_called()
-
     def test_first_create_race_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, gate = self._gate_and_guard(td)
-            # Channel appears between absence check and write.
+            gate, guard, _, _, _ = assemble_genuine("oci", td)
+            mapping = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
             with mock.patch.object(PROM, "inspect_digest", return_value=OTHER_OCI), \
                  mock.patch.object(PROM, "run_checked") as run:
                 with self.assertRaisesRegex(PROM.PromotionError, "appeared before write"):
                     PROM.promote_first_channel(
                         repository=REPO, alias="m07-t06-fixture-absent",
-                        candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
+                        candidate_digest=CAND_OCI,
                         output_path=Path(td) / "o.json",
                         final_gate=gate, guard=guard,
-                        lock_path=Path(td) / "lock", channel_status=404)
+                        lock_path=Path(td) / "lock",
+                        predecessor_mapping=mapping, channel_status=404)
                 run.assert_not_called()
-            # Fresh status_fn reports present inside the lock.
             with mock.patch.object(PROM, "inspect_digest",
                                    side_effect=PROM.PromotionError("404 nope")), \
                  mock.patch.object(PROM, "run_checked") as run:
                 with self.assertRaises(PROM.PromotionError):
                     PROM.promote_first_channel(
                         repository=REPO, alias="m07-t06-fixture-absent",
-                        candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
+                        candidate_digest=CAND_OCI,
                         output_path=Path(td) / "o.json",
                         final_gate=gate, guard=guard,
-                        lock_path=Path(td) / "lock", channel_status=404,
+                        lock_path=Path(td) / "lock",
+                        predecessor_mapping=mapping, channel_status=404,
                         channel_status_fn=lambda: 200)
                 run.assert_not_called()
 
-    def test_first_create_requires_gates_and_guard_before_write(self):
-        with tempfile.TemporaryDirectory() as td:
-            gp, guard, gate = self._gate_and_guard(td)
-            # Missing gate.
-            with mock.patch.object(PROM, "inspect_digest") as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                with self.assertRaisesRegex(PROM.PromotionError, "trusted final-gate"):
-                    PROM.promote_first_channel(
-                        repository=REPO, alias="m07-t06-fixture-absent",
-                        candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
-                        output_path=Path(td) / "o.json",
-                        final_gate=None, guard=guard,
-                        lock_path=Path(td) / "lock", channel_status=404)
-                inspect.assert_not_called()
-                run.assert_not_called()
-            # Fixture gate.
-            fixture_gate = dict(gate)
-            fixture_gate["execution_class"] = "fixture"
-            fixture_gate["real_validation_satisfied"] = False
-            with mock.patch.object(PROM, "inspect_digest") as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                with self.assertRaisesRegex(PROM.PromotionError, "fixture/rehearsal"):
-                    PROM.promote_first_channel(
-                        repository=REPO, alias="m07-t06-fixture-absent",
-                        candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
-                        output_path=Path(td) / "o.json",
-                        final_gate=fixture_gate, guard=guard,
-                        lock_path=Path(td) / "lock", channel_status=404)
-                inspect.assert_not_called()
-                run.assert_not_called()
-            # Wrong guard (candidate mismatch) fails before registry.
-            bad_guard = dict(guard)
-            bad_guard["candidate_digest"] = OTHER_OCI
-            with mock.patch.object(PROM, "inspect_digest") as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                with self.assertRaises(PROM.PromotionError):
-                    PROM.promote_first_channel(
-                        repository=REPO, alias="m07-t06-fixture-absent",
-                        candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
-                        output_path=Path(td) / "o.json",
-                        final_gate=gate, guard=bad_guard,
-                        lock_path=Path(td) / "lock", channel_status=404)
-                inspect.assert_not_called()
-                run.assert_not_called()
-            # Wrong guard binding fails before registry.
-            wrong_bound = dict(gate)
-            wrong_bound["guard_binding_digest"] = "sha256:" + "8" * 64
-            with mock.patch.object(PROM, "inspect_digest") as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                with self.assertRaisesRegex(PROM.PromotionError, "binding mismatch"):
-                    PROM.promote_first_channel(
-                        repository=REPO, alias="m07-t06-fixture-absent",
-                        candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
-                        output_path=Path(td) / "o.json",
-                        final_gate=wrong_bound, guard=guard,
-                        lock_path=Path(td) / "lock", channel_status=404)
-                inspect.assert_not_called()
-                run.assert_not_called()
-
     def test_channel_predecessor_distinct_from_running(self):
-        # Existing-channel update binds the registry observation (expected)
-        # while the guard binds the actually running predecessor. A typed
-        # mapping pins the running value even when it differs in kind.
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)  # guard previous == RUN_OCI
-            gate = make_final_gate(make_validator(), make_state(), guard)
+            gate, guard, _, _, _ = assemble_genuine("oci", td)
             mapping = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
             with mock.patch.object(PROM, "inspect_digest",
                                    side_effect=[RUN_OCI, RUN_OCI, CAND_OCI]), \
@@ -456,10 +790,11 @@ class FirstChannelPromotionTests(unittest.TestCase):
                     candidate_digest=CAND_OCI,
                     expected_current_digest=RUN_OCI,
                     output_path=Path(td) / "o.json",
+                    final_gate=gate, guard=guard,
+                    lock_path=Path(td) / "lock",
                     running_predecessor=RUN_OCI,
                     predecessor_mapping=mapping)
             self.assertEqual(out["running_predecessor"], RUN_OCI)
-            # Mapping mismatch vs running fails closed.
             bad = {"kind": "oci", "digest": OTHER_OCI, "repository": REPO}
             with mock.patch.object(PROM, "inspect_digest") as inspect, \
                  mock.patch.object(PROM, "run_checked") as run:
@@ -469,220 +804,46 @@ class FirstChannelPromotionTests(unittest.TestCase):
                         candidate_digest=CAND_OCI,
                         expected_current_digest=RUN_OCI,
                         output_path=Path(td) / "o.json",
+                        final_gate=gate, guard=guard,
+                        lock_path=Path(td) / "lock",
                         running_predecessor=RUN_OCI,
                         predecessor_mapping=bad)
                 inspect.assert_not_called()
                 run.assert_not_called()
 
-    def test_production_accepted_enforces_tower_lock_and_readback(self):
-        with tempfile.TemporaryDirectory() as td:
-            gp, guard, gate = self._gate_and_guard(td)
-            fake_root = Path(td) / "tower-state"
-            fake_root.mkdir()
-            lock = fake_root / "accepted.lock"
-            with mock.patch.object(PROM.socket, "gethostname", return_value="Tower"), \
-                 mock.patch.object(PROM, "PRODUCTION_LOCK_ROOT", fake_root), \
-                 mock.patch.object(PROM, "inspect_digest",
-                                   side_effect=[PROM.PromotionError("404 missing"), CAND_OCI]), \
-                 mock.patch.object(PROM, "run_checked"):
-                out = PROM.promote_first_channel(
-                    repository=REPO, alias="accepted",
-                    candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
-                    output_path=Path(td) / "o.json",
-                    final_gate=gate, guard=guard, lock_path=lock,
-                    channel_status=404)
-            self.assertTrue(out["production"])
-            self.assertEqual(out["readback_digest"], CAND_OCI)
-            self.assertTrue(str(lock).startswith(str(fake_root)))
-            # Out-of-domain hostname still fails before mutation.
-            with mock.patch.object(PROM.socket, "gethostname", return_value="not-tower"), \
-                 mock.patch.object(PROM, "inspect_digest") as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                with self.assertRaisesRegex(PROM.PromotionError, "Tower writer domain"):
-                    PROM.promote_first_channel(
-                        repository=REPO, alias="accepted",
-                        candidate_digest=CAND_OCI, running_predecessor=RUN_OCI,
-                        output_path=Path(td) / "o.json",
-                        final_gate=gate, guard=guard,
-                        lock_path=Path(td) / "foreign.lock",
-                        channel_status=404)
-                inspect.assert_not_called()
-                run.assert_not_called()
-
-
-class LegacyIdentityTests(unittest.TestCase):
-    def test_typed_kinds_validate(self):
-        self.assertEqual(
-            LEG.validate({"kind": "oci", "digest": CAND_OCI, "repository": REPO})["kind"], "oci")
-        self.assertEqual(
-            LEG.validate({"kind": "local", "image_id": CAND_LOCAL})["kind"], "local")
-        with tempfile.TemporaryDirectory() as td:
-            anchor = Path(td) / "archive.tar"
-            anchor.write_bytes(b"legacy-bytes")
-            import hashlib
-            digest = "sha256:" + hashlib.sha256(b"legacy-bytes").hexdigest()
-            record = {"kind": "legacy", "image_id": CAND_LOCAL,
-                      "archive_path": str(anchor), "archive_sha256": digest,
-                      "config_digest": CFG, "state_identity": "state-1"}
-            out = LEG.verify_anchor(record)
-            self.assertEqual(out["archive_sha256"], digest)
-            # Archive/config mismatch fails.
-            bad = dict(record)
-            bad["archive_sha256"] = CAND_OCI
-            with self.assertRaises(LEG.LegacyIdentityError):
-                LEG.verify_anchor(bad)
-            # Missing anchor fails.
-            anchor.unlink()
-            with self.assertRaises(LEG.LegacyIdentityError):
-                LEG.verify_anchor(record)
-
-    def test_unsupported_multiple_unmapped_rejected(self):
-        with self.assertRaises(LEG.LegacyIdentityError):
-            LEG.validate({"kind": "weird", "digest": CAND_OCI})
-        with self.assertRaises(LEG.LegacyIdentityError):
-            LEG.validate({"kind": "oci", "digest": CAND_OCI,
-                          "repository": REPO, "image_id": CAND_LOCAL})
-        with self.assertRaises(LEG.LegacyIdentityError):
-            LEG.validate({"kind": "oci", "digest": "not-a-digest",
-                          "repository": REPO})
-        with self.assertRaises(LEG.LegacyIdentityError):
-            LEG.validate({"kind": "legacy", "image_id": CAND_LOCAL,
-                          "archive_path": "/tmp/x", "archive_sha256": CAND_OCI,
-                          "config_digest": CFG, "state_identity": ""})
-
-    def test_imported_image_never_relabels_id_as_digest(self):
-        record = {"kind": "legacy", "image_id": CAND_LOCAL,
-                  "archive_path": "/tmp/fake.tar",
-                  "archive_sha256": CAND_OCI, "config_digest": CFG,
-                  "state_identity": "s"}
-        # Matching inspect passes when RepoDigests is empty (never published).
-        out = LEG.verify_imported_image(record, inspect_image_id=CAND_LOCAL,
-                                        repo_digests=[])
-        self.assertEqual(out["image_id"], CAND_LOCAL)
-        # Mismatched image fails.
-        with self.assertRaises(LEG.LegacyIdentityError):
-            LEG.verify_imported_image(record, inspect_image_id=OTHER_OCI,
-                                      repo_digests=[])
-        # Relabeling the image-ID as a manifest digest fails.
-        with self.assertRaisesRegex(LEG.LegacyIdentityError, "relabeled"):
-            LEG.verify_imported_image(
-                record, inspect_image_id=CAND_LOCAL,
-                repo_digests=[f"{REPO}@{CAND_LOCAL}"])
-
-    def test_legacy_first_create_binds_running_without_publishing(self):
-        with tempfile.TemporaryDirectory() as td:
-            anchor = Path(td) / "legacy.tar"
-            anchor.write_bytes(b"legacy-image-bytes")
-            import hashlib
-            archive_digest = "sha256:" + hashlib.sha256(b"legacy-image-bytes").hexdigest()
-            legacy_running = CAND_LOCAL  # platform image-ID value, typed legacy
-            mapping = {"kind": "legacy", "image_id": legacy_running,
-                       "archive_path": str(anchor),
-                       "archive_sha256": archive_digest,
-                       "config_digest": CFG, "state_identity": "legacy-state-1"}
-            verified = LEG.verify_anchor(mapping)
-            LEG.verify_imported_image(verified, inspect_image_id=legacy_running,
-                                      repo_digests=[])
-            # Guard/ledger/final-gate bind the legacy running value by value;
-            # the kind keeps the OCI manifest namespace distinct.
-            gp, guard, _ = make_guard(td, previous=legacy_running)
-            state = make_state(candidate_local=CAND_OCI.replace("b", "c") if False else CAND_OCI,
-                               previous_local=legacy_running)
-            # Build a validator whose local is the new candidate local and
-            # whose state previous is the legacy image-ID.
-            validator = make_validator(local="sha256:" + "d" * 63 + "e")
-            cand_local = validator["subject"]["observed_image_id"]
-            state = make_state(candidate_local=cand_local,
-                               previous_local=legacy_running)
-            gate = FG.assemble(
-                repository=REPO, candidate_digest=CAND_OCI,
-                validator_record=validator, state_record=state,
-                source_head=SOURCE_HEAD, companion_digest=COMP,
-                policy_digest=POL, launcher_digest=LAUNCH,
-                baseline_digest=legacy_running,
-                guard_binding_digest=guard["binding_digest"],
-                guard_candidate=CAND_OCI)
-            self.assertEqual(gate["baseline_digest"], legacy_running)
-            # First-create with the legacy mapping succeeds without ever
-            # publishing the legacy image (only the candidate is created).
-            with mock.patch.object(PROM, "inspect_digest",
-                                   side_effect=[PROM.PromotionError("404 absent"), CAND_OCI]) as inspect, \
-                 mock.patch.object(PROM, "run_checked") as run:
-                out = PROM.promote_first_channel(
-                    repository=REPO, alias="m07-t06-fixture-legacy",
-                    candidate_digest=CAND_OCI,
-                    running_predecessor=legacy_running,
-                    output_path=Path(td) / "o.json",
-                    final_gate=gate, guard=guard,
-                    lock_path=Path(td) / "lock",
-                    predecessor_mapping=mapping,
-                    channel_status=404)
-            self.assertEqual(out["running_predecessor"], legacy_running)
-            created = run.call_args_list[0].args[0]
-            self.assertIn(f"{REPO}@{CAND_OCI}", created)
-            self.assertNotIn(legacy_running, " ".join(created))
-
 
 class LedgerMigrationTests(unittest.TestCase):
-    LEDGER = {"current": RUN_OCI, "previous_1": OTHER_OCI, "previous_2": THIRD}
-
-    def test_coherent_rotation_and_retention(self):
-        ledger = dict(self.LEDGER)
-        rotated = KG.rotate(ledger, CAND_OCI)
-        self.assertEqual(rotated, {"current": CAND_OCI, "previous_1": RUN_OCI,
-                                   "previous_2": OTHER_OCI})
-        # Stale identities cannot become current.
-        with self.assertRaises(ValueError):
-            KG.rotate(ledger, OTHER_OCI)
-        with self.assertRaises(ValueError):
-            KG.rotate(ledger, THIRD)
-
-    def test_never_rotates_on_rejected_or_uncertain(self):
-        ledger = dict(self.LEDGER)
+    def test_typed_rotation_and_no_uncertain_commit(self):
+        ledger = {"current": {"kind": "oci", "digest": RUN_OCI, "repository": REPO},
+                  "previous_1": {"kind": "oci", "digest": OTHER_OCI, "repository": REPO},
+                  "previous_2": {"kind": "oci", "digest": THIRD, "repository": REPO}}
+        rotated = KG.commit_on_terminal(
+            ledger, {"kind": "oci", "digest": CAND_OCI, "repository": REPO},
+            transaction_status="GREEN")
+        self.assertEqual(rotated["current"], {"kind": "oci", "digest": CAND_OCI,
+                                              "repository": REPO})
+        self.assertEqual(rotated["previous_1"]["digest"], RUN_OCI)
         for status in ("RED", "RECOVERED", "UNKNOWN", "BLOCKED", "FAIL"):
             with self.assertRaisesRegex(ValueError, "never rotates"):
-                KG.commit_on_terminal(ledger, CAND_OCI, transaction_status=status)
-        # Only GREEN/committed rotates.
-        self.assertEqual(
-            KG.commit_on_terminal(ledger, CAND_OCI, transaction_status="GREEN")["current"],
-            CAND_OCI)
-        self.assertEqual(
-            KG.commit_on_terminal(ledger, CAND_OCI, transaction_status="committed")["current"],
-            CAND_OCI)
+                KG.commit_on_terminal(
+                    ledger, {"kind": "oci", "digest": CAND_OCI, "repository": REPO},
+                    transaction_status=status)
 
-    def test_migration_binds_typed_predecessor(self):
-        ledger = dict(self.LEDGER)
-        oci_map = {"kind": "oci", "digest": RUN_OCI, "repository": REPO}
-        out = KG.migrate_with_predecessor(ledger, CAND_OCI,
-                                          predecessor_mapping=oci_map,
-                                          transaction_status="GREEN")
-        self.assertEqual(out["current"], CAND_OCI)
-        # Wrong predecessor fails.
-        bad = {"kind": "oci", "digest": OTHER_OCI, "repository": REPO}
-        with self.assertRaises(ValueError):
-            KG.migrate_with_predecessor(ledger, CAND_OCI,
-                                        predecessor_mapping=bad,
-                                        transaction_status="GREEN")
-        # Legacy migration binds the image-ID value with anchor/state.
-        legacy_map = {"kind": "legacy", "image_id": RUN_OCI,
-                      "archive_path": "/tmp/a.tar",
-                      "archive_sha256": CAND_OCI, "config_digest": CFG,
-                      "state_identity": "s"}
-        out = KG.migrate_with_predecessor(ledger, CAND_OCI,
-                                          predecessor_mapping=legacy_map,
-                                          transaction_status="GREEN")
-        self.assertEqual(out["previous_1"], RUN_OCI)
-        # Even a correct mapping never rotates on RED.
-        with self.assertRaises(ValueError):
-            KG.migrate_with_predecessor(ledger, CAND_OCI,
-                                        predecessor_mapping=oci_map,
-                                        transaction_status="RED")
+    def test_legacy_migration_file_roundtrip(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = Path(td) / "ledger.json"
+            p.write_text(json.dumps({"current": RUN_OCI, "previous_1": OTHER_OCI,
+                                     "previous_2": THIRD}))
+            migrated = KG.migrate_legacy_ledger(json.loads(p.read_text()))
+            KG.atomic_write(p, migrated)
+            loaded = KG.load(p)
+            self.assertEqual(loaded["current"], {"kind": "oci", "digest": RUN_OCI})
 
 
 class TriggerIntentTests(unittest.TestCase):
     def test_no_intent_before_trigger_safe_to_trigger(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
+            gp, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=RUN_OCI)
             self.assertIsNone(TI.readback(gp, guard["binding_digest"]))
             record = TI.record(gp, guard["binding_digest"])
             self.assertEqual(record["binding_digest"], guard["binding_digest"])
@@ -691,7 +852,7 @@ class TriggerIntentTests(unittest.TestCase):
 
     def test_stale_intent_binding_fails_closed(self):
         with tempfile.TemporaryDirectory() as td:
-            gp, guard, _ = make_guard(td)
+            gp, guard, _ = genuine_guard(td, candidate=CAND_OCI, previous=RUN_OCI)
             TI.record(gp, guard["binding_digest"])
             with self.assertRaises(TI.TriggerIntentError):
                 TI.readback(gp, "sha256:" + "f" * 64)
@@ -714,7 +875,6 @@ class UpdateVerifyCrashSafetyTests(unittest.TestCase):
     def test_interruption_before_trigger_leaves_no_intent(self):
         with tempfile.TemporaryDirectory() as td:
             gp, guard = self._guard(td)
-            # No intent yet: update_and_verify must trigger exactly once.
             calls = []
             seq = iter([RUN_OCI, RUN_OCI, CAND_OCI])
 
@@ -723,10 +883,7 @@ class UpdateVerifyCrashSafetyTests(unittest.TestCase):
 
             def inspect():
                 calls.append("inspect")
-                value = next(seq)
-                if isinstance(value, Exception):
-                    raise value
-                return value
+                return next(seq)
 
             out = DOCK.update_and_verify(
                 gp, guard["binding_digest"], trigger, inspect,
@@ -739,8 +896,6 @@ class UpdateVerifyCrashSafetyTests(unittest.TestCase):
     def test_interruption_after_trigger_observes_without_reissue(self):
         with tempfile.TemporaryDirectory() as td:
             gp, guard = self._guard(td)
-            # Simulate a pre-restart trigger: durable intent already exists,
-            # guard still armed, running already converged to candidate.
             TI.record(gp, guard["binding_digest"])
             calls = []
 
@@ -765,8 +920,6 @@ class UpdateVerifyCrashSafetyTests(unittest.TestCase):
                 calls.append("trigger")
                 raise RuntimeError("helper crashed after possible effect")
 
-            # First attempt crashes during trigger; the intent is durable.
-            # Second attempt (restart) must observe, not trigger again.
             seq = iter([RUN_OCI, CAND_OCI])
 
             def inspect():
@@ -778,7 +931,6 @@ class UpdateVerifyCrashSafetyTests(unittest.TestCase):
                 attempts=2, interval=0, sleeper=lambda _: None)
             self.assertEqual(out["state"], "committed")
             self.assertEqual(calls.count("trigger"), 1)
-            # Restart after commit never triggers again (post-GREEN).
             out2 = DOCK.update_and_verify(
                 gp, guard["binding_digest"],
                 lambda: calls.append("trigger2"), lambda: CAND_OCI,
@@ -832,9 +984,6 @@ class UpdateVerifyCrashSafetyTests(unittest.TestCase):
                 gp, guard["binding_digest"], self._probes(),
                 lambda _: None, lambda _: True)
             self.assertEqual(out["state"], "committed")
-            # Automatic rollback authority ends on GREEN: committed cannot
-            # transition to rolling-back, and a second transaction returns
-            # GREEN without restoring.
             with self.assertRaises(GUARD.GuardError):
                 GUARD.transition(gp, "rolling-back", guard["binding_digest"])
             out2 = ACC.run_transaction(
@@ -857,10 +1006,41 @@ class UpdateVerifyCrashSafetyTests(unittest.TestCase):
             self.assertEqual(GUARD.load(gp)["state"], "armed")
             self.assertIsNone(TI.readback(gp, guard["binding_digest"]))
 
+    def test_legacy_restore_observes_typed_identity(self):
+        with tempfile.TemporaryDirectory() as td:
+            anchor = Path(td) / "legacy.tar"
+            anchor.write_bytes(b"restore-bytes")
+            archive_digest = "sha256:" + hashlib.sha256(b"restore-bytes").hexdigest()
+            mapping = {"kind": "legacy", "image_id": LEGACY_IMG,
+                       "archive_path": str(anchor), "archive_sha256": archive_digest,
+                       "config_digest": CFG, "state_identity": "legacy-state-1"}
+
+            def runner(argv):
+                if argv[1] == "inspect":
+                    return "legacy-container-image"
+                if argv[1] == "image" and "{{.Id}}" in " ".join(argv):
+                    return LEGACY_IMG + "\n"
+                return json.dumps([])
+
+            observed = UVA.observe_running_identity("pi-unraid-paseo", runner,
+                                                    predecessor=mapping)
+            self.assertEqual(observed, {"kind": "legacy", "image_id": LEGACY_IMG})
+            # RED transaction restores the exact legacy-typed value.
+            gp = Path(td) / "guard.json"
+            anchor2 = Path(td) / "rollback.json"
+            anchor2.write_text("{}\n")
+            guard = GUARD.arm(gp, CAND_OCI, LEGACY_IMG, CFG, anchor2)
+            seen = []
+            out = ACC.run_transaction(
+                gp, guard["binding_digest"], self._probes(),
+                seen.append, lambda value: value == LEGACY_IMG,
+                inject_red=True)
+            self.assertEqual(out["state"], "recovered")
+            self.assertEqual(seen, [LEGACY_IMG])
+
 
 class OciLocalAmbiguityTests(unittest.TestCase):
     def test_single_repo_digest_required(self):
-        # Exactly one RepoDigest is authoritative; zero/multiple fail.
         self.assertEqual(
             UVA.running_repo_digest(
                 "c", lambda argv: "img" if argv[1] == "inspect"
@@ -873,6 +1053,46 @@ class OciLocalAmbiguityTests(unittest.TestCase):
             UVA.running_repo_digest(
                 "c", lambda argv: "img" if argv[1] == "inspect"
                 else json.dumps([f"{REPO}@{CAND_OCI}", f"{REPO}@{OTHER_OCI}"]))
+
+    def test_legacy_local_observation_rejects_relabel_and_mismatch(self):
+        with tempfile.TemporaryDirectory() as td:
+            anchor = Path(td) / "legacy.tar"
+            anchor.write_bytes(b"obs-bytes")
+            archive_digest = "sha256:" + hashlib.sha256(b"obs-bytes").hexdigest()
+            mapping = {"kind": "legacy", "image_id": LEGACY_IMG,
+                       "archive_path": str(anchor), "archive_sha256": archive_digest,
+                       "config_digest": CFG, "state_identity": "s"}
+
+            def runner(argv):
+                if argv[1] == "inspect":
+                    return "img"
+                if argv[1] == "image" and "{{.Id}}" in " ".join(argv):
+                    return LEGACY_IMG + "\n"
+                return json.dumps([])
+
+            self.assertEqual(
+                UVA.observe_running_identity("c", runner, predecessor=mapping),
+                {"kind": "legacy", "image_id": LEGACY_IMG})
+
+            def relabel_runner(argv):
+                if argv[1] == "inspect":
+                    return "img"
+                if argv[1] == "image" and "{{.Id}}" in " ".join(argv):
+                    return LEGACY_IMG + "\n"
+                return json.dumps([f"{REPO}@{LEGACY_IMG}"])
+
+            with self.assertRaisesRegex(RuntimeError, "relabeled"):
+                UVA.observe_running_identity("c", relabel_runner, predecessor=mapping)
+
+            def mismatch_runner(argv):
+                if argv[1] == "inspect":
+                    return "img"
+                if argv[1] == "image" and "{{.Id}}" in " ".join(argv):
+                    return OTHER_OCI + "\n"
+                return json.dumps([])
+
+            with self.assertRaisesRegex(RuntimeError, "mismatch"):
+                UVA.observe_running_identity("c", mismatch_runner, predecessor=mapping)
 
     def test_lock_contention_single_winner(self):
         with tempfile.TemporaryDirectory() as td:
