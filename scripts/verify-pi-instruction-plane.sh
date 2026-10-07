@@ -74,8 +74,15 @@ cat > "$fixture/home/.pi/agent/models.json" <<'EOF'
 }
 EOF
 chmod 0600 "$fixture/home/.pi/agent/models.json"
-# Ensure the synthetic bootstrap is staged with correct mode before RPC.
+# Ownership must match production (99:100) for 0600 to remain readable by
+# the disposable candidate runtime (UID:GID); host-created files otherwise
+# stay root/runner-owned and unreadable, reproducing the original failure.
+docker run --rm --user 0:0 --entrypoint chown \
+  -v "$fixture:/fixture" \
+  "$image" "$uid:$gid" /fixture/home/.pi/agent/models.json
+# Ensure the synthetic bootstrap is staged with correct mode/ownership before RPC.
 test "$(docker run --rm --user 0:0 --entrypoint stat -v "$fixture/home:/home/paseo:ro" "$image" -c '%a' /home/paseo/.pi/agent/models.json)" = "600"
+test "$(docker run --rm --user 0:0 --entrypoint stat -v "$fixture/home:/home/paseo:ro" "$image" -c '%u:%g' /home/paseo/.pi/agent/models.json)" = "$uid:$gid"
 
 tree_hash() {
   docker run --rm --user "$uid:$gid" \
