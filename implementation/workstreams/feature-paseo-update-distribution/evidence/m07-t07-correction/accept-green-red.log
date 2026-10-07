@@ -1,0 +1,4 @@
+GREEN_RESULT:{"binding_digest": "sha256:7fbeae40a42a48664ae1e212ed9b98ccb25378daad84bc1ae6f74ae3e0b27e7c", "state": "committed", "status": "GREEN"}
+POSTGREEN_RESULT:{"binding_digest": "sha256:7fbeae40a42a48664ae1e212ed9b98ccb25378daad84bc1ae6f74ae3e0b27e7c", "state": "committed", "status": "GREEN"} restore_calls=0
+RED_RESULT:{"binding_digest": "sha256:7fbeae40a42a48664ae1e212ed9b98ccb25378daad84bc1ae6f74ae3e0b27e7c", "failed_probes": ["health"], "state": "recovered", "status": "RED"}
+ACCEPT_EXIT:0

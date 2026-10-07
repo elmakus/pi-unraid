@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "/tmp/pud-validator-diag-wt/scripts/paseo_tower_validator.py", line 915, in validate
+    chelp.validate_model_id(codex_model)
+  File "/tmp/pud-validator-diag-wt/scripts/paseo_codex_noninference.py", line 87, in validate_model_id
+    raise CodexError("Codex-LB model must be one non-empty model id")
+paseo_codex_noninference_product.CodexError: Codex-LB model must be one non-empty model id
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/tmp/pud-validator-diag-wt/scripts/paseo_tower_validator.py", line 920, in validate
+    raise ValidationError(chelp.sanitize_message(str(exc), 200)) from exc
+                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+TypeError: sanitize_message() takes 1 positional argument but 2 were given
+{"checks": {"companion_binding": "PASS", "frozen_chain": "SKIP", "image_mapping": "PASS", "policy_binding": "PASS", "registry_digest": "PASS"}, "cleanup": {"issues": [], "status": "COMPLETE"}, "digest": "sha256:b1dde88915ef68ec80f4a68e7194064dd1b688e6972b602e9d1f125b6f52e52b", "execution_class": "rehearsal", "immutable_ref": "ghcr.io/elmakus/pi-unraid@sha256:b1dde88915ef68ec80f4a68e7194064dd1b688e6972b602e9d1f125b6f52e52b", "real_reason": "fixture/rehearsal never satisfies final validation", "real_validation_satisfied": false, "reason": "candidate structural/source readback unavailable", "repository": "ghcr.io/elmakus/pi-unraid", "schema_version": 2, "status": "FAIL", "subject": {"candidate_id": null, "companion_bundle": {"files": 19, "source": "config/pi-agent", "source_digest": "sha256:67e1543572b6b471da6525899766711812c281a3e40327b003e52ba289ba7199"}, "daemon_binding": null, "expected_digest": "sha256:b1dde88915ef68ec80f4a68e7194064dd1b688e6972b602e9d1f125b6f52e52b", "launcher_identity": {"path": "config/pi-agent/bin/run-llm-test.sh", "sha256": "sha256:80e6dd151872c99ff5363894920ae0790420a9598a613cd6bd259aa653682fde"}, "observed_image_id": "sha256:e3f72af26a577ff1da66ba529416457102a7dfc2f4f210c7b93c71a081e05d87", "pi_binding": null, "policy_identity": {"path": "config/pi-agent/policies/llm-test-policy.json", "sha256": "sha256:943ba67c3b23ca3d40f745ed4c4f653964898a460b94ec83c3cc7aebeec01d40"}, "repository": "ghcr.io/elmakus/pi-unraid", "version_source": "absent (real gate unsatisfied)"}, "terminal_class": "terminal"}
+TRACE2_EXIT:0
