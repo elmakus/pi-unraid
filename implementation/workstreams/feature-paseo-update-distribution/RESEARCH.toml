@@ -1,30 +1,30 @@
 workstream_id = "feature-paseo-update-distribution"
-state = "consumed"
+state = "active"
 origin_role = "execution_prep"
-origin_subject = "M07-T04"
-return_target = "execution_prep:M07-T04"
-return_reconciliation = "applied"
-return_result = "elmakus/pi-unraid@3f92235a47cf0fad140f3a5e8a782a0b2ce429ca:implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T04-provider-delivery-research-2026-10-04.md@2a44adcabe6b1b2c12bf1e956435629572a85f32"
-finding = "Exact corrected report: elmakus/pi-unraid@3f92235a47cf0fad140f3a5e8a782a0b2ce429ca:implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T04-provider-delivery-research-2026-10-04.md@2a44adcabe6b1b2c12bf1e956435629572a85f32. The approved official Pi 0.87.1 package supplies Meta provider delivery and pinned pi-ai dependency provenance. Pi modelOverrides is a documented supported configuration interface; the currently unmanaged contributor-max override lacks frozen candidate provenance, which is resolvable M07-T04 implementation detail, not proof of impossibility. Official direct-Meta catalog data marks contributor max unsupported and the unmodified Pi path clamps max to xhigh. Effective on-wire max and exact-candidate inference remain unverified final gates, not inferred from a catalog label, forced metadata, launcher shape or an ordinary workflow return. Dedicated credential shapes are public metadata only; availability remains deferred operator input under P4."
-limitations = "No test inference, credential access/admission, runtime/source/CI/host mutation or candidate acceptance occurred. Direct-Meta endpoint acceptance/rejection was not tested. The non-contributor cache flip, origin of the unmanaged HOME override and generator-upstream relay metadata remain untraced limitations, not adopted mechanisms. Credentials and scope restrictions are operator-owned and are not requested before autonomous machinery/rehearsal. The original consumed Brainstorming Research remains preserved in Git at cbc7ea3e5782595eff5650f9c940d197e69fc400; the initial returned report remains at d717764e4b6a60b2b3ebc95942fc5cb15c23128c."
-conflicts = "C1/C2: direct-Meta bundled/catalog unsupported max conflicts with the unmanaged local override and OpenRouter model metadata; source weight establishes metadata/clamp behavior, not an endpoint verdict. Issue 9658 records an OpenRouter-downstream 400; the contributor comment concerns OpenRouter metadata and is not a direct-Meta test. C3: relay practitioner reports cannot be transferred to the mandated direct-Meta path. C4: non-contributor cache flip provenance is unknown. Supported configuration-interface provenance may be implemented, but no override, role-runtime success or label can satisfy effective-profile/candidate acceptance. No substitution, fallback or product-policy change resolves these conflicts; final real verification remains M08-T01 under the exact fixed policy."
+origin_subject = "post-M07-T05-supported-max-delivery"
+return_target = "execution_prep:post-M07-T05-supported-max-delivery"
+return_reconciliation = "pending"
+return_result = ""
+finding = "Determine supported reproducible, merge-safe delivery of the existing Muse Contributor max configuration before successor preparation. Preserve exact M07-T05 GREEN and historical consumed Research in Git. Questions: documented modelOverrides resolution and merge semantics on pinned Pi 0.87.1; actual installed nonsecret override versus frozen companion delivery; candidate applied-file/temporal binding implications; minimal bounded implementation and acceptance requirements within existing P4/R2 authority, or precise missing strategy/product fact requiring owner reentry. Do not decide product policy or infer endpoint capability from metadata."
+limitations = "Non-inference research only: no ordinary credentials, auth files, deployment, source repair, publication, candidate smoke, inference or final eligibility. Existing guarded production round-trip and pure clamp/fake-wire observations are diagnostic evidence only, not exact-candidate acceptance. Real validation and dedicated credentials remain at M08. Historical Research preserved at 8c0a106:implementation/workstreams/feature-paseo-update-distribution/RESEARCH.toml."
+conflicts = "Reconcile bundled Contributor max=null and unmodified max-to-xhigh clamp with installed documented modelOverrides max=max, without relabeling a clamp or using an unmanaged HOME fix as frozen candidate proof. Separate supported configuration mechanism, effective-profile observation, wire serialization, and endpoint/candidate acceptance."
 
 [[sources]]
 class = "official_upstream"
-status = "checked"
-weight = "primary for published artifact, supported provider API and model/profile semantics"
+status = "pending"
+weight = "primary for pinned supported configuration and provider semantics"
 
 [[sources]]
 class = "project_runtime"
-status = "checked"
-weight = "direct for reproducible repository delivery and bounded non-inference source/catalog observations"
+status = "pending"
+weight = "direct for nonsecret installed configuration and frozen delivery/binding facts"
 
 [[sources]]
 class = "tracker_discussion"
-status = "checked"
-weight = "supporting for concrete upstream provenance or known capability discrepancies; never scope authority"
+status = "pending"
+weight = "supporting for recorded upstream discrepancies; never authority"
 
 [[sources]]
 class = "practitioner_community"
-status = "checked"
-weight = "supporting only; cannot override accepted policy or primary source evidence"
+status = "pending"
+weight = "supporting only; never override fixed policy or primary source"
