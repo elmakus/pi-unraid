@@ -1,0 +1,9 @@
+{
+  "accepted_candidate_id": "sha256:b4e0c1e7c276371b84abd5c9aa7e325705b71349fe614b76855510dabf350b69",
+  "candidate_file_sha256": "sha256:be94e4ca8093a4fdb8b723bfd4880f71ede1e14c8339c47e4f26a0f0e7930ca7",
+  "candidate_id": "sha256:f5f5233783c64a8ea0f8a8671e51e625d85b1c8b34c81b915a6ea0eb8beda861",
+  "schema_version": 1,
+  "source_ref": "refs/heads/feat/paseo-update-distribution",
+  "source_sha": "90e68b3345f08ca84b3d75e4bd27ecf23be61bcb",
+  "status": "update"
+}
