@@ -1,0 +1,5 @@
+workstream_id = "feature-paseo-update-distribution"
+card_id = "M07-T07"
+class = "human_authority"
+summary = "Main classification: current frozen candidate cannot pass continuous applied-configuration binding because upstream unconditionally normalizes config permissions during operation. No supported compatible version or safe staging correction was found; current observation cannot distinguish idempotent metadata normalization from transient metadata mutation. M07-T07 excludes strategy/authority changes. Human authorization is required before pursuing a candidate-side upstream/local patch or revising validation strategy; neither waiver, downgrade nor patch is authorized. Existing artifact, synthetic successes and cleanup are evidence, not acceptance. Production remains unchanged."
+evidence_path = "implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T07-ev6-priorart-2026-10-07.md"
