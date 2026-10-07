@@ -1,0 +1,12 @@
+# M07-T05A — Main return classification
+
+- Card: M07-T05A, stable acceptance unchanged; Task Board revision 124 remains in_progress.
+- Returned implementation: 8f2a96b87568f273ca2aa7a83f1c1acc4387bbc8.
+- Returned evidence: implementation/workstreams/feature-paseo-update-distribution/evidence/M07-T05A-worker-delivery-2026-10-07.md, blob 2a92358b7d57fa97b2593954b50335beaaceb32e.
+- Classification: incomplete/incorrect return under the still-valid Card. No accepted semantic result, exact independent review attempt, DONE status, candidate eligibility or production acceptance is established.
+
+New delivery tests (21) and companion/instruction-plane regressions (28) are producer-observed passing. The returned adapter cohort reports four failures, and the applied-interval cohort reports 32 failures. In the replacement negative, the new effective-file path rejects at interval startup before the replacement mutation is reached. Helper-level success cannot satisfy genuine producer/staging/configuration/profile/interval/dispatch controls. Claims of pre-existing failures require exact isolated baseline/source/import comparison; prior exact M07-T05 R01 independently passed the 99-test cohort with isolated environment, so lost reachability must be explained, not waived.
+
+The background completion command used an unittest-to-tail pipeline and reported shell exit 0 despite failed tests. That carrier exit is not a positive unittest conclusion. Correction must retain direct test exit via pipefail or PIPESTATUS and explicit counts/skips, preserve failed diagnostics, and never count skip/expected-failure or unreachable security mutation as a successful gate.
+
+Main returned bounded correction to the producing context under the same Card: diagnose genuine fixture/source/environment routing, correct derived effective-configuration watcher integration and reachable controls without weakening independent host expectations, fixed Muse/max/no-fallback, temporal binding, ownership/cleanup or secret boundaries. Required positive paths and source/derived-config drift/write-and-restore/substitution negatives must reach their intended behavior before failure assertions can establish acceptance. No subject-authority rewrite, successor work, real inference/auth, live runtime/host, CI/push or workflow state finalization is authorized by this correction. Main will reconcile a corrected durable return before fresh independent Review.
