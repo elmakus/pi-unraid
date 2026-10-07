@@ -54,6 +54,29 @@ test ! -e "$fixture/home/.pi/agent/skills/unraid-admin/SKILL.md"
 
 bash "$repo_root/scripts/configure-pi-instruction-plane.sh" apply "$image" "$fixture/home" "$uid" "$gid" >/dev/null
 
+# Disposable smoke fixture provides the minimal synthetic codex-lb bootstrap
+# required by config/pi-agent/extensions/codex-lb-dynamic-model-catalog.ts.
+# Production carries an unmanaged ~/.pi/agent/models.json (not in repo delivery);
+# the fixture must not copy ambient/ordinary HOME models/auth. This synthetic
+# file carries only the ${CODEX_LB_API_KEY} reference (no secret value) and an
+# unroutable fake baseUrl; catalog refresh warns and keeps current catalog,
+# while get_state RPC proceeds. Mode 0600 matches production models.json.
+mkdir -p "$fixture/home/.pi/agent"
+cat > "$fixture/home/.pi/agent/models.json" <<'EOF'
+{
+  "providers": {
+    "codex-lb": {
+      "api": "openai-responses",
+      "apiKey": "${CODEX_LB_API_KEY}",
+      "baseUrl": "http://127.0.0.1:9/v1"
+    }
+  }
+}
+EOF
+chmod 0600 "$fixture/home/.pi/agent/models.json"
+# Ensure the synthetic bootstrap is staged with correct mode before RPC.
+test "$(docker run --rm --user 0:0 --entrypoint stat -v "$fixture/home:/home/paseo:ro" "$image" -c '%a' /home/paseo/.pi/agent/models.json)" = "600"
+
 tree_hash() {
   docker run --rm --user "$uid:$gid" \
     -v "$fixture/home:/home/paseo:ro" \
