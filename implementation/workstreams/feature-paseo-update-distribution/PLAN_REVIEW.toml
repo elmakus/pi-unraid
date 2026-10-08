@@ -1,16 +1,16 @@
 workstream_id = "feature-paseo-update-distribution"
-plan_revision = "P4"
-planning_cycle = 4
+plan_revision = "P5"
+planning_cycle = 5
 attempt = "R01"
-verdict = "green"
-evidence_path = "planning/reviews/PASEO_UPDATE_DISTRIBUTION_P4_R01.md"
+verdict = "pending"
+evidence_path = ""
 
 [subject]
 class = "git_blob"
 repository = "elmakus/pi-unraid"
-commit = "d1dde3cde040eea4421d1d4c92a5f9c77e13da18"
-path = "planning/PASEO_UPDATE_DISTRIBUTION_P4.md"
-blob = "fc2167e26dfc97e574526bab2bb1849b1aa82cef"
+commit = "d2fe16ae498a3fd07f01429d2ec6531c1c20a7a7"
+path = "planning/PASEO_UPDATE_DISTRIBUTION_P5.md"
+blob = "8da6557a63712b9214219f68dff21d11a5834a2a"
 
 [acceptance]
 class = "authority"
@@ -18,4 +18,4 @@ path = "requirements/PASEO_UPDATE_DISTRIBUTION.md"
 
 [independence]
 materially_produced_or_repaired_subject = false
-basis = "R01 was performed by a fresh independent context entered through the canonical premium-B handoff. It independently recovered and reviewed the exact frozen P4 Git blob against Definition R2 and accepted authority; it did not materially author or repair that subject. Pre-verdict mutation satisfied only exact B metadata, not plan content. No Stage-6 child reviewer was spawned."
+basis = "Pending fresh independent Main context through premium-B handoff; no review or independence verdict is claimed. Authoring Main must not review or spawn a child reviewer. Historical P4 review remains immutable in Git."
