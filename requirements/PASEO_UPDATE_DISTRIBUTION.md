@@ -1,9 +1,9 @@
 # Paseo/Pi Update Distribution — Requirements
 
-Revision: `R2`
+Revision: `R3`
 Status: `approved`
-Updated: `2026-10-04`
-Definition subject: `paseo-update-distribution@11`
+Updated: `2026-10-08`
+Definition subject: `paseo-update-distribution@12`
 Source Brainstorming: `brainstorming/PASEO_UPDATE_DISTRIBUTION.md`, R11
 Base architecture Research: `elmakus/project-research:projects/pi-unraid/production_updates/paseo_pi_update_distribution/FINAL_SYNTHESIS.md@f2b0bd9d1a9c4c0635ad73b80e5f87b71a5d12db`
 Amendment evidence: `implementation/workstreams/feature-paseo-update-distribution/evidence/M08-T01-definition-reentry-2026-10-04.md` and `implementation/workstreams/feature-paseo-update-distribution/evidence/DEFINITION_R2_COMPLETENESS_2026-10-04.md`
@@ -23,6 +23,10 @@ Final real-smoke evidence MUST prove that the exact immutable disposable candida
 Codex-LB validation is limited to authenticated non-inference catalog/metadata/auth/health integration readback and deterministic protocol fixtures. It MUST NOT send a prompt or invoke an inference endpoint to turn this check into an additional real LLM test. Negative, malformed, unauthorized, missing or unreachable required readback is not GREEN and must be classified proportionally rather than silently skipped.
 
 Credential isolation, GitHub/Tower separation, exact build-once identity, direct state-transition proof, transaction-guard pre-arm, user-triggered cutover and bounded rollback are unchanged. Scope approval does not itself provide a credential, satisfy a smoke gate or authorize a production restart. The old M07 candidate and its fixture-only evidence do not establish the new real-smoke acceptance; any candidate changed to deliver R2 must receive a new immutable build identity and exact affected-gate evidence before promotion.
+
+## R3 proportionate metadata validation
+
+The user explicitly approved correcting metadata-only overconstraint instead of patching Paseo. ADR-PUD-005 defines this bounded amendment. Unchanged observed file identity/content/owner/private mode MUST NOT be rejected solely because a metadata event occurred or ctime changed. Revalidate those protected properties upon metadata notification and at required validation boundaries. Observed meaningful changes, content mutations/replacements/deletions, missing or failed observation and queue overflow remain fail-closed. This policy explicitly accepts that transient metadata mutation-and-restore between observations may escape detection; it does not claim equivalence to the previous blanket metadata tripwire. All R2 inference, credentials, binding, isolation, artifact and production gates remain unchanged. Material replacement Planning and independent review are required before implementation; prior exact results remain historical evidence, not proof of R3 behavior.
 
 ## Discovery, registry and candidate resolution
 

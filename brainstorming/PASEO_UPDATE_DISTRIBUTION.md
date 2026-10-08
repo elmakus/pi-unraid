@@ -2,7 +2,7 @@
 
 Date: `2026-10-04`
 Scope ID: `paseo-update-distribution`
-Revision: `R11`
+Revision: `R12`
 Status: `promoted`
 
 ## Problem / goal
@@ -25,6 +25,10 @@ This record is exploratory state only. It preserves user choices from Brainstorm
 10. If multiple accepted candidates accumulate before the user updates, expose only the newest accepted compatible candidate as the normal update target; intermediate accepted candidates do not need sequential installation.
 11. Major versions do not receive a special product policy. They follow the same compatibility/build/test gates as any other version; avoid a separate major-version approval mechanism unless later evidence proves it necessary.
 12. A user-triggered production update is one bounded transaction: if the newly started candidate fails its immediate post-update acceptance window, automatically roll back to the previous known-good image so Paseo is restored without requiring a second manual action. This automatic rollback applies only to the immediate update transaction; failures that appear after the candidate has already passed acceptance must not trigger an autonomous later rollback/restart.
+
+## R12 metadata-validation amendment — explicitly promoted
+
+The user approved adjusting our overly conservative validator rather than patching Paseo. Repeated normalization to the same private permissions is not itself a failure. Preserve exact image/source/configuration binding, content/replacement/deletion detection and observed owner/private-mode checks. Explicitly accept the residual possibility of transient metadata mutation-and-restore between observations. No permission to ignore observed harmful changes, mask watcher failure/overflow, change real-test policy or mutate production is included. Final challenge: benign metadata normalization is inherently indistinguishable from some restored metadata mutations using current supported observation; this limitation was explained and accepted. Scope paseo-update-distribution@12 is explicitly authorized for Definition promotion; implementation remains gated by replacement planning and review. Existing R11 choices remain except for this bounded amendment.
 
 ## Current component set
 
