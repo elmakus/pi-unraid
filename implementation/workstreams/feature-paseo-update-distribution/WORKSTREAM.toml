@@ -11,6 +11,7 @@ authority = [
   { class = "authority", path = "decisions/ADR_PUD_002_MANAGED_COMPONENT_LIFECYCLE.md" },
   { class = "authority", path = "decisions/ADR_PUD_003_ROLLBACK_SAFE_PROMOTION.md" },
   { class = "authority", path = "decisions/ADR_PUD_004_POLICY_COMPLIANT_VALIDATION.md" },
+  { class = "authority", path = "decisions/ADR_PUD_005_PROPORTIONATE_METADATA_VALIDATION.md" },
 ]
 
 [intake]
